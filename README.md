@@ -224,7 +224,7 @@ This project is licensed under the **MIT License** — see the [LICENSE](LICENSE
 
 <div align="center">
 
-**Built with 🛡️ by [mzain2004](https://github.com/mzain2004) (MinionCore)**
+**Built with 🛡️ by [mzain2004](https://github.com/mzain2004) (Muhammad Zain)**
 
 _Protecting the internet, one scan at a time._
 
