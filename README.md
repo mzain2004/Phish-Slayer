@@ -11,7 +11,7 @@
 
 **Autonomous Blue Team AI SaaS — Monitor. Analyze. Neutralize.**
 
-_Built and maintained by [@mzain2004](https://github.com/mzain2004) (MinionCore)_
+_Built and maintained by [@mzain2004](https://github.com/mzain2004) (Muhammad Zain)_
 
 ---
 
