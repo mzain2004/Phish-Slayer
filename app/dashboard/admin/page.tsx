@@ -46,8 +46,13 @@ export default function UserManagementPage() {
 
   const refreshUsers = async () => {
     try {
-      const data = await getOrgUsers();
-      setUsers(data as OrgUser[]);
+      const res = (await getOrgUsers()) as { users?: any[]; error?: string };
+      if (res.error) {
+        toast.error(res.error);
+      }
+      if (res.users) {
+        setUsers(res.users as OrgUser[]);
+      }
     } catch (err: any) {
       toast.error(err.message || "Failed to fetch users");
     } finally {

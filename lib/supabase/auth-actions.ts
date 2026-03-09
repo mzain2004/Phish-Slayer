@@ -144,12 +144,29 @@ export async function updateProfile(data: {
     profileUpdate.avatar_url = data.avatarUrl;
   }
   
-  const { error: dbError } = await supabase
+  const { data: existing } = await supabase
     .from('profiles')
-    .upsert({
-      id: user.id,
-      ...profileUpdate
-    }, { onConflict: 'id' });
+    .select('id')
+    .eq('id', user.id)
+    .single();
+
+  let dbError;
+  if (existing) {
+    const { error } = await supabase
+      .from('profiles')
+      .update(profileUpdate)
+      .eq('id', user.id);
+    dbError = error;
+  } else {
+    const { error } = await supabase
+      .from('profiles')
+      .insert({
+        id: user.id,
+        email: user.email,
+        ...profileUpdate
+      });
+    dbError = error;
+  }
 
   if (dbError) return { error: "Failed to sync with profile database: " + dbError.message };
 

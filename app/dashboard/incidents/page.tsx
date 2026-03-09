@@ -81,11 +81,12 @@ export default function IncidentReportsPage() {
       getIncidents(),
       // Fetch users only if manager/admin, but we don't know the exact guarantee here on the client on mount
       // We will try catching gracefully if unauthorized
-      getOrgUsers().catch(() => []),
+      getOrgUsers().catch(() => ({ users: [] })),
     ])
       .then(([incData, usersData]) => {
         setIncidents(incData as Incident[]);
-        setOrgUsers(usersData);
+        const u = (usersData as { users?: any[] }).users || [];
+        setOrgUsers(u as OrgUser[]);
       })
       .catch((err) => toast.error(err.message))
       .finally(() => setLoaded(true));

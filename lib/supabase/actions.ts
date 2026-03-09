@@ -650,27 +650,42 @@ export async function assignIncident(incidentId: string, assignToUserId: string)
 }
 
 export async function getOrgUsers() {
-  const role = await getServerRole();
-  if (!role || !canManageUsers(role)) {
-    throw new Error('Unauthorized');
+  try {
+    const role = await getServerRole();
+    if (!role || !canManageUsers(role)) {
+      throw new Error('Unauthorized');
+    }
+
+    const serviceClient = getServiceSupabase();
+    if (!serviceClient) throw new Error('Service role key not configured.');
+
+    const { data: authData, error: authError } = await serviceClient.auth.admin.listUsers();
+    if (authError) throw new Error(authError.message);
+
+    const supabase = await createClient();
+    const { data: profileData, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, display_name, role, department, is_active, updated_at');
+    
+    if (profileError) throw new Error(profileError.message);
+
+    const users = authData.users.map((authU) => {
+      const prof = profileData?.find((p) => p.id === authU.id) || ({} as any);
+      return {
+        id: authU.id,
+        display_name: prof.display_name || 'Unknown User',
+        email: authU.email,
+        role: prof.role || 'analyst',
+        department: prof.department || '',
+        is_active: prof.is_active ?? true,
+        last_active: prof.updated_at || authU.last_sign_in_at || authU.created_at,
+      };
+    });
+
+    return { users };
+  } catch (err: any) {
+    return { users: [], error: err.message || 'Failed to fetch users' };
   }
-
-  const supabase = await createClient();
-  // Call via authenticated client; super_admin bypasses RLS on profiles via profiles_admin_all
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('id, display_name, role, department, is_active, updated_at');
-
-  if (error) throw new Error(error.message);
-
-  return data.map((u) => ({
-    id: u.id,
-    display_name: u.display_name || 'Unknown User',
-    role: u.role,
-    department: u.department,
-    is_active: u.is_active,
-    last_active: u.updated_at,
-  }));
 }
 
 export async function updateUserRole(userId: string, newRole: UserRole) {

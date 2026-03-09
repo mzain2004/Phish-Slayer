@@ -33,6 +33,7 @@ import {
   uploadAvatar,
   updatePassword,
 } from "@/lib/supabase/auth-actions";
+import { createClient } from "@/lib/supabase/client";
 
 export default function UserProfilePage() {
   const [fullName, setFullName] = useState("");
@@ -46,6 +47,22 @@ export default function UserProfilePage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isPending, startTransition] = useTransition();
+  const [sessionInfo, setSessionInfo] = useState<{ created_at: string } | null>(
+    null,
+  );
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) {
+        const session = data.session as any;
+        const dt = session.created_at
+          ? new Date(session.created_at * 1000)
+          : new Date(session.user.created_at);
+        setSessionInfo({ created_at: dt.toLocaleString() });
+      }
+    });
+  }, []);
 
   useEffect(() => {
     getUser().then((user) => {
@@ -367,7 +384,7 @@ export default function UserProfilePage() {
 
         {/* Security Settings Group */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* 2FA Card */}
+          {/* 2FA Card Replacement */}
           <section className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
             <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
               <div>
@@ -380,64 +397,11 @@ export default function UserProfilePage() {
               </div>
               <Lock className="w-5 h-5 text-slate-400" />
             </div>
-            <div className="p-6 flex-1 flex flex-col justify-center">
-              <div className="flex flex-col sm:flex-row items-start gap-4 mb-6">
-                <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0 text-emerald-600">
-                  <ShieldCheck className="w-6 h-6" />
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between mb-1">
-                    <h3 className="font-medium text-slate-900">
-                      Authenticator App
-                    </h3>
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200 shadow-sm">
-                      Enabled
-                    </span>
-                  </div>
-                  <p className="text-sm text-slate-500 mb-3">
-                    Use an authenticator app like Google Authenticator or
-                    Microsoft Authenticator to generate verification codes.
-                  </p>
-                  <button
-                    onClick={() =>
-                      toast.info("Device configuration panel coming in v2.0")
-                    }
-                    className="text-sm text-teal-600 font-bold hover:text-teal-700 transition-colors"
-                  >
-                    Configure
-                  </button>
-                </div>
-              </div>
-
-              <div className="h-px bg-slate-100 w-full mb-6"></div>
-
-              <div className="flex flex-col sm:flex-row items-start gap-4">
-                <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0 text-slate-500">
-                  <MessageSquare className="w-6 h-6" />
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between mb-1">
-                    <h3 className="font-medium text-slate-900">
-                      SMS Authentication
-                    </h3>
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200 shadow-sm">
-                      Disabled
-                    </span>
-                  </div>
-                  <p className="text-sm text-slate-500 mb-3">
-                    Receive verification codes via SMS text message. Less secure
-                    than an authenticator app.
-                  </p>
-                  <button
-                    onClick={() =>
-                      toast.info("SMS Gateway integration coming in v2.0")
-                    }
-                    className="text-sm text-teal-600 font-bold hover:text-teal-700 transition-colors"
-                  >
-                    Enable
-                  </button>
-                </div>
-              </div>
+            <div className="p-6 flex-1 flex items-center justify-center text-center">
+              <p className="text-slate-600 font-medium">
+                Two-factor authentication is managed through your Supabase
+                account settings.
+              </p>
             </div>
           </section>
 
@@ -453,65 +417,55 @@ export default function UserProfilePage() {
             </div>
             <div className="p-6 space-y-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500">
+                <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600">
                   <Monitor className="w-5 h-5" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-slate-900 flex items-center gap-2">
                     Current Device
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
                   </p>
-                  <p className="text-xs text-slate-500 truncate">Active now</p>
+                  <p className="text-xs text-emerald-600 font-bold tracking-tight uppercase">
+                    Active now
+                  </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 opacity-75">
-                <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500">
-                  <Smartphone className="w-5 h-5" />
+              {sessionInfo ? (
+                <p className="text-sm text-slate-500 font-medium pt-2 border-t border-slate-100">
+                  Session started:{" "}
+                  <span className="text-slate-900 font-semibold">
+                    {sessionInfo.created_at}
+                  </span>
+                </p>
+              ) : (
+                <div className="flex justify-center pt-2">
+                  <Loader2 className="w-4 h-4 animate-spin text-teal-600" />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-900">
-                    Mobile Device
-                  </p>
-                  <p className="text-xs text-slate-500 truncate">2 hrs ago</p>
-                </div>
-                <button
-                  onClick={() => toast.success("Session revoked successfully.")}
-                  className="text-slate-400 hover:text-red-500 transition-colors"
-                  title="Revoke Session"
-                >
-                  <LogOut className="w-4 h-4" />
-                </button>
-              </div>
-
-              <div className="flex items-center gap-3 opacity-75">
-                <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500">
-                  <Laptop className="w-5 h-5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-900">
-                    Secondary Device
-                  </p>
-                  <p className="text-xs text-slate-500 truncate">3 days ago</p>
-                </div>
-                <button
-                  onClick={() => toast.success("Session revoked successfully.")}
-                  className="text-slate-400 hover:text-red-500 transition-colors"
-                  title="Revoke Session"
-                >
-                  <LogOut className="w-4 h-4" />
-                </button>
-              </div>
+              )}
             </div>
-            <div className="mt-auto px-6 py-4 bg-slate-50 border-t border-slate-100">
+            <div className="mt-auto px-6 py-4 bg-slate-50 border-t border-slate-100 flex flex-col gap-3">
               <button
-                onClick={() =>
-                  toast.success("Logged out from all other devices.")
-                }
-                className="w-full py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-white hover:border-red-200 hover:text-red-600 transition-colors flex items-center justify-center gap-2 shadow-sm"
+                onClick={async () => {
+                  const supabase = createClient();
+                  await supabase.auth.signOut({ scope: "local" });
+                  window.location.href = "/auth/login";
+                }}
+                className="w-full py-2 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 hover:bg-white transition-colors flex items-center justify-center gap-2 shadow-sm"
+              >
+                <LogOut className="w-4 h-4" />
+                Logout This Device
+              </button>
+              <button
+                onClick={async () => {
+                  const supabase = createClient();
+                  await supabase.auth.signOut({ scope: "global" });
+                  window.location.href = "/auth/login";
+                }}
+                className="w-full py-2 border border-red-200 bg-red-50 rounded-lg text-sm font-bold text-red-600 hover:bg-red-100 transition-colors flex items-center justify-center gap-2 shadow-sm"
               >
                 <Ban className="w-4 h-4" />
-                Log Out All Devices
+                Logout All Devices
               </button>
             </div>
           </section>
