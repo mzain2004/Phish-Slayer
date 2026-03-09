@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useState, useEffect, useTransition, useMemo } from "react";
 import { toast } from "sonner";
 import {
   Shield,
@@ -9,18 +9,23 @@ import {
   Ban,
   AlertTriangle,
   CheckCircle2,
-  Clock,
   Trash2,
   Loader2,
   FileWarning,
   Search,
+  Filter,
+  Users,
 } from "lucide-react";
 import {
   getIncidents,
   resolveIncident,
   deleteIncident,
   blockIp,
+  getOrgUsers,
+  assignIncident,
 } from "@/lib/supabase/actions";
+import { useRole } from "@/lib/rbac/useRole";
+import { canAssignIncidents, isReadOnly } from "@/lib/rbac/roles";
 
 type Incident = {
   id: string;
@@ -28,12 +33,19 @@ type Incident = {
   severity: string;
   status: string;
   assignee: string;
+  assigned_to?: string;
   description?: string;
   risk_score?: number;
   threat_category?: string;
   remediation_steps?: string[];
   created_at?: string;
   lastUpdated?: string;
+};
+
+type OrgUser = {
+  id: string;
+  display_name: string;
+  role: string;
 };
 
 function severityBadge(severity: string) {
@@ -52,16 +64,29 @@ function statusBadge(status: string) {
 }
 
 export default function IncidentReportsPage() {
+  const { role, loading: roleLoading } = useRole();
   const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [orgUsers, setOrgUsers] = useState<OrgUser[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [actionId, setActionId] = useState<string | null>(null);
   const [actionType, setActionType] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
+  const [dateRange, setDateRange] = useState<"all" | "today" | "7" | "30">(
+    "all",
+  );
 
   useEffect(() => {
-    getIncidents()
-      .then((data) => setIncidents(data as Incident[]))
+    Promise.all([
+      getIncidents(),
+      // Fetch users only if manager/admin, but we don't know the exact guarantee here on the client on mount
+      // We will try catching gracefully if unauthorized
+      getOrgUsers().catch(() => []),
+    ])
+      .then(([incData, usersData]) => {
+        setIncidents(incData as Incident[]);
+        setOrgUsers(usersData);
+      })
       .catch((err) => toast.error(err.message))
       .finally(() => setLoaded(true));
   }, []);
@@ -70,9 +95,7 @@ export default function IncidentReportsPage() {
     try {
       const data = await getIncidents();
       setIncidents(data as Incident[]);
-    } catch {
-      // silently ignore refresh errors
-    }
+    } catch {}
   };
 
   const handleResolve = (id: string) => {
@@ -109,12 +132,30 @@ export default function IncidentReportsPage() {
     });
   };
 
+  const handleAssign = (incidentId: string, userId: string) => {
+    const user = orgUsers.find((u) => u.id === userId);
+    if (!user) return;
+    setActionId(incidentId);
+    setActionType("assign");
+    startTransition(async () => {
+      try {
+        const res = await assignIncident(incidentId, userId);
+        if (res.error) throw new Error(res.error);
+        toast.success(`Assigned to ${user.display_name}.`);
+        await refreshData();
+      } catch (err: any) {
+        toast.error(err.message || "Failed to assign incident.");
+      } finally {
+        setActionId(null);
+        setActionType(null);
+      }
+    });
+  };
+
   const extractTarget = (incident: Incident): string | null => {
     const combined = `${incident.title || ""} ${incident.description || ""}`;
-    // Try IP first
     const ipMatch = combined.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
     if (ipMatch) return ipMatch[1];
-    // Try domain pattern (e.g. "Target: evil.com")
     const domainMatch = combined.match(
       /Target:\s*([a-zA-Z0-9][a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/,
     );
@@ -142,14 +183,13 @@ export default function IncidentReportsPage() {
     isPending && actionId === id && actionType === type;
 
   const exportToExcel = async () => {
-    const ExcelJS = (await import("exceljs"));
+    const ExcelJS = await import("exceljs");
     const workbook = new ExcelJS.Workbook();
     workbook.creator = "Phish-Slayer";
     workbook.created = new Date();
 
     const sheet = workbook.addWorksheet("Incidents");
 
-    // Define columns
     sheet.columns = [
       { header: "Title", key: "title", width: 40 },
       { header: "Severity", key: "severity", width: 12 },
@@ -160,8 +200,7 @@ export default function IncidentReportsPage() {
       { header: "Created At", key: "created_at", width: 22 },
     ];
 
-    // Style header row
-    sheet.getRow(1).eachCell((cell: import('exceljs').Cell) => {
+    sheet.getRow(1).eachCell((cell: import("exceljs").Cell) => {
       cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
       cell.fill = {
         type: "pattern",
@@ -171,13 +210,15 @@ export default function IncidentReportsPage() {
       cell.alignment = { vertical: "middle", horizontal: "center" };
     });
 
-    // Add rows
     incidents.forEach((i) => {
+      const assignedUserName = orgUsers.find(
+        (u) => u.id === i.assigned_to,
+      )?.display_name;
       sheet.addRow({
         title: i.title,
         severity: i.severity,
         status: i.status,
-        assignee: i.assignee || "Unassigned",
+        assignee: assignedUserName || i.assignee || "Unassigned",
         risk_score: i.risk_score ?? "N/A",
         threat_category: i.threat_category || "N/A",
         created_at: i.created_at
@@ -186,7 +227,6 @@ export default function IncidentReportsPage() {
       });
     });
 
-    // Download
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -200,25 +240,48 @@ export default function IncidentReportsPage() {
     toast.success("Incidents exported to Excel.");
   };
 
-  const filtered = incidents.filter((i) => {
-    if (!filter) return true;
-    const q = filter.toLowerCase();
-    return (
-      i.title?.toLowerCase().includes(q) ||
-      i.severity?.toLowerCase().includes(q) ||
-      i.status?.toLowerCase().includes(q) ||
-      i.assignee?.toLowerCase().includes(q) ||
-      i.threat_category?.toLowerCase().includes(q)
-    );
-  });
+  const filtered = useMemo(() => {
+    let result = incidents;
 
-  if (!loaded) {
+    if (filter) {
+      const q = filter.toLowerCase();
+      result = result.filter(
+        (i) =>
+          i.title?.toLowerCase().includes(q) ||
+          i.severity?.toLowerCase().includes(q) ||
+          i.status?.toLowerCase().includes(q) ||
+          i.assignee?.toLowerCase().includes(q) ||
+          i.threat_category?.toLowerCase().includes(q),
+      );
+    }
+
+    if (dateRange !== "all") {
+      const now = new Date();
+      result = result.filter((i) => {
+        if (!i.created_at) return false;
+        const d = new Date(i.created_at);
+        const diffMs = now.getTime() - d.getTime();
+        const diffDays = diffMs / (1000 * 60 * 60 * 24);
+        if (dateRange === "today") return diffDays <= 1;
+        if (dateRange === "7") return diffDays <= 7;
+        if (dateRange === "30") return diffDays <= 30;
+        return true;
+      });
+    }
+
+    return result;
+  }, [incidents, filter, dateRange]);
+
+  if (!loaded || roleLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
       </div>
     );
   }
+
+  const isViewOnly = role && isReadOnly(role);
+  const canAssign = role && canAssignIncidents(role);
 
   return (
     <div className="bg-transparent text-slate-900 font-sans min-h-screen flex flex-col w-full">
@@ -246,7 +309,22 @@ export default function IncidentReportsPage() {
                 on record
               </p>
             </div>
-            <div className="flex items-center gap-3">
+
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2 bg-white border border-slate-300 rounded-lg p-1 shadow-sm h-[42px]">
+                <Filter className="w-4 h-4 text-slate-400 ml-2" />
+                <select
+                  value={dateRange}
+                  onChange={(e: any) => setDateRange(e.target.value)}
+                  className="bg-transparent border-none text-sm font-medium text-slate-700 py-1.5 pr-8 focus:ring-0 cursor-pointer outline-none"
+                >
+                  <option value="all">All Time</option>
+                  <option value="today">Today</option>
+                  <option value="7">Last 7 Days</option>
+                  <option value="30">Last 30 Days</option>
+                </select>
+              </div>
+
               <div className="relative">
                 <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
                   <Search className="w-4 h-4" />
@@ -256,7 +334,7 @@ export default function IncidentReportsPage() {
                   value={filter}
                   onChange={(e) => setFilter(e.target.value)}
                   placeholder="Filter incidents…"
-                  className="w-56 py-2 pl-10 pr-4 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-teal-600 focus:border-teal-600 transition-all shadow-sm"
+                  className="w-56 py-2.5 pl-10 pr-4 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-teal-600 focus:border-teal-600 transition-all shadow-sm"
                 />
               </div>
               <button
@@ -332,8 +410,8 @@ export default function IncidentReportsPage() {
               No incidents found
             </h3>
             <p className="text-sm text-slate-500">
-              {filter
-                ? "Try adjusting your search filter."
+              {filter || dateRange !== "all"
+                ? "Try adjusting your search filters."
                 : "Incidents created from scans will appear here."}
             </p>
           </div>
@@ -349,141 +427,159 @@ export default function IncidentReportsPage() {
                     <th className="px-6 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wider">
                       Severity
                     </th>
-                    <th className="px-6 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    <th className="px-6 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wider hidden sm:table-cell">
                       Status
                     </th>
                     <th className="px-6 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wider hidden lg:table-cell">
                       Assignee
                     </th>
-                    <th className="px-6 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wider hidden lg:table-cell">
-                      Risk
-                    </th>
-                    <th className="px-6 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">
-                      Actions
-                    </th>
+                    {!isViewOnly && (
+                      <th className="px-6 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">
+                        Actions
+                      </th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filtered.map((incident) => (
-                    <tr
-                      key={incident.id}
-                      className="hover:bg-slate-50/60 transition-colors"
-                    >
-                      <td className="px-6 py-4">
-                        <p className="text-sm font-semibold text-slate-900 truncate max-w-[260px]">
-                          {incident.title}
-                        </p>
-                        {incident.threat_category && (
-                          <p className="text-xs text-slate-500 mt-0.5 truncate max-w-[260px]">
-                            {incident.threat_category}
+                  {filtered.map((incident) => {
+                    const assignedUser = orgUsers.find(
+                      (u) => u.id === incident.assigned_to,
+                    );
+
+                    return (
+                      <tr
+                        key={incident.id}
+                        className="hover:bg-slate-50/60 transition-colors"
+                      >
+                        <td className="px-6 py-4">
+                          <p className="text-sm font-semibold text-slate-900 truncate max-w-[260px]">
+                            {incident.title}
                           </p>
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border ${severityBadge(
-                            incident.severity,
-                          )}`}
-                        >
-                          {incident.severity}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border ${statusBadge(
-                            incident.status,
-                          )}`}
-                        >
-                          {incident.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 hidden lg:table-cell">
-                        <p className="text-sm text-slate-600">
-                          {incident.assignee || "—"}
-                        </p>
-                      </td>
-                      <td className="px-6 py-4 hidden lg:table-cell">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-bold text-slate-900">
-                            {incident.risk_score ?? "—"}
-                          </span>
-                          {incident.risk_score != null && (
-                            <div className="w-16 bg-slate-100 rounded-full h-1.5">
-                              <div
-                                className={`h-1.5 rounded-full ${
-                                  incident.risk_score >= 75
-                                    ? "bg-red-500"
-                                    : incident.risk_score >= 40
-                                      ? "bg-orange-400"
-                                      : "bg-emerald-500"
-                                }`}
-                                style={{
-                                  width: `${Math.min(incident.risk_score, 100)}%`,
-                                }}
-                              />
-                            </div>
+                          {incident.threat_category && (
+                            <p className="text-xs text-slate-500 mt-0.5 truncate max-w-[260px]">
+                              {incident.threat_category}
+                            </p>
                           )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center justify-end gap-2">
-                          {/* Resolve */}
-                          {!incident.status
-                            ?.toLowerCase()
-                            .includes("resolved") && (
-                            <button
-                              onClick={() => handleResolve(incident.id)}
-                              disabled={isPending && actionId === incident.id}
-                              title="Resolve"
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition-colors disabled:opacity-50"
-                            >
-                              {isActioning(incident.id, "resolve") ? (
-                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                              ) : (
-                                <CheckCircle2 className="w-3.5 h-3.5" />
-                              )}
-                              Resolve
-                            </button>
-                          )}
-
-                          {/* Block IP/Domain — extract from title or description */}
-                          {extractTarget(incident) && (
-                            <button
-                              onClick={() => {
-                                const target = extractTarget(incident);
-                                if (target) handleBlockIp(target, incident.id);
-                              }}
-                              disabled={isPending && actionId === incident.id}
-                              title="Block IP"
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-semibold text-orange-700 hover:bg-orange-100 transition-colors disabled:opacity-50"
-                            >
-                              {isActioning(incident.id, "block") ? (
-                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                              ) : (
-                                <Ban className="w-3.5 h-3.5" />
-                              )}
-                              Block IP
-                            </button>
-                          )}
-
-                          {/* Delete */}
-                          <button
-                            onClick={() => handleDelete(incident.id)}
-                            disabled={isPending && actionId === incident.id}
-                            title="Delete"
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 transition-colors disabled:opacity-50"
+                        </td>
+                        <td className="px-6 py-4">
+                          <span
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border ${severityBadge(
+                              incident.severity,
+                            )}`}
                           >
-                            {isActioning(incident.id, "delete") ? (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            ) : (
-                              <Trash2 className="w-3.5 h-3.5" />
-                            )}
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                            {incident.severity}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 hidden sm:table-cell">
+                          <span
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border ${statusBadge(
+                              incident.status,
+                            )}`}
+                          >
+                            {incident.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 hidden lg:table-cell">
+                          {canAssign ? (
+                            <div className="flex items-center gap-2">
+                              {isActioning(incident.id, "assign") ? (
+                                <Loader2 className="w-4 h-4 animate-spin text-teal-600" />
+                              ) : (
+                                <Users className="w-4 h-4 text-slate-400" />
+                              )}
+                              <select
+                                value={incident.assigned_to || ""}
+                                onChange={(e) =>
+                                  handleAssign(incident.id, e.target.value)
+                                }
+                                disabled={isPending && actionId === incident.id}
+                                className="bg-slate-50 border border-slate-200 text-sm text-slate-700 py-1.5 px-3 rounded-md focus:ring-1 focus:ring-teal-500 outline-none w-40 truncate"
+                              >
+                                <option value="" disabled>
+                                  Unassigned
+                                </option>
+                                {orgUsers.map((u) => (
+                                  <option key={u.id} value={u.id}>
+                                    {u.display_name} ({u.role})
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          ) : (
+                            <p className="text-sm text-slate-600 font-medium">
+                              {assignedUser?.display_name ||
+                                incident.assignee ||
+                                "Unassigned"}
+                            </p>
+                          )}
+                        </td>
+                        {!isViewOnly && (
+                          <td className="px-6 py-4">
+                            <div className="flex items-center justify-end gap-2">
+                              {/* Resolve */}
+                              {!incident.status
+                                ?.toLowerCase()
+                                .includes("resolved") && (
+                                <button
+                                  onClick={() => handleResolve(incident.id)}
+                                  disabled={
+                                    isPending && actionId === incident.id
+                                  }
+                                  title="Resolve"
+                                  className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition-colors disabled:opacity-50"
+                                >
+                                  {isActioning(incident.id, "resolve") ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  ) : (
+                                    <CheckCircle2 className="w-3.5 h-3.5" />
+                                  )}
+                                  Resolve
+                                </button>
+                              )}
+
+                              {/* Block IP/Domain */}
+                              {extractTarget(incident) && (
+                                <button
+                                  onClick={() => {
+                                    const target = extractTarget(incident);
+                                    if (target)
+                                      handleBlockIp(target, incident.id);
+                                  }}
+                                  disabled={
+                                    isPending && actionId === incident.id
+                                  }
+                                  title="Block IP"
+                                  className="inline-flex items-center gap-1.5 rounded-lg border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-semibold text-orange-700 hover:bg-orange-100 transition-colors disabled:opacity-50"
+                                >
+                                  {isActioning(incident.id, "block") ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  ) : (
+                                    <Ban className="w-3.5 h-3.5" />
+                                  )}
+                                  Block IP
+                                </button>
+                              )}
+
+                              {/* Delete */}
+                              <button
+                                onClick={() => handleDelete(incident.id)}
+                                disabled={isPending && actionId === incident.id}
+                                title="Delete"
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 transition-colors disabled:opacity-50"
+                              >
+                                {isActioning(incident.id, "delete") ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                )}
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

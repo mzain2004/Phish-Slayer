@@ -100,6 +100,7 @@ export async function createIncident(data: any) {
   const validData = parsed.data;
 
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
   
   const payload: any = {
     title: validData.title,
@@ -107,7 +108,8 @@ export async function createIncident(data: any) {
     status: validData.status || 'Open Investigations',
     assignee: validData.assignee || 'Unassigned',
     description: validData.description || '',
-    timeline: validData.timeline || []
+    timeline: validData.timeline || [],
+    created_by: user?.id || null,
   };
   
   if (payload.description) {
@@ -322,13 +324,14 @@ export async function launchScan(target: string): Promise<{ error?: string }> {
   const validTarget = parsed.data.target;
 
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
   const date = new Date().toISOString();
 
   // ── Gate 1: Whitelist Check (instant Safe) ──────────────────────────
   const { data: whitelistHit } = await supabase
     .from('whitelist')
     .select('id, target')
-    .eq('target', validTarget)
+    .or(`target.eq.${validTarget},target.eq.www.${validTarget}`)
     .maybeSingle();
 
   if (whitelistHit) {
@@ -343,6 +346,7 @@ export async function launchScan(target: string): Promise<{ error?: string }> {
       risk_score: 0,
       threat_category: 'Whitelisted',
       payload: whitelistHit,
+      user_id: user?.id || null,
     }]);
 
     if (wlInsertError) {
@@ -358,7 +362,7 @@ export async function launchScan(target: string): Promise<{ error?: string }> {
   const { data: intelHit } = await supabase
     .from('proprietary_intel')
     .select('*')
-    .eq('indicator', validTarget)
+    .or(`indicator.eq.${validTarget},indicator.eq.www.${validTarget}`)
     .maybeSingle();
 
   if (intelHit) {
@@ -373,6 +377,7 @@ export async function launchScan(target: string): Promise<{ error?: string }> {
       risk_score: 100,
       threat_category: 'Proprietary Local Intel',
       payload: intelHit,
+      user_id: user?.id || null,
     }]);
 
     if (intelInsertError) {
@@ -413,6 +418,7 @@ export async function launchScan(target: string): Promise<{ error?: string }> {
       risk_score: aiData?.risk_score || 0,
       threat_category: aiData?.threat_category || 'Unknown',
       payload: finding,
+      user_id: user?.id || null,
     }]);
 
     if (error) throw new Error(error.message);
@@ -436,7 +442,7 @@ export async function launchScan(target: string): Promise<{ error?: string }> {
     console.error('launchScan error:', err);
 
     // Single INSERT — Failed (fire and forget, don't re-throw)
-    const failPayload = { target: validTarget, status: 'Failed', date };
+    const failPayload = { target: validTarget, status: 'Failed', date, user_id: user?.id || null };
     const { error: failError } = await supabase.from('scans').insert([failPayload]);
     if (failError) console.error('Failed to insert Failed scan row:', failError.message);
 
@@ -479,5 +485,135 @@ export async function removeIntelIndicator(id: string) {
 
   revalidatePath('/dashboard/intel');
   revalidatePath('/dashboard/settings');
+}
+
+// ── RBAC Utils & Actions ─────────────────────────────────────────────
+
+import { getServerRole } from '@/lib/rbac/serverRole';
+import { canAssignIncidents, canManageUsers, type UserRole } from '@/lib/rbac/roles';
+import { createClient as createServiceClient } from '@supabase/supabase-js';
+
+// Helper for service role client (bypasses RLS)
+function getServiceSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+  return createServiceClient(url, key);
+}
+
+export async function assignIncident(incidentId: string, assignToUserId: string) {
+  const role = await getServerRole();
+  if (!role || !canAssignIncidents(role)) {
+    return { error: 'Unauthorized: insufficient permissions to assign incidents' };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from('incidents')
+    .update({ assigned_to: assignToUserId })
+    .eq('id', incidentId);
+
+  if (error) return { error: error.message };
+  revalidatePath('/dashboard/incidents');
+  return { success: true };
+}
+
+export async function getOrgUsers() {
+  const role = await getServerRole();
+  if (!role || !canManageUsers(role)) {
+    throw new Error('Unauthorized');
+  }
+
+  const supabase = await createClient();
+  // Call via authenticated client; super_admin bypasses RLS on profiles via profiles_admin_all
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, display_name, role, department, is_active, updated_at');
+
+  if (error) throw new Error(error.message);
+
+  return data.map((u) => ({
+    id: u.id,
+    display_name: u.display_name || 'Unknown User',
+    role: u.role,
+    department: u.department,
+    is_active: u.is_active,
+    last_active: u.updated_at,
+  }));
+}
+
+export async function updateUserRole(userId: string, newRole: UserRole) {
+  const role = await getServerRole();
+  if (!role || !canManageUsers(role)) {
+    return { error: 'Unauthorized' };
+  }
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user?.id === userId) {
+    return { error: 'You cannot change your own role' };
+  }
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ role: newRole })
+    .eq('id', userId);
+
+  if (error) return { error: error.message };
+  revalidatePath('/dashboard/admin');
+  return { success: true };
+}
+
+export async function toggleUserStatus(userId: string, isActive: boolean) {
+  const role = await getServerRole();
+  if (!role || !canManageUsers(role)) {
+    return { error: 'Unauthorized' };
+  }
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user?.id === userId) {
+    return { error: 'You cannot deactivate yourself' };
+  }
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ is_active: isActive })
+    .eq('id', userId);
+
+  if (error) return { error: error.message };
+  revalidatePath('/dashboard/admin');
+  return { success: true };
+}
+
+export async function inviteOrgUser(email: string, roleAssignment: UserRole) {
+  const role = await getServerRole();
+  if (!role || !canManageUsers(role)) {
+    return { error: 'Unauthorized' };
+  }
+
+  const serviceClient = getServiceSupabase();
+  if (!serviceClient) {
+    return { error: 'Service role key not configured. Cannot invite users.' };
+  }
+
+  // Invite user via auth.admin
+  const { data: inviteData, error: inviteError } = await serviceClient.auth.admin.inviteUserByEmail(email);
+  if (inviteError) return { error: inviteError.message };
+
+  if (inviteData.user) {
+    // Update the profile with the selected role immediately
+    const { error: profileError } = await serviceClient
+      .from('profiles')
+      .update({ role: roleAssignment })
+      .eq('id', inviteData.user.id);
+      
+    if (profileError) {
+      console.error('Failed to set role for invited user:', profileError);
+    }
+  }
+
+  revalidatePath('/dashboard/admin');
+  return { success: true };
 }
 

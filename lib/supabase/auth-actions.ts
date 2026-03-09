@@ -107,22 +107,94 @@ export async function updateProfile(data: {
   securityAlerts: boolean;
   campaignReports: boolean;
   productUpdates: boolean;
+  avatarUrl?: string;
 }) {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
 
-  const { error } = await supabase.auth.updateUser({
-    data: {
-      full_name: data.fullName,
-      phone: data.phone,
-      department: data.department,
-      security_alerts: data.securityAlerts,
-      campaign_reports: data.campaignReports,
-      product_updates: data.productUpdates,
-    },
+  const metadata: Record<string, unknown> = {
+    full_name: data.fullName,
+    phone: data.phone,
+    department: data.department,
+    security_alerts: data.securityAlerts,
+    campaign_reports: data.campaignReports,
+    product_updates: data.productUpdates,
+  };
+  if (data.avatarUrl !== undefined) {
+    metadata.avatar_url = data.avatarUrl;
+  }
+
+  // Update Auth Metadata
+  const { error: authError } = await supabase.auth.updateUser({ data: metadata });
+  if (authError) return { error: authError.message };
+
+  // Update Profiles table for RBAC/Global use
+  const profileUpdate: any = {
+    display_name: data.fullName,
+    department: data.department
+  };
+  if (data.avatarUrl !== undefined) {
+    profileUpdate.avatar_url = data.avatarUrl;
+  }
+  
+  const { error: dbError } = await supabase
+    .from('profiles')
+    .update(profileUpdate)
+    .eq('id', user.id);
+
+  if (dbError) return { error: "Failed to sync with profile database: " + dbError.message };
+
+  return { success: 'Profile updated successfully.' };
+}
+
+// ─── Update Password ─────────────────────────────────────────────
+
+export async function updatePassword(password: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) return { error: error.message };
+  return { success: 'Password updated successfully.' };
+}
+
+// ─── Upload Avatar ───────────────────────────────────────────────
+
+export async function uploadAvatar(formData: FormData) {
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) return { error: 'Not authenticated' };
+
+  const file = formData.get('avatar') as File | null;
+  if (!file) return { error: 'No file provided' };
+
+  const path = `${user.id}/avatar.png`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('avatars')
+    .upload(path, file, { upsert: true, contentType: file.type });
+
+  if (uploadError) return { error: uploadError.message };
+
+  const { data: urlData } = supabase.storage
+    .from('avatars')
+    .getPublicUrl(path);
+
+  const avatarUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+
+  // Persist to user metadata
+  const { error: updateError } = await supabase.auth.updateUser({
+    data: { avatar_url: avatarUrl },
   });
 
-  if (error) return { error: error.message };
-  return { success: 'Profile updated successfully.' };
+  if (updateError) return { error: updateError.message };
+
+  // Sync with profiles table
+  await supabase
+    .from('profiles')
+    .update({ avatar_url: avatarUrl })
+    .eq('id', user.id);
+
+  return { success: 'Avatar uploaded.', avatarUrl };
 }
 
 // ─── Update Settings ─────────────────────────────────────────────

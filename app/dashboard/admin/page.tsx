@@ -1,0 +1,388 @@
+"use client";
+
+import { useState, useEffect, useTransition } from "react";
+import { toast } from "sonner";
+import {
+  Users,
+  ShieldAlert,
+  Loader2,
+  Lock,
+  UserPlus,
+  MoreVertical,
+  CheckCircle2,
+  XCircle,
+  Plus,
+} from "lucide-react";
+import { useRole } from "@/lib/rbac/useRole";
+import { ROLE_COLORS, ROLE_LABELS, type UserRole } from "@/lib/rbac/roles";
+import {
+  getOrgUsers,
+  updateUserRole,
+  toggleUserStatus,
+  inviteOrgUser,
+} from "@/lib/supabase/actions";
+
+type OrgUser = {
+  id: string;
+  display_name: string;
+  email?: string;
+  role: UserRole;
+  department: string | null;
+  is_active: boolean;
+  last_active: string | null;
+  avatar_url?: string | null;
+};
+
+export default function UserManagementPage() {
+  const { role, loading: roleLoading } = useRole();
+  const [users, setUsers] = useState<OrgUser[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [isPending, startTransition] = useTransition();
+
+  // Modal State
+  const [showModal, setShowModal] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<UserRole>("analyst");
+
+  const refreshUsers = async () => {
+    try {
+      const data = await getOrgUsers();
+      setUsers(data as OrgUser[]);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to fetch users");
+    } finally {
+      setLoaded(true);
+    }
+  };
+
+  useEffect(() => {
+    if (role === "super_admin") {
+      refreshUsers();
+    } else if (role) {
+      setLoaded(true);
+    }
+  }, [role]);
+
+  const handleRoleChange = (userId: string, newRole: UserRole) => {
+    startTransition(async () => {
+      const res = await updateUserRole(userId, newRole);
+      if (res.error) {
+        toast.error(res.error);
+      } else {
+        toast.success("Role updated successfully");
+        await refreshUsers();
+      }
+    });
+  };
+
+  const handleToggleStatus = (userId: string, currentStatus: boolean) => {
+    startTransition(async () => {
+      const res = await toggleUserStatus(userId, !currentStatus);
+      if (res.error) {
+        toast.error(res.error);
+      } else {
+        toast.success(
+          `User ${!currentStatus ? "activated" : "deactivated"} successfully`,
+        );
+        await refreshUsers();
+      }
+    });
+  };
+
+  const handleInvite = () => {
+    if (!inviteEmail) return;
+    startTransition(async () => {
+      const res = await inviteOrgUser(inviteEmail, inviteRole);
+      if (res.error) {
+        toast.error(res.error);
+      } else {
+        toast.success(`Invitation sent to ${inviteEmail}`);
+        setShowModal(false);
+        setInviteEmail("");
+        setInviteRole("analyst");
+        await refreshUsers();
+      }
+    });
+  };
+
+  if (roleLoading || (!loaded && role === "super_admin")) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
+      </div>
+    );
+  }
+
+  if (role !== "super_admin") {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
+        <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mb-4">
+          <Lock className="w-8 h-8 text-red-500" />
+        </div>
+        <h1 className="text-2xl font-bold text-slate-900 mb-2">
+          Access Denied
+        </h1>
+        <p className="text-slate-500 max-w-sm">
+          You do not have permission to view the User Management page. This area
+          is restricted to Super Administrators.
+        </p>
+      </div>
+    );
+  }
+
+  const activeAnalysts = users.filter(
+    (u) => u.role === "analyst" && u.is_active,
+  ).length;
+  const managers = users.filter(
+    (u) => u.role === "manager" && u.is_active,
+  ).length;
+  const viewers = users.filter(
+    (u) => u.role === "viewer" && u.is_active,
+  ).length;
+
+  return (
+    <div className="bg-transparent text-slate-900 font-sans min-h-screen flex flex-col w-full">
+      <main className="flex-1 px-4 sm:px-8 py-8 w-full max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
+              <Users className="w-7 h-7 text-teal-600" />
+              User Management
+            </h1>
+            <p className="text-slate-500 mt-2 text-sm">
+              Manage organization members, assign roles, and control access.
+            </p>
+          </div>
+          <button
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-2 bg-gradient-to-r from-teal-500 to-blue-600 text-white px-5 py-2.5 rounded-lg font-semibold shadow-sm hover:shadow transition-all"
+          >
+            <UserPlus className="w-4 h-4" />
+            Invite User
+          </button>
+        </div>
+
+        {/* KPI Strip */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+            <p className="text-sm font-medium text-slate-500">Total Users</p>
+            <p className="text-3xl font-bold text-slate-900 mt-1">
+              {users.length}
+            </p>
+          </div>
+          <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+            <p className="text-sm font-medium text-slate-500">
+              Active Analysts
+            </p>
+            <p className="text-3xl font-bold text-teal-600 mt-1">
+              {activeAnalysts}
+            </p>
+          </div>
+          <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+            <p className="text-sm font-medium text-slate-500">Managers</p>
+            <p className="text-3xl font-bold text-purple-600 mt-1">
+              {managers}
+            </p>
+          </div>
+          <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+            <p className="text-sm font-medium text-slate-500">Exec Viewers</p>
+            <p className="text-3xl font-bold text-slate-600 mt-1">{viewers}</p>
+          </div>
+        </div>
+
+        {/* Users Table */}
+        <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200">
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    User
+                  </th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    Role
+                  </th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    Department
+                  </th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    Last Active
+                  </th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {users.map((u) => (
+                  <tr
+                    key={u.id}
+                    className={`hover:bg-slate-50 transition-colors ${!u.is_active ? "opacity-60 grayscale" : ""}`}
+                  >
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center shrink-0 border border-slate-300">
+                          {u.avatar_url ? (
+                            <div
+                              className="w-full h-full rounded-full bg-cover bg-center"
+                              style={{
+                                backgroundImage: `url('${u.avatar_url}')`,
+                              }}
+                            />
+                          ) : (
+                            <span className="font-bold text-slate-500 text-sm">
+                              {u.display_name
+                                ? u.display_name.charAt(0).toUpperCase()
+                                : "?"}
+                            </span>
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-slate-900">
+                            {u.display_name || "Unknown"}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            {u.id.substring(0, 8)}...
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <select
+                        value={u.role}
+                        onChange={(e) =>
+                          handleRoleChange(u.id, e.target.value as UserRole)
+                        }
+                        disabled={isPending}
+                        className={`text-xs font-bold uppercase tracking-wider px-2 py-1 rounded-md outline-none cursor-pointer border appearance-none pr-6 bg-no-repeat ${ROLE_COLORS[u.role]}`}
+                        style={{
+                          backgroundPosition: "right 0.25rem center",
+                          backgroundSize: "1em",
+                          backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
+                        }}
+                      >
+                        <option value="super_admin">Super Admin</option>
+                        <option value="manager">SOC Manager</option>
+                        <option value="analyst">SOC Analyst</option>
+                        <option value="viewer">Executive Viewer</option>
+                      </select>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-sm text-slate-600">
+                        {u.department || "—"}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      {u.is_active ? (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+                          <CheckCircle2 className="w-3.5 h-3.5" /> Active
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 bg-slate-100 border border-slate-300 px-2.5 py-0.5 rounded-full">
+                          <XCircle className="w-3.5 h-3.5" /> Inactive
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-sm text-slate-500">
+                        {u.last_active
+                          ? new Date(u.last_active).toLocaleDateString()
+                          : "Never"}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <button
+                        onClick={() => handleToggleStatus(u.id, u.is_active)}
+                        disabled={isPending}
+                        className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors ${
+                          u.is_active
+                            ? "bg-white border-red-200 text-red-600 hover:bg-red-50"
+                            : "bg-white border-emerald-200 text-emerald-600 hover:bg-emerald-50"
+                        }`}
+                      >
+                        {u.is_active ? "Deactivate" : "Activate"}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </main>
+
+      {/* Invite Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <UserPlus className="w-5 h-5 text-teal-600" />
+                Invite New User
+              </h2>
+              <button
+                onClick={() => setShowModal(false)}
+                className="text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 flex flex-col gap-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="colleague@company.com"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">
+                  Assign Role
+                </label>
+                <select
+                  value={inviteRole}
+                  onChange={(e) => setInviteRole(e.target.value as UserRole)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+                >
+                  <option value="super_admin">Super Admin</option>
+                  <option value="manager">SOC Manager</option>
+                  <option value="analyst">SOC Analyst</option>
+                  <option value="viewer">Executive Viewer</option>
+                </select>
+              </div>
+            </div>
+            <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
+              <button
+                onClick={() => setShowModal(false)}
+                className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleInvite}
+                disabled={isPending || !inviteEmail}
+                className="flex items-center gap-2 px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold rounded-lg transition-colors shadow-sm disabled:opacity-50"
+              >
+                {isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Plus className="w-4 h-4" />
+                )}
+                Send Invite
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

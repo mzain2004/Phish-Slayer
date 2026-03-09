@@ -18,6 +18,8 @@ import {
   getIntelIndicators,
   removeIntelIndicator,
 } from "@/lib/supabase/actions";
+import { useRole } from "@/lib/rbac/useRole";
+import { canManageIntelVault } from "@/lib/rbac/roles";
 
 /* ── Severity Badge ───────────────────────────────────────────────── */
 function SeverityBadge({ severity }: { severity: string }) {
@@ -29,9 +31,9 @@ function SeverityBadge({ severity }: { severity: string }) {
   else if (s === "high")
     bg =
       "bg-orange-50 text-orange-700 border-orange-200 shadow-[0_0_6px_rgba(249,115,22,0.12)]";
-  else if (s === "medium")
-    bg = "bg-amber-50 text-amber-700 border-amber-200";
-  else if (s === "low") bg = "bg-emerald-50 text-emerald-700 border-emerald-200";
+  else if (s === "medium") bg = "bg-amber-50 text-amber-700 border-amber-200";
+  else if (s === "low")
+    bg = "bg-emerald-50 text-emerald-700 border-emerald-200";
 
   return (
     <span
@@ -55,6 +57,9 @@ export default function IntelVaultPage() {
       getIntelIndicators().then((data: any[]) => setIndicators(data)),
     ]).finally(() => setLoaded(true));
   }, []);
+
+  const { role, loading: roleLoading } = useRole();
+  const isManager = role && canManageIntelVault(role);
 
   const handleRemoveWhitelist = (id: string) => {
     startTransition(async () => {
@@ -83,7 +88,7 @@ export default function IntelVaultPage() {
   };
 
   /* ── Loading ─────────────────────────────────────────────────────── */
-  if (!loaded) {
+  if (!loaded || roleLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
@@ -95,7 +100,6 @@ export default function IntelVaultPage() {
   return (
     <div className="bg-transparent text-slate-900 font-sans min-h-screen flex flex-col w-full overflow-x-hidden">
       <main className="flex-1 w-full max-w-7xl mx-auto p-6 md:p-10">
-
         {/* Page Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
@@ -103,9 +107,20 @@ export default function IntelVaultPage() {
             Intel Vault
           </h1>
           <p className="text-slate-500 mt-2 text-sm">
-            Manage your organization&apos;s whitelisted targets and proprietary threat intelligence indicators.
+            Manage your organization&apos;s whitelisted targets and proprietary
+            threat intelligence indicators.
           </p>
         </div>
+
+        {!isManager && (
+          <div className="mb-8 rounded-xl bg-blue-50 border border-blue-200 p-4 flex items-center gap-3">
+            <ShieldCheck className="w-5 h-5 text-blue-600" />
+            <p className="text-sm font-medium text-blue-800">
+              You have view-only access to the Intel Vault. Only SOC Managers
+              and Super Admins can add or remove items.
+            </p>
+          </div>
+        )}
 
         {/* KPI strip */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -125,7 +140,7 @@ export default function IntelVaultPage() {
             {
               label: "Critical",
               value: indicators.filter(
-                (i) => i.severity?.toLowerCase() === "critical"
+                (i) => i.severity?.toLowerCase() === "critical",
               ).length,
               icon: AlertTriangle,
               color: "text-red-600 bg-red-50 border-red-200",
@@ -133,7 +148,7 @@ export default function IntelVaultPage() {
             {
               label: "High",
               value: indicators.filter(
-                (i) => i.severity?.toLowerCase() === "high"
+                (i) => i.severity?.toLowerCase() === "high",
               ).length,
               icon: AlertTriangle,
               color: "text-orange-600 bg-orange-50 border-orange-200",
@@ -155,7 +170,6 @@ export default function IntelVaultPage() {
         </div>
 
         <div className="flex flex-col xl:flex-row gap-8 items-start">
-
           {/* ────────────── Whitelist Table ────────────── */}
           <div className="w-full xl:w-[380px] xl:min-w-[340px] bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
             {/* Header */}
@@ -210,14 +224,16 @@ export default function IntelVaultPage() {
                         })}
                       </span>
                     </div>
-                    <button
-                      onClick={() => handleRemoveWhitelist(item.id)}
-                      disabled={isPending}
-                      aria-label={`Remove ${item.target} from whitelist`}
-                      className="p-1.5 rounded-md text-slate-300 hover:text-red-600 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 disabled:opacity-50"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    {isManager && (
+                      <button
+                        onClick={() => handleRemoveWhitelist(item.id)}
+                        disabled={isPending}
+                        aria-label={`Remove ${item.target} from whitelist`}
+                        className="p-1.5 rounded-md text-slate-300 hover:text-red-600 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 disabled:opacity-50"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -304,14 +320,16 @@ export default function IntelVaultPage() {
 
                     {/* Action */}
                     <div className="col-span-1 flex justify-end">
-                      <button
-                        onClick={() => handleRemoveIndicator(item.id)}
-                        disabled={isPending}
-                        aria-label={`Remove indicator ${item.indicator}`}
-                        className="p-1.5 rounded-md text-slate-300 hover:text-red-600 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 disabled:opacity-50"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {isManager && (
+                        <button
+                          onClick={() => handleRemoveIndicator(item.id)}
+                          disabled={isPending}
+                          aria-label={`Remove indicator ${item.indicator}`}
+                          className="p-1.5 rounded-md text-slate-300 hover:text-red-600 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 disabled:opacity-50"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </li>
                 ))}
@@ -353,7 +371,15 @@ export default function IntelVaultPage() {
                 Authentication
               </h3>
               <p className="text-sm text-slate-600 mb-3">
-                Include your API key in the <code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded font-mono text-teal-700 border border-slate-200">x-api-key</code> header. Set <code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded font-mono text-teal-700 border border-slate-200">PHISH_SLAYER_API_KEY</code> in your environment.
+                Include your API key in the{" "}
+                <code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded font-mono text-teal-700 border border-slate-200">
+                  x-api-key
+                </code>{" "}
+                header. Set{" "}
+                <code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded font-mono text-teal-700 border border-slate-200">
+                  PHISH_SLAYER_API_KEY
+                </code>{" "}
+                in your environment.
               </p>
             </div>
 
@@ -366,7 +392,7 @@ export default function IntelVaultPage() {
                 <button
                   onClick={() => {
                     navigator.clipboard.writeText(
-                      `curl -X GET "https://your-domain.com/api/v1/scan?target=example.com" -H "x-api-key: YOUR_API_KEY"`
+                      `curl -X GET "https://your-domain.com/api/v1/scan?target=example.com" -H "x-api-key: YOUR_API_KEY"`,
                     );
                     toast.success("Copied to clipboard!");
                   }}
@@ -376,7 +402,7 @@ export default function IntelVaultPage() {
                 </button>
               </div>
               <pre className="bg-slate-900 text-slate-300 rounded-lg p-4 text-xs font-mono overflow-x-auto leading-relaxed">
-{`curl -X GET \\
+                {`curl -X GET \\
   "https://your-domain.com/api/v1/scan?target=example.com" \\
   -H "x-api-key: YOUR_API_KEY"`}
               </pre>
@@ -388,7 +414,7 @@ export default function IntelVaultPage() {
                 POST Example
               </h3>
               <pre className="bg-slate-900 text-slate-300 rounded-lg p-4 text-xs font-mono overflow-x-auto leading-relaxed">
-{`curl -X POST "https://your-domain.com/api/v1/scan" \\
+                {`curl -X POST "https://your-domain.com/api/v1/scan" \\
   -H "x-api-key: YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{"target": "suspicious-domain.xyz"}'`}
@@ -401,7 +427,7 @@ export default function IntelVaultPage() {
                 Response Format
               </h3>
               <pre className="bg-slate-900 text-emerald-400 rounded-lg p-4 text-xs font-mono overflow-x-auto leading-relaxed">
-{`{
+                {`{
   "success": true,
   "data": {
     "target": "example.com",
