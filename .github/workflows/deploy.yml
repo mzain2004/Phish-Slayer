@@ -9,15 +9,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Deploy to Azure VM
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.VM_HOST }}
-          username: ${{ secrets.VM_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            cd /home/mzain2004/Phish-Slayer
-            git pull origin main
-            npm ci
-            npm run build
-            pm2 restart phish-slayer --update-env
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts
+          ssh -i ~/.ssh/deploy_key ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} '
+            cd /home/mzain2004/Phish-Slayer &&
+            git pull origin main &&
+            npm ci &&
+            npm run build &&
+            pm2 restart phish-slayer --update-env &&
             pm2 save
+          '
