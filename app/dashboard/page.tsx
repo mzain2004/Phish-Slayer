@@ -19,6 +19,7 @@ import {
   getScans,
   getIntelIndicators,
 } from "@/lib/supabase/actions";
+import { getRecentCriticalEvents } from "@/lib/supabase/agentActions";
 import {
   BarChart,
   Bar,
@@ -60,25 +61,32 @@ export default function DashboardOverviewPage() {
   const [totalIncidents, setTotalIncidents] = useState(0);
   const [resolvedCount, setResolvedCount] = useState(0);
   const [avgRisk, setAvgRisk] = useState(0);
+  const [agentCriticalCount, setAgentCriticalCount] = useState(0);
 
   useEffect(() => {
+    // Fetch agent critical events in parallel
+    getRecentCriticalEvents(50)
+      .then((evts) => setAgentCriticalCount(evts.length))
+      .catch(() => {});
+
     Promise.all([getIncidents(), getScans(), getIntelIndicators()])
       .then(([incidents, scans, intel]) => {
         // ── KPIs ──────────────────────────────────────────────
         const scanArr = scans as ScanRecord[];
         setTotalScans(scanArr.length);
         setMaliciousScans(
-          scanArr.filter((s) => s.verdict?.toLowerCase() === "malicious").length
+          scanArr.filter((s) => s.verdict?.toLowerCase() === "malicious")
+            .length,
         );
         setTotalIncidents(incidents.length);
         const open = incidents.filter(
-          (i: any) => !i.status?.toLowerCase().includes("resolved")
+          (i: any) => !i.status?.toLowerCase().includes("resolved"),
         );
         setActiveIncidents(open.length);
         setResolvedCount(
           incidents.filter((i: any) =>
-            i.status?.toLowerCase().includes("resolved")
-          ).length
+            i.status?.toLowerCase().includes("resolved"),
+          ).length,
         );
         setIntelVaultSize(intel.length);
 
@@ -89,15 +97,14 @@ export default function DashboardOverviewPage() {
           scores.length
             ? Math.round(
                 scores.reduce((a: number, b: number) => a + b, 0) /
-                  scores.length
+                  scores.length,
               )
-            : 0
+            : 0,
         );
 
         // ── Recent Scans (last 5) ─────────────────────────────
         const sorted = [...scanArr].sort(
-          (a, b) =>
-            new Date(b.date).getTime() - new Date(a.date).getTime()
+          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
         );
         setRecentScans(sorted.slice(0, 5));
 
@@ -183,7 +190,7 @@ export default function DashboardOverviewPage() {
                 e.preventDefault();
                 if (searchQuery.trim()) {
                   router.push(
-                    `/dashboard/scans?search=${encodeURIComponent(searchQuery.trim())}`
+                    `/dashboard/scans?search=${encodeURIComponent(searchQuery.trim())}`,
                   );
                 }
               }}
@@ -307,9 +314,7 @@ export default function DashboardOverviewPage() {
               <Metric value={activeIncidents} />
             </p>
             <p className="text-xs text-slate-400 mt-1">
-              {loaded
-                ? `${resolvedCount} resolved`
-                : "—"}
+              {loaded ? `${resolvedCount} resolved` : "—"}
             </p>
           </div>
 
@@ -330,6 +335,43 @@ export default function DashboardOverviewPage() {
           </div>
         </div>
 
+        {/* Agent Events KPI (separate row, spans half) */}
+        <div className="relative z-10 w-full max-w-7xl mx-auto grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+          <div
+            className="bg-white/80 backdrop-blur border border-slate-200/60 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow group cursor-pointer"
+            onClick={() => router.push("/dashboard/agent")}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                Agent Events
+              </span>
+              <Activity className="w-5 h-5 text-teal-500 opacity-60 group-hover:opacity-100 transition-opacity" />
+            </div>
+            <p
+              className={`text-3xl font-bold ${agentCriticalCount > 0 ? "text-red-600" : "text-slate-900"}`}
+            >
+              <Metric value={agentCriticalCount} />
+            </p>
+            <div className="flex items-center gap-2 mt-1">
+              <span
+                className={`relative flex h-2 w-2 ${agentCriticalCount > 0 ? "" : ""}`}
+              >
+                {agentCriticalCount > 0 && (
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                )}
+                <span
+                  className={`relative inline-flex rounded-full h-2 w-2 ${agentCriticalCount > 0 ? "bg-red-500" : "bg-emerald-500"}`}
+                />
+              </span>
+              <p
+                className={`text-xs ${agentCriticalCount > 0 ? "text-red-500 font-semibold" : "text-emerald-500"}`}
+              >
+                {agentCriticalCount > 0 ? "Active Threats" : "All Clear"}
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* ── Charts + Activity Feed ────────────────────────────── */}
         <div className="relative z-10 w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
           {/* Bar Chart — Threats by Category */}
@@ -342,9 +384,7 @@ export default function DashboardOverviewPage() {
                 </h3>
               </div>
               <span className="text-[10px] font-bold text-slate-400 uppercase">
-                {loaded
-                  ? `${categoryData.length} categories`
-                  : "Loading…"}
+                {loaded ? `${categoryData.length} categories` : "Loading…"}
               </span>
             </div>
             {!loaded ? (
@@ -432,8 +472,7 @@ export default function DashboardOverviewPage() {
             ) : (
               <ul className="space-y-1 flex-1">
                 {recentScans.map((s, i) => {
-                  const isMalicious =
-                    s.verdict?.toLowerCase() === "malicious";
+                  const isMalicious = s.verdict?.toLowerCase() === "malicious";
                   return (
                     <li
                       key={i}
