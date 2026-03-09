@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
+import { logAuditEvent } from '@/lib/audit/auditLogger';
 
 // ─── Email / Password ────────────────────────────────────────────
 
@@ -17,6 +18,8 @@ export async function signInWithEmail(formData: { email: string; password: strin
   if (error) {
     return { error: error.message };
   }
+
+  await logAuditEvent({ action: 'login', details: { method: 'email' } });
 
   redirect('/dashboard');
 }
@@ -78,19 +81,30 @@ export async function getUser() {
   const supabase = await createClient();
   const { data: { user }, error } = await supabase.auth.getUser();
   if (error || !user) return null;
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', user.id)
+    .single();
+
   return {
     id: user.id,
     email: user.email || '',
-    fullName: (user.user_metadata?.full_name as string) || '',
-    orgName: (user.user_metadata?.org_name as string) || '',
-    phone: (user.user_metadata?.phone as string) || '',
-    department: (user.user_metadata?.department as string) || 'Security Operations',
-    avatarUrl: user.user_metadata?.avatar_url as string | undefined,
+    fullName: profile?.display_name || '',
+    phone: profile?.phone_number || '',
+    department: profile?.department || 'Security Operations',
+    avatarUrl: profile?.avatar_url || null,
+    role: profile?.role || 'analyst',
+    apiKey: profile?.api_key || null,
     // Notification prefs
-    securityAlerts: user.user_metadata?.security_alerts !== false,
-    campaignReports: user.user_metadata?.campaign_reports !== false,
-    productUpdates: user.user_metadata?.product_updates === true,
-    // Settings prefs
+    notifyEmail: profile?.notify_email ?? true,
+    notifyCritical: profile?.notify_critical ?? true,
+    notifyAssignments: profile?.notify_assignments ?? true,
+    notifyDigest: profile?.notify_digest ?? false,
+    
+    // Legacy settings prefs from metadata
+    orgName: (user.user_metadata?.org_name as string) || '',
     twoFactor: user.user_metadata?.two_factor !== false,
     sessionTimeout: user.user_metadata?.session_timeout === true,
     ipWhitelisting: user.user_metadata?.ip_whitelisting === true,
@@ -104,36 +118,28 @@ export async function updateProfile(data: {
   fullName: string;
   phone: string;
   department: string;
-  securityAlerts: boolean;
-  campaignReports: boolean;
-  productUpdates: boolean;
+  notifyEmail?: boolean;
+  notifyCritical?: boolean;
+  notifyAssignments?: boolean;
+  notifyDigest?: boolean;
   avatarUrl?: string;
 }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: 'Not authenticated' };
 
-  const metadata: Record<string, unknown> = {
-    full_name: data.fullName,
-    phone: data.phone,
-    department: data.department,
-    security_alerts: data.securityAlerts,
-    campaign_reports: data.campaignReports,
-    product_updates: data.productUpdates,
-  };
-  if (data.avatarUrl !== undefined) {
-    metadata.avatar_url = data.avatarUrl;
-  }
-
-  // Update Auth Metadata
-  const { error: authError } = await supabase.auth.updateUser({ data: metadata });
-  if (authError) return { error: authError.message };
-
   // Update Profiles table for RBAC/Global use
   const profileUpdate: any = {
     display_name: data.fullName,
+    phone_number: data.phone,
     department: data.department
   };
+  
+  if (data.notifyEmail !== undefined) profileUpdate.notify_email = data.notifyEmail;
+  if (data.notifyCritical !== undefined) profileUpdate.notify_critical = data.notifyCritical;
+  if (data.notifyAssignments !== undefined) profileUpdate.notify_assignments = data.notifyAssignments;
+  if (data.notifyDigest !== undefined) profileUpdate.notify_digest = data.notifyDigest;
+
   if (data.avatarUrl !== undefined) {
     profileUpdate.avatar_url = data.avatarUrl;
   }
@@ -145,7 +151,38 @@ export async function updateProfile(data: {
 
   if (dbError) return { error: "Failed to sync with profile database: " + dbError.message };
 
+  await logAuditEvent({ action: 'profile_updated', details: { fields: Object.keys(profileUpdate) } });
+
   return { success: 'Profile updated successfully.' };
+}
+
+// ─── Update Notifications ────────────────────────────────────────
+
+export async function updateNotifications(data: {
+  notifyEmail: boolean;
+  notifyCritical: boolean;
+  notifyAssignments: boolean;
+  notifyDigest: boolean;
+}) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({
+      notify_email: data.notifyEmail,
+      notify_critical: data.notifyCritical,
+      notify_assignments: data.notifyAssignments,
+      notify_digest: data.notifyDigest,
+    })
+    .eq('id', user.id);
+
+  if (error) return { error: error.message };
+
+  await logAuditEvent({ action: 'profile_updated', details: { type: 'notifications' } });
+
+  return { success: 'Notification preferences saved.' };
 }
 
 // ─── Update Password ─────────────────────────────────────────────
@@ -154,6 +191,9 @@ export async function updatePassword(password: string) {
   const supabase = await createClient();
   const { error } = await supabase.auth.updateUser({ password });
   if (error) return { error: error.message };
+
+  await logAuditEvent({ action: 'profile_updated', details: { type: 'password_change' } });
+
   return { success: 'Password updated successfully.' };
 }
 
@@ -220,4 +260,33 @@ export async function updateSettings(data: {
 
   if (error) return { error: error.message };
   return { success: 'Settings saved successfully.' };
+}
+
+// ─── API Keys ──────────────────────────────────────────────
+
+export async function generateApiKey() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
+
+  const newKey = 'pk_live_' + crypto.randomUUID().replace(/-/g, '');
+  const { error } = await supabase.from('profiles').update({ api_key: newKey }).eq('id', user.id);
+  
+  if (error) return { error: error.message };
+  
+  await logAuditEvent({ action: 'api_key_generated', resource_type: 'apiKey', resource_id: user.id });
+  return { success: true, key: newKey };
+}
+
+export async function revokeApiKey() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
+
+  const { error } = await supabase.from('profiles').update({ api_key: null }).eq('id', user.id);
+  
+  if (error) return { error: error.message };
+  
+  await logAuditEvent({ action: 'api_key_revoked', resource_type: 'apiKey', resource_id: user.id });
+  return { success: true };
 }

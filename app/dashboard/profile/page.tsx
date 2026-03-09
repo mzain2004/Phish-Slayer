@@ -39,9 +39,6 @@ export default function UserProfilePage() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [department, setDepartment] = useState("Security Operations");
-  const [securityAlerts, setSecurityAlerts] = useState(true);
-  const [campaignReports, setCampaignReports] = useState(true);
-  const [productUpdates, setProductUpdates] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -57,9 +54,6 @@ export default function UserProfilePage() {
         setEmail(user.email);
         setPhone(user.phone);
         setDepartment(user.department);
-        setSecurityAlerts(user.securityAlerts);
-        setCampaignReports(user.campaignReports);
-        setProductUpdates(user.productUpdates);
         if (user.avatarUrl) setAvatarUrl(user.avatarUrl);
       }
       setLoaded(true);
@@ -115,9 +109,6 @@ export default function UserProfilePage() {
         fullName,
         phone,
         department,
-        securityAlerts,
-        campaignReports,
-        productUpdates,
       });
       if (result?.error) {
         toast.error(result.error);
@@ -525,98 +516,6 @@ export default function UserProfilePage() {
             </div>
           </section>
         </div>
-
-        {/* Notifications Preference */}
-        <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-            <div>
-              <h2 className="text-lg font-semibold text-slate-900">
-                Email Notifications
-              </h2>
-              <p className="text-sm text-slate-500">
-                Choose what updates you want to receive.
-              </p>
-            </div>
-            <BellRing className="w-5 h-5 text-slate-400" />
-          </div>
-          <div className="p-6 space-y-5">
-            <label className="flex items-center justify-between group cursor-pointer">
-              <div className="flex-1 pr-4">
-                <h3 className="text-sm font-medium text-slate-900 group-hover:text-teal-600 transition-colors">
-                  Security Alerts
-                </h3>
-                <p className="text-sm text-slate-500">
-                  Get notified about critical security incidents immediately.
-                </p>
-              </div>
-              <div
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ease-in-out ${securityAlerts ? "bg-teal-600" : "bg-slate-200"}`}
-              >
-                <input
-                  type="checkbox"
-                  className="sr-only"
-                  checked={securityAlerts}
-                  onChange={() => setSecurityAlerts(!securityAlerts)}
-                />
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm ring-1 ring-slate-900/5 transition duration-200 ease-in-out ${securityAlerts ? "translate-x-6" : "translate-x-1"}`}
-                />
-              </div>
-            </label>
-
-            <div className="h-px bg-slate-100 w-full"></div>
-
-            <label className="flex items-center justify-between group cursor-pointer">
-              <div className="flex-1 pr-4">
-                <h3 className="text-sm font-medium text-slate-900 group-hover:text-teal-600 transition-colors">
-                  Campaign Reports
-                </h3>
-                <p className="text-sm text-slate-500">
-                  Weekly summaries of phishing simulation campaigns.
-                </p>
-              </div>
-              <div
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ease-in-out ${campaignReports ? "bg-teal-600" : "bg-slate-200"}`}
-              >
-                <input
-                  type="checkbox"
-                  className="sr-only"
-                  checked={campaignReports}
-                  onChange={() => setCampaignReports(!campaignReports)}
-                />
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm ring-1 ring-slate-900/5 transition duration-200 ease-in-out ${campaignReports ? "translate-x-6" : "translate-x-1"}`}
-                />
-              </div>
-            </label>
-
-            <div className="h-px bg-slate-100 w-full"></div>
-
-            <label className="flex items-center justify-between group cursor-pointer">
-              <div className="flex-1 pr-4">
-                <h3 className="text-sm font-medium text-slate-900 group-hover:text-teal-600 transition-colors">
-                  Product Updates
-                </h3>
-                <p className="text-sm text-slate-500">
-                  New features and improvements to the platform.
-                </p>
-              </div>
-              <div
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ease-in-out ${productUpdates ? "bg-teal-600" : "bg-slate-200"}`}
-              >
-                <input
-                  type="checkbox"
-                  className="sr-only"
-                  checked={productUpdates}
-                  onChange={() => setProductUpdates(!productUpdates)}
-                />
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm ring-1 ring-slate-900/5 transition duration-200 ease-in-out ${productUpdates ? "translate-x-6" : "translate-x-1"}`}
-                />
-              </div>
-            </label>
-          </div>
-        </section>
 
         {/* Danger Zone */}
         <div className="pt-6">

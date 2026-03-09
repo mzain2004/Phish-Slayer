@@ -3,318 +3,475 @@
 import { useState, useEffect, useTransition } from "react";
 import { toast } from "sonner";
 import {
-  Copy,
-  Plus,
+  BellRing,
+  Lock,
   Loader2,
-  Trash2,
-  ListPlus
+  Key,
+  LogOut,
+  Ban,
+  ShieldAlert,
+  AlertTriangle,
+  Monitor,
 } from "lucide-react";
-import { getUser, updateSettings } from "@/lib/supabase/auth-actions";
-import { getWhitelist, removeFromWhitelist } from "@/lib/supabase/actions";
+import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
+import {
+  getUser,
+  updatePassword,
+  updateNotifications,
+} from "@/lib/supabase/auth-actions";
+import { useRole } from "@/lib/rbac/useRole";
+import { useRouter } from "next/navigation";
 
 export default function PlatformSettingsPage() {
-  const [orgName, setOrgName] = useState("");
-  const [supportEmail, setSupportEmail] = useState("");
-  const [twoFactor, setTwoFactor] = useState(true);
-  const [sessionTimeout, setSessionTimeout] = useState(false);
-  const [ipWhitelisting, setIpWhitelisting] = useState(false);
-  const [whitelist, setWhitelist] = useState<any[]>([]);
+  const router = useRouter();
+
+  // Notifications state
+  const [notifyEmail, setNotifyEmail] = useState(true);
+  const [notifyCritical, setNotifyCritical] = useState(true);
+  const [notifyAssignments, setNotifyAssignments] = useState(true);
+  const [notifyDigest, setNotifyDigest] = useState(false);
+
+  // Security State
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  // Session State
+  const [sessionInfo, setSessionInfo] = useState<{
+    created_at: string;
+    token: string;
+  } | null>(null);
+
+  // Profile State
+  const [apiKey, setApiKey] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const { role } = useRole();
+
+  const supabase = createClient();
 
   useEffect(() => {
     Promise.all([
       getUser().then((user) => {
         if (user) {
-          setOrgName(user.orgName);
-          setSupportEmail(user.supportEmail || user.email);
-          setTwoFactor(user.twoFactor);
-          setSessionTimeout(user.sessionTimeout);
-          setIpWhitelisting(user.ipWhitelisting);
+          setNotifyEmail(user.notifyEmail ?? true);
+          setNotifyCritical(user.notifyCritical ?? true);
+          setNotifyAssignments(user.notifyAssignments ?? true);
+          setNotifyDigest(user.notifyDigest ?? false);
+          setApiKey(user.apiKey || null);
         }
       }),
-      getWhitelist().then((data: any[]) => setWhitelist(data))
+      supabase.auth.getSession().then(({ data }) => {
+        if (data.session) {
+          const createdAt = new Date(
+            data.session.user.created_at,
+          ).toLocaleString();
+          const tokenEnd = data.session.access_token.slice(-8);
+          setSessionInfo({ created_at: createdAt, token: tokenEnd });
+        }
+      }),
     ]).finally(() => {
       setLoaded(true);
     });
   }, []);
 
-  const handleRemoveFromWhitelist = (id: string) => {
+  const handleSaveNotifications = () => {
     startTransition(async () => {
-      try {
-        await removeFromWhitelist(id);
-        const data = await getWhitelist();
-        setWhitelist(data);
-        toast.success("Target removed from whitelist.");
-      } catch (err: any) {
-        toast.error(err.message || "Failed to remove target.");
-      }
-    });
-  };
-
-  const handleSave = () => {
-    startTransition(async () => {
-      const result = await updateSettings({
-        orgName,
-        supportEmail,
-        twoFactor,
-        sessionTimeout,
-        ipWhitelisting,
+      const result = await updateNotifications({
+        notifyEmail,
+        notifyCritical,
+        notifyAssignments,
+        notifyDigest,
       });
       if (result?.error) {
         toast.error(result.error);
       } else {
-        toast.success(result.success);
+        toast.success("Notification preferences saved successfully.");
       }
     });
+  };
+
+  const handlePasswordChange = () => {
+    if (!newPassword || !confirmPassword || !currentPassword) {
+      toast.error("Please fill in all password fields.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error("New passwords do not match.");
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast.error("Password must be at least 6 characters.");
+      return;
+    }
+
+    startTransition(async () => {
+      const result = await updatePassword(newPassword);
+      if (result?.error) {
+        toast.error(result.error);
+      } else {
+        toast.success("Password updated successfully.");
+        setCurrentPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
+      }
+    });
+  };
+
+  const handleLogoutLocal = async () => {
+    await supabase.auth.signOut({ scope: "local" });
+    router.push("/auth/login");
+  };
+
+  const handleLogoutGlobal = async () => {
+    await supabase.auth.signOut({ scope: "global" });
+    router.push("/auth/login");
   };
 
   if (!loaded) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
       </div>
     );
   }
 
+  const isSuperAdmin = role === "super_admin";
+
   return (
     <div className="bg-transparent text-slate-900 font-sans min-h-screen flex flex-col w-full overflow-x-hidden">
-
-      {/* Main Content Area */}
       <main className="flex-1 w-full max-w-7xl mx-auto p-6 md:p-10">
         {/* Page Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Platform Settings</h1>
+          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
+            Platform Settings
+          </h1>
           <p className="text-slate-500 mt-2 text-sm">
-            Manage your organization&apos;s preferences, security policies, and team access.
+            Manage your notification preferences, security, and account
+            sessions.
           </p>
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-8 items-start">
-
-          {/* Main Panel */}
-          <div className="flex-1 w-full bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            
-            {/* Section: Organization Profile */}
-            <div className="p-6 md:p-8 border-b border-slate-100">
-              <div className="flex flex-col gap-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-semibold text-slate-900">Organization Profile</h3>
-                    <p className="text-sm text-slate-500 mt-1">Update your company details and public profile.</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="col-span-1">
-                    <label className="block text-sm font-semibold text-slate-700 mb-2">Organization Name</label>
-                    <input
-                      className="w-full rounded-lg border border-slate-200 bg-white text-slate-900 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 sm:text-sm py-2.5 px-3"
-                      type="text"
-                      value={orgName}
-                      onChange={(e) => setOrgName(e.target.value)}
-                    />
-                  </div>
-                  <div className="col-span-1">
-                    <label className="block text-sm font-semibold text-slate-700 mb-2">Support Email</label>
-                    <input
-                      className="w-full rounded-lg border border-slate-200 bg-white text-slate-900 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 sm:text-sm py-2.5 px-3"
-                      type="email"
-                      value={supportEmail}
-                      onChange={(e) => setSupportEmail(e.target.value)}
-                    />
-                  </div>
-                  <div className="col-span-1 md:col-span-2">
-                    <label className="block text-sm font-semibold text-slate-700 mb-2">Logo</label>
-                    <div className="mt-1 flex items-center gap-4">
-                      <span className="inline-block h-12 w-12 overflow-hidden rounded-full bg-slate-100 ring-1 ring-slate-200">
-                        <svg className="h-full w-full text-slate-300" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M24 20.993V24H0v-2.996A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM16.002 8.999a4 4 0 11-8 0 4 4 0 018 0z"></path>
-                        </svg>
-                      </span>
-                      <button 
-                        onClick={() => toast.info("Feature coming in v2.0")}
-                        className="rounded-lg bg-white px-3 py-2 text-sm font-semibold text-slate-900 shadow-sm ring-1 ring-inset ring-slate-300 hover:bg-slate-50" 
-                        type="button"
-                      >
-                        Change
-                      </button>
-                    </div>
-                  </div>
-                </div>
+        <div className="flex flex-col gap-8">
+          {/* Section 1: Notifications */}
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="p-6 md:p-8 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+                  <BellRing className="w-5 h-5 text-teal-600" /> Notification
+                  Preferences
+                </h3>
+                <p className="text-sm text-slate-500 mt-1">
+                  Configure how you receive alerts and updates.
+                </p>
               </div>
+              <button
+                onClick={handleSaveNotifications}
+                disabled={isPending}
+                className="px-4 py-2 bg-gradient-to-r from-teal-400 to-blue-500 text-white font-bold rounded-lg shadow-sm hover:shadow-cyan-500/25 transition-all flex items-center gap-2 disabled:opacity-50"
+              >
+                {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+                Save Preferences
+              </button>
             </div>
-
-            {/* Section: Security Preferences */}
-            <div className="p-6 md:p-8 border-b border-slate-100">
-              <div className="flex flex-col gap-6">
-                <div>
-                  <h3 className="text-lg font-semibold text-slate-900">Security Preferences</h3>
-                  <p className="text-sm text-slate-500 mt-1">Manage login requirements and session timeouts.</p>
+            <div className="p-6 md:p-8 space-y-4">
+              {/* Toggle Item */}
+              <label className="flex items-center justify-between py-2 cursor-pointer group">
+                <div className="flex flex-col">
+                  <span className="text-sm font-semibold text-slate-900 group-hover:text-teal-600 transition-colors">
+                    Email Notifications
+                  </span>
+                  <span className="text-sm text-slate-500">
+                    Receive system notifications via email.
+                  </span>
                 </div>
-                <div className="space-y-4">
-                  {/* Toggle Item 1 */}
-                  <div className="flex items-center justify-between py-3">
-                    <div className="flex flex-col">
-                      <span className="text-sm font-semibold text-slate-900">Two-Factor Authentication (2FA)</span>
-                      <span className="text-sm text-slate-500">Enforce 2FA for all team members.</span>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        className="sr-only peer"
-                        checked={twoFactor}
-                        onChange={(e) => setTwoFactor(e.target.checked)}
-                      />
-                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-600/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
-                    </label>
-                  </div>
-
-                  <div className="border-t border-slate-100"></div>
-
-                  {/* Toggle Item 2 */}
-                  <div className="flex items-center justify-between py-3">
-                    <div className="flex flex-col">
-                      <span className="text-sm font-semibold text-slate-900">Session Timeout</span>
-                      <span className="text-sm text-slate-500">Automatically log out inactive users after 30 minutes.</span>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        className="sr-only peer"
-                        checked={sessionTimeout}
-                        onChange={(e) => setSessionTimeout(e.target.checked)}
-                      />
-                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-600/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
-                    </label>
-                  </div>
-
-                  <div className="border-t border-slate-100"></div>
-
-                  {/* Toggle Item 3 */}
-                  <div className="flex items-center justify-between py-3">
-                    <div className="flex flex-col">
-                      <span className="text-sm font-semibold text-slate-900">IP Whitelisting</span>
-                      <span className="text-sm text-slate-500">Only allow access from specific IP addresses.</span>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        className="sr-only peer"
-                        checked={ipWhitelisting}
-                        onChange={(e) => setIpWhitelisting(e.target.checked)}
-                      />
-                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-600/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
-                    </label>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Section: API Configuration */}
-            <div className="p-6 md:p-8 border-b border-slate-100">
-              <div className="flex flex-col gap-6">
-                <div>
-                  <h3 className="text-lg font-semibold text-slate-900">API Configuration</h3>
-                  <p className="text-sm text-slate-500 mt-1">Manage API keys for external integrations.</p>
-                </div>
-                <div className="bg-slate-50 rounded-lg p-4 border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                  <div className="flex flex-col gap-1 w-full overflow-hidden">
-                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Production Key</span>
-                    <div className="flex items-center gap-2">
-                      <code className="text-sm font-mono text-slate-700 bg-white px-2 py-1 rounded border border-slate-200 truncate flex-1">
-                        pk_live_51Msz...234xS92
-                      </code>
-                      <button className="text-slate-400 hover:text-blue-600 transition-colors">
-                        <Copy className="w-4 h-4" />
-                      </button>
-                    </div>
-                    <span className="text-xs text-slate-400">Last used: 2 hours ago</span>
-                  </div>
-                  <button 
-                    onClick={() => toast.info("Feature coming in v2.0")}
-                    className="text-sm font-medium text-red-600 hover:text-red-700 whitespace-nowrap"
-                  >
-                    Revoke
-                  </button>
-                </div>
-
-                <button 
-                  onClick={() => toast.info("Feature coming in v2.0")}
-                  className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg border border-dashed border-slate-300 text-slate-500 hover:text-teal-600 hover:border-teal-600 hover:bg-teal-600/5 transition-all text-sm font-medium"
+                <div
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ease-in-out ${notifyEmail ? "bg-teal-600" : "bg-slate-200"}`}
                 >
-                  <Plus className="w-5 h-5" />
-                  Generate New API Key
+                  <input
+                    type="checkbox"
+                    className="sr-only"
+                    checked={notifyEmail}
+                    onChange={(e) => setNotifyEmail(e.target.checked)}
+                  />
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition duration-200 ease-in-out ${notifyEmail ? "translate-x-6" : "translate-x-1"}`}
+                  />
+                </div>
+              </label>
+              <div className="h-px bg-slate-100 w-full" />
+              {/* Toggle Item */}
+              <label className="flex items-center justify-between py-2 cursor-pointer group">
+                <div className="flex flex-col">
+                  <span className="text-sm font-semibold text-slate-900 group-hover:text-teal-600 transition-colors">
+                    Critical Threat Alerts
+                  </span>
+                  <span className="text-sm text-slate-500">
+                    Immediate email alerts for CRITICAL severity scans.
+                  </span>
+                </div>
+                <div
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ease-in-out ${notifyCritical ? "bg-teal-600" : "bg-slate-200"}`}
+                >
+                  <input
+                    type="checkbox"
+                    className="sr-only"
+                    checked={notifyCritical}
+                    onChange={(e) => setNotifyCritical(e.target.checked)}
+                  />
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition duration-200 ease-in-out ${notifyCritical ? "translate-x-6" : "translate-x-1"}`}
+                  />
+                </div>
+              </label>
+              <div className="h-px bg-slate-100 w-full" />
+              {/* Toggle Item */}
+              <label className="flex items-center justify-between py-2 cursor-pointer group">
+                <div className="flex flex-col">
+                  <span className="text-sm font-semibold text-slate-900 group-hover:text-teal-600 transition-colors">
+                    Incident Assignments
+                  </span>
+                  <span className="text-sm text-slate-500">
+                    Get notified when a manager assigns an incident to you.
+                  </span>
+                </div>
+                <div
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ease-in-out ${notifyAssignments ? "bg-teal-600" : "bg-slate-200"}`}
+                >
+                  <input
+                    type="checkbox"
+                    className="sr-only"
+                    checked={notifyAssignments}
+                    onChange={(e) => setNotifyAssignments(e.target.checked)}
+                  />
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition duration-200 ease-in-out ${notifyAssignments ? "translate-x-6" : "translate-x-1"}`}
+                  />
+                </div>
+              </label>
+              <div className="h-px bg-slate-100 w-full" />
+              {/* Toggle Item */}
+              <label className="flex items-center justify-between py-2 cursor-pointer group">
+                <div className="flex flex-col">
+                  <span className="text-sm font-semibold text-slate-900 group-hover:text-teal-600 transition-colors">
+                    Weekly Digest
+                  </span>
+                  <span className="text-sm text-slate-500">
+                    Receive a weekly summary of organization security health.
+                  </span>
+                </div>
+                <div
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ease-in-out ${notifyDigest ? "bg-teal-600" : "bg-slate-200"}`}
+                >
+                  <input
+                    type="checkbox"
+                    className="sr-only"
+                    checked={notifyDigest}
+                    onChange={(e) => setNotifyDigest(e.target.checked)}
+                  />
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition duration-200 ease-in-out ${notifyDigest ? "translate-x-6" : "translate-x-1"}`}
+                  />
+                </div>
+              </label>
+            </div>
+          </div>
+
+          {/* Section 2: Security Settings */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Password Change */}
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+              <div className="p-6 border-b border-slate-100">
+                <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+                  <Lock className="w-5 h-5 text-slate-400" /> Change Password
+                </h3>
+                <p className="text-sm text-slate-500 mt-1">
+                  Update your account access password.
+                </p>
+              </div>
+              <div className="p-6 space-y-4 flex-1">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Current Password
+                  </label>
+                  <input
+                    type="password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-900 focus:ring-teal-500"
+                    placeholder="••••••••"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    New Password
+                  </label>
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-900 focus:ring-teal-500"
+                    placeholder="••••••••"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Confirm New Password
+                  </label>
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-900 focus:ring-teal-500"
+                    placeholder="••••••••"
+                  />
+                </div>
+              </div>
+              <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+                <button
+                  onClick={handlePasswordChange}
+                  disabled={
+                    isPending ||
+                    !newPassword ||
+                    !confirmPassword ||
+                    !currentPassword
+                  }
+                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
+                >
+                  {isPending ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Lock className="w-4 h-4" />
+                  )}
+                  Update Password
                 </button>
               </div>
             </div>
 
-            {/* Section: Target Whitelist */}
-            <div className="p-6 md:p-8">
-              <div className="flex flex-col gap-6">
-                <div className="flex items-center justify-between">
+            {/* Active Session & Logout */}
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+              <div className="p-6 border-b border-slate-100">
+                <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+                  <ShieldAlert className="w-5 h-5 text-slate-400" /> Active
+                  Session
+                </h3>
+                <p className="text-sm text-slate-500 mt-1">
+                  Manage your current authentication sessions.
+                </p>
+              </div>
+              <div className="p-6 space-y-6 flex-1">
+                <div className="flex items-start gap-4 p-4 rounded-lg bg-emerald-50 border border-emerald-100">
+                  <Monitor className="w-8 h-8 text-emerald-600 shrink-0 mt-0.5" />
                   <div>
-                    <h3 className="text-lg font-semibold text-teal-900 flex items-center gap-2">
-                      <ListPlus className="w-5 h-5 text-teal-600" />
-                      Target Whitelist
-                    </h3>
-                    <p className="text-sm text-slate-500 mt-1">Manage domains and IPs bypassing threat scans.</p>
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-bold text-slate-900">
+                        Current Device
+                      </h4>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-700 border border-emerald-200">
+                        Active Now
+                      </span>
+                    </div>
+                    {sessionInfo ? (
+                      <>
+                        <p className="text-sm text-slate-600 mt-1">
+                          Logged in since {sessionInfo.created_at}
+                        </p>
+                        <p className="text-xs text-slate-400 font-mono mt-1">
+                          Token: ••••••••{sessionInfo.token}
+                        </p>
+                      </>
+                    ) : (
+                      <Loader2 className="w-4 h-4 animate-spin text-emerald-600 mt-2" />
+                    )}
                   </div>
                 </div>
-                
-                {whitelist.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-8 text-center bg-slate-50 rounded-xl border border-slate-200 border-dashed">
-                    <ListPlus className="w-8 h-8 text-slate-300 mb-2" />
-                    <p className="text-sm font-medium text-slate-600">No targets whitelisted yet.</p>
-                    <p className="text-xs text-slate-500 mt-1 max-w-sm">
-                      Targets added to the whitelist from the Threat Intelligence dashboard will appear here.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="border border-slate-200 rounded-lg overflow-hidden flex flex-col">
-                    <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Target</span>
-                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Added</span>
-                    </div>
-                    <ul className="divide-y divide-slate-100 max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200">
-                      {whitelist.map((item) => (
-                        <li key={item.id} className="p-4 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
-                          <div className="flex flex-col">
-                            <span className="text-sm font-bold text-slate-900">{item.target}</span>
-                            <span className="text-xs text-slate-500 mt-0.5">
-                              {new Date(item.created_at).toLocaleDateString()}
-                            </span>
-                          </div>
-                          <button
-                            onClick={() => handleRemoveFromWhitelist(item.id)}
-                            disabled={isPending}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 transition-colors shadow-sm disabled:opacity-50"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            Remove
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+
+                <div className="space-y-3">
+                  <button
+                    onClick={handleLogoutLocal}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Logout This Device
+                  </button>
+                  <button
+                    onClick={handleLogoutGlobal}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-red-200 bg-red-50 text-red-600 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors"
+                  >
+                    <Ban className="w-4 h-4 text-red-500" />
+                    Logout All Devices
+                  </button>
+                </div>
               </div>
             </div>
+          </div>
 
-            {/* Save Actions */}
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3">
-              <button className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-600">
-                Cancel
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={isPending}
-                className="px-4 py-2 text-sm font-bold text-white bg-gradient-to-r from-teal-400 to-blue-500 rounded-lg shadow-sm hover:shadow-cyan-500/25 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-all border-none"
-              >
-                {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-                {isPending ? "Saving…" : "Save Changes"}
-              </button>
+          {/* Section 3: API Access */}
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-slate-100">
+            <div className="p-6 md:p-8 md:w-1/3 shrink-0">
+              <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+                <Key className="w-5 h-5 text-teal-600" /> API Access
+              </h3>
+              <p className="text-sm text-slate-500 mt-2">
+                Programmatic access to Phish-Slayer REST endpoints for pipeline
+                integration.
+              </p>
             </div>
+            <div className="p-6 md:p-8 flex-1 flex flex-col justify-center">
+              {apiKey ? (
+                <div className="space-y-3">
+                  <p className="text-sm font-medium text-slate-700">
+                    Your Current API Key
+                  </p>
+                  <code className="block w-full py-2.5 px-4 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 font-mono text-sm tracking-wider">
+                    {apiKey.substring(0, 8)}••••••••••••••••••••••••
+                  </code>
+                </div>
+              ) : (
+                <div className="text-center md:text-left">
+                  <p className="text-sm text-slate-500">
+                    No API key generated for this account.
+                  </p>
+                </div>
+              )}
+              <div className="mt-4">
+                <Link
+                  href="/dashboard/apikeys"
+                  className="text-sm font-bold text-teal-600 hover:text-teal-700 hover:underline"
+                >
+                  Manage API Keys →
+                </Link>
+              </div>
+            </div>
+          </div>
 
+          {/* Section 4: Danger Zone */}
+          <div className="border border-red-200 bg-red-50 rounded-xl p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+            <div>
+              <h3 className="text-lg font-semibold text-red-700 flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5" /> Danger Zone
+              </h3>
+              <p className="text-sm text-red-600/80 mt-1 max-w-lg">
+                Permanently deactivate your organization account and purge all
+                data. This action cannot be undone. Only accessible by Super
+                Admins.
+              </p>
+            </div>
+            <button
+              disabled={!isSuperAdmin}
+              title={
+                !isSuperAdmin
+                  ? "Only Super Admins can deactivate the account"
+                  : "Deactivate Account"
+              }
+              onClick={() =>
+                toast.error("Account termination workflow initiated.")
+              }
+              className="px-6 py-2.5 bg-white border border-red-200 text-red-600 rounded-lg text-sm font-bold shadow-sm hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+            >
+              Deactivate Account
+            </button>
           </div>
         </div>
       </main>

@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { analyzeThreat, scoreCtiFinding } from '@/lib/ai/analyzer';
 import { scanTarget } from '@/lib/scanners/threatScanner';
+import { logAuditEvent } from '@/lib/audit/auditLogger';
+import { sendCriticalThreatAlert, sendIncidentAssignmentEmail, sendWeeklyDigest } from '@/lib/email/emailService';
 import { z } from 'zod';
 
 // ── Discord Webhook Alert (fire-and-forget) ───────────────────────────
@@ -133,6 +135,13 @@ export async function createIncident(data: any) {
     return { error: error.message || 'Failed to create incident' };
   }
   
+  await logAuditEvent({
+    action: 'incident_created',
+    resource_type: 'incident',
+    resource_id: payload.title,
+    details: { severity: payload.severity }
+  });
+  
   revalidatePath('/dashboard/incidents');
   return { success: true };
 }
@@ -185,6 +194,13 @@ export async function resolveIncident(id: string, comment: string) {
     throw new Error(updateError.message || 'Failed to resolve incident');
   }
   
+  await logAuditEvent({
+    action: 'incident_resolved',
+    resource_type: 'incident',
+    resource_id: validId,
+    details: { comment: validComment }
+  });
+
   revalidatePath('/dashboard');
 }
 
@@ -205,6 +221,12 @@ export async function deleteIncident(id: string) {
     throw new Error(error.message || 'Failed to delete incident');
   }
   
+  await logAuditEvent({
+    action: 'incident_deleted',
+    resource_type: 'incident',
+    resource_id: validId
+  });
+
   revalidatePath('/dashboard');
 }
 
@@ -250,6 +272,13 @@ export async function blockIp(ipAddress: string) {
     ai_summary: `Manual block executed by administrator. Indicator: ${validIp} (${isIp ? 'IPv4' : 'Domain'}) added to the proprietary intel vault with CRITICAL severity.`,
   });
   
+  await logAuditEvent({
+    action: 'ip_blocked',
+    resource_type: 'intel',
+    resource_id: validIp,
+    details: { source: 'Manual Administrative Block' }
+  });
+
   revalidatePath('/dashboard');
   revalidatePath('/dashboard/intel');
   revalidatePath('/dashboard/incidents');
@@ -273,6 +302,12 @@ export async function addToWhitelist(target: string) {
     return { error: error.message || 'Failed to add target to whitelist' };
   }
   
+  await logAuditEvent({
+    action: 'whitelist_added',
+    resource_type: 'whitelist_target',
+    resource_id: validTarget
+  });
+
   revalidatePath('/dashboard/threats');
   return { success: true };
 }
@@ -302,6 +337,12 @@ export async function removeFromWhitelist(id: string) {
     throw new Error(error.message || 'Failed to remove from whitelist');
   }
   
+  await logAuditEvent({
+    action: 'whitelist_removed',
+    resource_type: 'whitelist_target',
+    resource_id: parsed.data.id.toString()
+  });
+
   revalidatePath('/dashboard/settings');
   revalidatePath('/dashboard/threats');
   revalidatePath('/dashboard/intel');
@@ -326,6 +367,12 @@ export async function launchScan(target: string): Promise<{ error?: string }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   const date = new Date().toISOString();
+
+  await logAuditEvent({
+    action: 'scan_launched',
+    resource_type: 'scan',
+    resource_id: validTarget
+  });
 
   // ── Gate 1: Whitelist Check (instant Safe) ──────────────────────────
   const { data: whitelistHit } = await supabase
@@ -354,6 +401,7 @@ export async function launchScan(target: string): Promise<{ error?: string }> {
       return { error: 'Target is whitelisted but failed to record scan.' };
     }
 
+    await logAuditEvent({ action: 'scan_completed', resource_type: 'scan', resource_id: validTarget, details: { verdict: 'clean', reason: 'whitelist_hit' } });
     revalidatePath('/dashboard/scans');
     return {};
   }
@@ -395,6 +443,29 @@ export async function launchScan(target: string): Promise<{ error?: string }> {
       ai_summary: `CRITICAL THREAT — Identified via Proprietary Local Intel. Severity: ${intelHit.severity?.toUpperCase() || 'HIGH'}. Source: ${intelHit.source || 'Internal Database'}.`,
     });
 
+    // Email Notification
+    const serviceClient = getServiceSupabase();
+    if (serviceClient) {
+      const { data: admins } = await serviceClient.from('profiles').select('id').in('role', ['super_admin', 'manager']).eq('notify_critical', true).eq('is_active', true);
+      if (admins && admins.length > 0) {
+        const adminEmails: string[] = [];
+        for (const admin of admins) {
+          const { data: { user: adminUser } } = await serviceClient.auth.admin.getUserById(admin.id);
+          if (adminUser?.email) adminEmails.push(adminUser.email);
+        }
+        if (adminEmails.length > 0) {
+          await sendCriticalThreatAlert({
+            target: validTarget,
+            threatCategory: 'Proprietary Local Intel',
+            riskScore: 100,
+            aiSummary: 'Critical internal threat intel rule triggered.',
+            recipients: adminEmails
+          });
+        }
+      }
+    }
+
+    await logAuditEvent({ action: 'scan_completed', resource_type: 'scan', resource_id: validTarget, details: { verdict: 'malicious', reason: 'intel_hit' } });
     return {};
   }
 
@@ -431,6 +502,31 @@ export async function launchScan(target: string): Promise<{ error?: string }> {
         risk_score: aiData?.risk_score || 0,
         ai_summary: aiData?.ai_summary || 'Malicious target detected via VirusTotal.',
       });
+
+      // Email Notification
+      const risk = aiData?.risk_score || 0;
+      if (risk >= 80) {
+        const serviceClient = getServiceSupabase();
+        if (serviceClient) {
+          const { data: admins } = await serviceClient.from('profiles').select('id').in('role', ['super_admin', 'manager']).eq('notify_critical', true).eq('is_active', true);
+          if (admins && admins.length > 0) {
+            const adminEmails: string[] = [];
+            for (const admin of admins) {
+              const { data: { user: adminUser } } = await serviceClient.auth.admin.getUserById(admin.id);
+              if (adminUser?.email) adminEmails.push(adminUser.email);
+            }
+            if (adminEmails.length > 0) {
+              await sendCriticalThreatAlert({
+                target: validTarget,
+                threatCategory: aiData?.threat_category || 'Unknown',
+                riskScore: risk,
+                aiSummary: aiData?.ai_summary || 'Malicious target detected.',
+                recipients: adminEmails
+              });
+            }
+          }
+        }
+      }
     }
 
   } catch (err: any) {
@@ -449,6 +545,7 @@ export async function launchScan(target: string): Promise<{ error?: string }> {
     return { error: err?.message || 'Scan failed due to an unexpected error.' };
   }
 
+  await logAuditEvent({ action: 'scan_completed', resource_type: 'scan', resource_id: validTarget, details: { verdict: 'scanned natively' } });
   revalidatePath('/dashboard/scans');
   return {};
 }
@@ -483,6 +580,12 @@ export async function removeIntelIndicator(id: string) {
     throw new Error(error.message || 'Failed to remove indicator');
   }
 
+  await logAuditEvent({
+    action: 'intel_removed',
+    resource_type: 'intel',
+    resource_id: parsed.data.id
+  });
+
   revalidatePath('/dashboard/intel');
   revalidatePath('/dashboard/settings');
 }
@@ -514,6 +617,34 @@ export async function assignIncident(incidentId: string, assignToUserId: string)
     .eq('id', incidentId);
 
   if (error) return { error: error.message };
+  await logAuditEvent({
+    action: 'incident_assigned',
+    resource_type: 'incident',
+    resource_id: incidentId,
+    details: { assigned_to: assignToUserId }
+  });
+
+  // Fetch incident details to send email
+  const serviceClient = getServiceSupabase();
+  if (serviceClient) {
+    const { data: profile } = await serviceClient.from('profiles').select('notify_assignments').eq('id', assignToUserId).single();
+    if (profile?.notify_assignments) {
+      const { data: incident } = await supabase.from('incidents').select('title').eq('id', incidentId).single();
+      const { data: { user: assigneUser } } = await serviceClient.auth.admin.getUserById(assignToUserId);
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      const { data: currentProfile } = await supabase.from('profiles').select('display_name').eq('id', currentUser?.id || '').single();
+      
+      if (assigneUser?.email && incident) {
+        await sendIncidentAssignmentEmail({
+          incidentId,
+          incidentTitle: incident.title,
+          assignerName: currentProfile?.display_name || currentUser?.email || 'A Manager',
+          recipientEmail: assigneUser.email
+        });
+      }
+    }
+  }
+
   revalidatePath('/dashboard/incidents');
   return { success: true };
 }
@@ -560,6 +691,13 @@ export async function updateUserRole(userId: string, newRole: UserRole) {
     .eq('id', userId);
 
   if (error) return { error: error.message };
+  await logAuditEvent({
+    action: 'user_role_changed',
+    resource_type: 'user',
+    resource_id: userId,
+    details: { new_role: newRole }
+  });
+
   revalidatePath('/dashboard/admin');
   return { success: true };
 }
@@ -582,6 +720,13 @@ export async function toggleUserStatus(userId: string, isActive: boolean) {
     .eq('id', userId);
 
   if (error) return { error: error.message };
+  await logAuditEvent({
+    action: 'user_status_changed',
+    resource_type: 'user',
+    resource_id: userId,
+    details: { is_active: isActive }
+  });
+
   revalidatePath('/dashboard/admin');
   return { success: true };
 }
@@ -613,7 +758,63 @@ export async function inviteOrgUser(email: string, roleAssignment: UserRole) {
     }
   }
 
+  await logAuditEvent({
+    action: 'user_invited',
+    resource_type: 'user',
+    resource_id: email,
+    details: { role: roleAssignment }
+  });
+
   revalidatePath('/dashboard/admin');
   return { success: true };
 }
 
+// ── Weekly Digest Trigger ───────────────────────────────────────────
+
+export async function triggerWeeklyDigest() {
+  const role = await getServerRole();
+  if (!role || !canManageUsers(role)) {
+    return { error: 'Unauthorized' };
+  }
+
+  const supabase = await createClient();
+  const serviceClient = getServiceSupabase();
+  if (!serviceClient) return { error: 'Service client not configured' };
+
+  // Gather stats
+  const { count: totalScans } = await supabase.from('scans').select('*', { count: 'exact', head: true });
+  const { count: maliciousFound } = await supabase.from('scans').select('*', { count: 'exact', head: true }).eq('verdict', 'malicious');
+  const { count: openIncidents } = await supabase.from('incidents').select('*', { count: 'exact', head: true }).neq('status', 'Resolved (Last 7 Days)');
+
+  // Get users who want the digest
+  const { data: subscribers } = await serviceClient.from('profiles')
+    .select('id')
+    .eq('notify_digest', true)
+    .eq('is_active', true);
+
+  if (!subscribers || subscribers.length === 0) return { success: true, message: 'No subscribers for weekly digest.' };
+
+  const emails: string[] = [];
+  for (const sub of subscribers) {
+    const { data: { user } } = await serviceClient.auth.admin.getUserById(sub.id);
+    if (user?.email) emails.push(user.email);
+  }
+
+  if (emails.length > 0) {
+    await sendWeeklyDigest({
+      totalScans: totalScans || 0,
+      maliciousFound: maliciousFound || 0,
+      openIncidents: openIncidents || 0,
+      recipients: emails
+    });
+  }
+
+  await logAuditEvent({
+    action: 'profile_updated', // Generic action for now
+    resource_type: 'system',
+    resource_id: 'weekly_digest',
+    details: { sent_to_count: emails.length }
+  });
+
+  return { success: true, sentCount: emails.length };
+}

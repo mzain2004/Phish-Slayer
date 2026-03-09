@@ -17,6 +17,8 @@ import {
   HelpCircle,
   Activity,
   Users as UsersIcon,
+  ClipboardList,
+  Key,
 } from "lucide-react";
 import { ROLE_COLORS, ROLE_LABELS, type UserRole } from "@/lib/rbac/roles";
 
@@ -93,11 +95,16 @@ export default function DashboardLayout({
     ...(isSuperAdmin
       ? [{ name: "User Management", href: "/dashboard/admin", icon: UsersIcon }]
       : []),
+    ...(isManagerOrAdmin
+      ? [{ name: "Audit Log", href: "/dashboard/audit", icon: ClipboardList }]
+      : []),
+    ...(role !== "viewer"
+      ? [{ name: "API Keys", href: "/dashboard/apikeys", icon: Key }]
+      : []),
   ];
 
   const isCurrentPath = (path: string) => pathname === path;
 
-  // Fallback for avatar: first letter of display name or email
   const getInitials = () => {
     if (profile?.display_name)
       return profile.display_name.charAt(0).toUpperCase();
@@ -105,7 +112,9 @@ export default function DashboardLayout({
     return "?";
   };
 
-  const displayName = profile?.display_name || profile?.email || "User";
+  const displayName =
+    profile?.display_name ||
+    (profile?.email ? profile.email.split("@")[0] : "User");
   const truncatedName =
     displayName.length > 20
       ? displayName.substring(0, 20) + "..."
