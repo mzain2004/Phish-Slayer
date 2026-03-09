@@ -601,7 +601,9 @@ function getServiceSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) return null;
-  return createServiceClient(url, key);
+  return createServiceClient(url, key, {
+    auth: { autoRefreshToken: false, persistSession: false }
+  });
 }
 
 export async function assignIncident(incidentId: string, assignToUserId: string) {
@@ -653,36 +655,35 @@ export async function getOrgUsers() {
   try {
     const role = await getServerRole();
     if (!role || !canManageUsers(role)) {
-      throw new Error('Unauthorized');
+      return { users: [], error: 'Unauthorized' };
     }
 
-    const serviceClient = getServiceSupabase();
-    if (!serviceClient) throw new Error('Service role key not configured.');
+    const supabaseAdmin = getServiceSupabase();
+    if (!supabaseAdmin) return { users: [], error: 'Service role key not configured.' };
 
-    const { data: authData, error: authError } = await serviceClient.auth.admin.listUsers();
-    if (authError) throw new Error(authError.message);
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.listUsers();
+    if (authError) return { users: [], error: authError.message };
 
-    const supabase = await createClient();
-    const { data: profileData, error: profileError } = await supabase
+    const { data: profiles, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select('id, display_name, role, department, is_active, updated_at');
-    
-    if (profileError) throw new Error(profileError.message);
+      .select('id, role, display_name, department, is_active, updated_at');
 
-    const users = authData.users.map((authU) => {
-      const prof = profileData?.find((p) => p.id === authU.id) || ({} as any);
+    if (profileError) return { users: [], error: profileError.message };
+
+    const merged = authData.users.map((u) => {
+      const profile = profiles?.find((p) => p.id === u.id);
       return {
-        id: authU.id,
-        display_name: prof.display_name || 'Unknown User',
-        email: authU.email,
-        role: prof.role || 'analyst',
-        department: prof.department || '',
-        is_active: prof.is_active ?? true,
-        last_active: prof.updated_at || authU.last_sign_in_at || authU.created_at,
+        id: u.id,
+        email: u.email,
+        display_name: profile?.display_name || u.email?.split('@')[0] || 'Unknown User',
+        role: profile?.role || 'analyst',
+        department: profile?.department || '—',
+        is_active: profile?.is_active ?? true,
+        last_active: u.last_sign_in_at,
       };
     });
 
-    return { users };
+    return { users: merged, error: null };
   } catch (err: any) {
     return { users: [], error: err.message || 'Failed to fetch users' };
   }
