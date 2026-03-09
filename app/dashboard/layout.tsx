@@ -70,6 +70,11 @@ export default function DashboardLayout({
       }
     };
     fetchProfile();
+
+    const handleProfileUpdate = () => fetchProfile();
+    window.addEventListener("profile-updated", handleProfileUpdate);
+    return () =>
+      window.removeEventListener("profile-updated", handleProfileUpdate);
   }, []);
 
   const role = profile?.role;

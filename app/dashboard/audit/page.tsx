@@ -17,11 +17,12 @@ import {
 } from "lucide-react";
 
 export default function AuditLogPage() {
-  const { role, loading: isLoaded } = useRole();
+  const { role, loading: roleLoading } = useRole();
   const supabase = createClient();
 
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   // Filters
   const [searchTerm, setSearchTerm] = useState("");
@@ -33,43 +34,61 @@ export default function AuditLogPage() {
   const pageSize = 20;
 
   useEffect(() => {
-    if (!isLoaded) return;
+    if (roleLoading) return;
     if (role !== "super_admin" && role !== "manager") {
       setLoading(false);
       return;
     }
     fetchLogs();
-  }, [isLoaded, role, page, actionFilter, searchTerm]);
+
+    // 10 second timeout fallback
+    const timeout = setTimeout(() => {
+      setLoading((prev) => {
+        if (prev) setFetchError("Request timed out. Please refresh the page.");
+        return false;
+      });
+    }, 10000);
+    return () => clearTimeout(timeout);
+  }, [roleLoading, role, page, actionFilter, searchTerm]);
 
   const fetchLogs = async () => {
     setLoading(true);
-    let query = supabase.from("audit_log").select("*", { count: "exact" });
+    setFetchError(null);
+    try {
+      let query = supabase.from("audit_log").select("*", { count: "exact" });
 
-    if (actionFilter !== "all") {
-      query = query.eq("action", actionFilter);
+      if (actionFilter !== "all") {
+        query = query.eq("action", actionFilter);
+      }
+
+      if (searchTerm) {
+        query = query.or(
+          `user_email.ilike.%${searchTerm}%,action.ilike.%${searchTerm}%,resource_id.ilike.%${searchTerm}%`,
+        );
+      }
+
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+
+      query = query.order("created_at", { ascending: false }).range(from, to);
+
+      const { data, count, error } = await query;
+      if (error) {
+        console.error("Audit log fetch error:", error);
+        setFetchError(error.message);
+      } else {
+        setLogs(data || []);
+        if (count !== null) setTotalCount(count);
+      }
+    } catch (err: any) {
+      console.error("Audit log fetch exception:", err);
+      setFetchError(err.message || "Failed to load audit logs");
+    } finally {
+      setLoading(false);
     }
-
-    if (searchTerm) {
-      // Basic search on email or action or resource id
-      query = query.or(
-        `user_email.ilike.%${searchTerm}%,action.ilike.%${searchTerm}%,resource_id.ilike.%${searchTerm}%`,
-      );
-    }
-
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
-
-    query = query.order("created_at", { ascending: false }).range(from, to);
-
-    const { data, count, error } = await query;
-    if (!error && data) {
-      setLogs(data);
-      if (count !== null) setTotalCount(count);
-    }
-    setLoading(false);
   };
 
-  if (!isLoaded) {
+  if (roleLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
@@ -187,6 +206,17 @@ export default function AuditLogPage() {
                     Loading audit trails...
                   </td>
                 </tr>
+              ) : fetchError ? (
+                <tr>
+                  <td
+                    colSpan={4}
+                    className="px-6 py-12 text-center text-red-500"
+                  >
+                    <Shield className="w-8 h-8 mx-auto mb-2 text-red-300" />
+                    <p className="font-semibold">Failed to load audit logs</p>
+                    <p className="text-sm text-slate-500 mt-1">{fetchError}</p>
+                  </td>
+                </tr>
               ) : logs.length === 0 ? (
                 <tr>
                   <td
@@ -194,7 +224,13 @@ export default function AuditLogPage() {
                     className="px-6 py-12 text-center text-slate-500"
                   >
                     <Activity className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-                    No audit records found.
+                    <p className="font-semibold">
+                      No audit events recorded yet
+                    </p>
+                    <p className="text-sm mt-1">
+                      Events will appear here as users perform actions in the
+                      dashboard.
+                    </p>
                   </td>
                 </tr>
               ) : (

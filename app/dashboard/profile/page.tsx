@@ -131,6 +131,7 @@ export default function UserProfilePage() {
         toast.error(result.error);
       } else {
         toast.success("Profile information synchronized.");
+        window.dispatchEvent(new Event("profile-updated"));
       }
     });
   };
