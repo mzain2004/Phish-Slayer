@@ -1,7 +1,7 @@
 import Stripe from 'stripe'
 
 export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? '', {
-  apiVersion: '2023-10-16', // Ensure you test with this verison
+  apiVersion: '2026-02-25.clover',
   appInfo: {
     name: 'Phish-Slayer',
     version: '0.1.0'

@@ -26,7 +26,7 @@ export async function scanIoc(input: string) {
     // 1. Validate Input
     const { success, data, error: validationError } = scanIocSchema.safeParse({ ioc: input });
     if (!success) {
-      throw new Error(`Validation failed: ${validationError.errors.map(e => e.message).join(', ')}`);
+      throw new Error(`Validation failed: ${validationError.issues.map(e => e.message).join(', ')}`);
     }
     
     const target = data.ioc;

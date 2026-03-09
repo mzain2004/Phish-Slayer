@@ -72,7 +72,7 @@ const addToWhitelistSchema = z.object({
 const launchScanSchema = z.object({
   target: z.string().trim().min(3).refine((val) => {
     const isIp = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(val);
-    const isDomain = /^[a-zA-Z0-9][a-zA-Z0-9-]{1,61}[a-zA-Z0-9](?:\.[a-zA-Z]{2,})+$/.test(val);
+    const isDomain = /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/.test(val);
     return isIp || isDomain;
   }, { message: "Invalid target format detected. Must be an IP address or domain." })
 });
@@ -306,8 +306,15 @@ export async function removeFromWhitelist(id: string) {
 }
 
 export async function launchScan(target: string): Promise<{ error?: string }> {
+  // URL normalization — strip protocol, www, trailing slashes, path
+  let normalizedTarget = target.trim();
+  normalizedTarget = normalizedTarget.replace(/^https?:\/\//i, '');
+  normalizedTarget = normalizedTarget.replace(/^www\./i, '');
+  normalizedTarget = normalizedTarget.replace(/\/+$/, '');
+  normalizedTarget = normalizedTarget.split('/')[0];
+
   // Validate armor
-  const parsed = launchScanSchema.safeParse({ target });
+  const parsed = launchScanSchema.safeParse({ target: normalizedTarget });
   if (!parsed.success) {
     const errorMessage = parsed.error.issues?.[0]?.message || 'Invalid target format detected.';
     return { error: errorMessage };

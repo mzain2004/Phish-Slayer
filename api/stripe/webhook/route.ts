@@ -116,7 +116,7 @@ export async function POST(req: Request) {
   } catch (error: any) {
     console.error('Webhook processing error:', error);
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Invalid checkout metadata', details: error.errors }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid checkout metadata', details: error.issues }, { status: 400 });
     }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
