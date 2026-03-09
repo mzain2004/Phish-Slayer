@@ -15,9 +15,10 @@ jobs:
           username: ${{ secrets.VM_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd /home/mzain2004/Phish-Slayer
-            git pull origin main
-            npm install --no-audit --no-fund
-            npm run build
-            pm2 restart phish-slayer --update-env
-            pm2 save
+                   cd /home/mzain2004/Phish-Slayer
+                   git fetch origin main
+                   git reset --hard origin/main
+                   npm install --no-audit --no-fund
+                   npm run build
+                   pm2 restart phish-slayer --update-env
+                   pm2 save
