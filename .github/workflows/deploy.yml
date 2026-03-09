@@ -1,0 +1,24 @@
+ 
+name: Deploy to Phish-Slayer Production
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Azure VM
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /home/mzain2004/Phish-Slayer
+            git pull origin main
+            npm ci
+            npm run build
+            pm2 restart phish-slayer --update-env
+            pm2 save
