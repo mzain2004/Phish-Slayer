@@ -12,6 +12,7 @@ import {
   ShieldAlert,
   AlertTriangle,
   Monitor,
+  Send,
 } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -48,6 +49,9 @@ export default function PlatformSettingsPage() {
   const [loaded, setLoaded] = useState(false);
   const [isPending, startTransition] = useTransition();
   const { role } = useRole();
+  const [siemWebhookUrl, setSiemWebhookUrl] = useState("");
+  const [siemTesting, setSiemTesting] = useState(false);
+  const [siemSaving, setSiemSaving] = useState(false);
 
   const supabase = createClient();
 
@@ -60,6 +64,7 @@ export default function PlatformSettingsPage() {
           setNotifyAssignments(user.notifyAssignments ?? true);
           setNotifyDigest(user.notifyDigest ?? false);
           setApiKey(user.apiKey || null);
+          setSiemWebhookUrl((user as any).siem_webhook_url || "");
         }
       }),
       supabase.auth.getSession().then(({ data }) => {
@@ -441,7 +446,119 @@ export default function PlatformSettingsPage() {
             </div>
           </div>
 
-          {/* Section 4: Danger Zone */}
+          {/* Section 4: SIEM Integration */}
+          {(role === "super_admin" || role === "manager") && (
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-slate-100">
+              <div className="p-6 md:p-8 md:w-1/3 shrink-0">
+                <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+                  <Send className="w-5 h-5 text-teal-600" /> SIEM Integration
+                </h3>
+                <p className="text-sm text-slate-500 mt-2">
+                  Configure your SIEM endpoint to receive threat data in STIX
+                  2.1 + Native JSON format. Compatible with Splunk, Elastic
+                  SIEM, Microsoft Sentinel, and any webhook receiver.
+                </p>
+              </div>
+              <div className="p-6 md:p-8 flex-1 flex flex-col justify-center">
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-1.5">
+                      Webhook URL (HTTPS only)
+                    </label>
+                    <input
+                      type="url"
+                      value={siemWebhookUrl}
+                      onChange={(e) => setSiemWebhookUrl(e.target.value)}
+                      placeholder="https://your-siem.example.com/webhook"
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-900 font-mono focus:ring-2 focus:ring-teal-500"
+                    />
+                    {siemWebhookUrl &&
+                      !siemWebhookUrl.startsWith("https://") && (
+                        <p className="text-xs text-red-500 mt-1">
+                          Webhook URL must use HTTPS
+                        </p>
+                      )}
+                  </div>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={async () => {
+                        if (!siemWebhookUrl.startsWith("https://")) {
+                          toast.error("Webhook must use HTTPS");
+                          return;
+                        }
+                        setSiemTesting(true);
+                        try {
+                          const res = await fetch(siemWebhookUrl, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              test: true,
+                              source: "phish-slayer",
+                              timestamp: new Date().toISOString(),
+                            }),
+                          });
+                          if (res.ok) toast.success("Webhook test successful!");
+                          else toast.error(`Webhook returned ${res.status}`);
+                        } catch {
+                          toast.error("Failed to reach webhook endpoint");
+                        } finally {
+                          setSiemTesting(false);
+                        }
+                      }}
+                      disabled={siemTesting || !siemWebhookUrl}
+                      className="px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50"
+                    >
+                      {siemTesting ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        "Test Webhook"
+                      )}
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (
+                          siemWebhookUrl &&
+                          !siemWebhookUrl.startsWith("https://")
+                        ) {
+                          toast.error("Webhook must use HTTPS");
+                          return;
+                        }
+                        setSiemSaving(true);
+                        try {
+                          const {
+                            data: { user },
+                          } = await supabase.auth.getUser();
+                          if (!user) throw new Error("Not authenticated");
+                          const { error } = await supabase
+                            .from("profiles")
+                            .update({
+                              siem_webhook_url: siemWebhookUrl || null,
+                            })
+                            .eq("id", user.id);
+                          if (error) throw error;
+                          toast.success("SIEM webhook saved");
+                        } catch (err: any) {
+                          toast.error(err.message || "Failed to save");
+                        } finally {
+                          setSiemSaving(false);
+                        }
+                      }}
+                      disabled={siemSaving}
+                      className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-bold hover:bg-teal-700 transition-colors disabled:opacity-50"
+                    >
+                      {siemSaving ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        "Save Webhook"
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Section 5: Danger Zone */}
           <div className="border border-red-200 bg-red-50 rounded-xl p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
             <div>
               <h3 className="text-lg font-semibold text-red-700 flex items-center gap-2">

@@ -14,6 +14,8 @@ import {
   ImageOff,
   FileDown,
   ChevronDown,
+  Gavel,
+  Send,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -22,6 +24,7 @@ import {
   addToWhitelist,
 } from "@/lib/supabase/actions";
 import { useThreatStore } from "@/lib/stores/threatStore";
+import { useHeuristicStore } from "@/lib/stores/heuristicStore";
 import {
   WhoisPanel,
   GhostMailPanel,
@@ -29,6 +32,9 @@ import {
   TyposquatPanel,
   DomTreePanel,
 } from "./DeepScanPanels";
+import AIHeuristicsPanel from "./AIHeuristicsPanel";
+import PortPatrolPanel from "./PortPatrolPanel";
+import TakedownModal from "./TakedownModal";
 
 type ScanRecord = {
   id?: string;
@@ -50,6 +56,8 @@ const TABS = [
   { key: "ghostmail", label: "GHOST MAIL" },
   { key: "ssl", label: "SSL PROFILE" },
   { key: "typosquat", label: "TYPOSQUAT" },
+  { key: "ai-heuristics", label: "AI HEURISTICS" },
+  { key: "port-patrol", label: "PORT PATROL" },
 ] as const;
 
 export default function ThreatIntelligencePage() {
@@ -62,6 +70,9 @@ export default function ThreatIntelligencePage() {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [deepScanError, setDeepScanError] = useState<string | null>(null);
   const [selectorOpen, setSelectorOpen] = useState(false);
+  const [takedownOpen, setTakedownOpen] = useState(false);
+  const [siemPushing, setSiemPushing] = useState(false);
+  const heuristicStore = useHeuristicStore();
 
   const {
     activeTab,
@@ -526,6 +537,21 @@ export default function ThreatIntelligencePage() {
             <DomTreePanel data={deepScanData} loading={deepScanLoading} />
           </div>
         );
+      case "ai-heuristics":
+        return (
+          <div className="p-4 min-h-[400px]">
+            <AIHeuristicsPanel
+              target={scan?.target || ""}
+              existingRiskScore={riskScore}
+            />
+          </div>
+        );
+      case "port-patrol":
+        return (
+          <div className="p-4 min-h-[400px]">
+            <PortPatrolPanel target={scan?.target || ""} />
+          </div>
+        );
       default:
         return renderRenderedView();
     }
@@ -629,33 +655,41 @@ export default function ThreatIntelligencePage() {
                 </span>
               </div>
             </div>
-            <div className="flex items-center gap-3 w-full lg:w-auto mt-4 lg:mt-0">
+            <div className="flex items-center gap-2 w-full lg:w-auto mt-4 lg:mt-0 flex-wrap">
               <button
                 onClick={generatePDF}
-                className="flex-1 lg:flex-none flex items-center justify-center px-5 h-11 rounded-lg border border-teal-200 bg-teal-50 text-teal-700 font-bold text-sm hover:bg-teal-100 transition-all shadow-sm"
+                className="flex items-center justify-center px-4 h-10 rounded-lg border border-teal-200 bg-teal-50 text-teal-700 font-bold text-xs hover:bg-teal-100 transition-all shadow-sm"
               >
-                <FileDown className="w-5 h-5 mr-2" />
-                Executive Report
+                <FileDown className="w-4 h-4 mr-1.5" />
+                Report
+              </button>
+              <button
+                onClick={() => setTakedownOpen(true)}
+                disabled={!scan}
+                className="flex items-center justify-center px-4 h-10 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 font-bold text-xs hover:bg-indigo-100 transition-all shadow-sm disabled:opacity-50"
+              >
+                <Gavel className="w-4 h-4 mr-1.5" />
+                Takedown
               </button>
               <button
                 onClick={handleWhitelist}
                 disabled={isPendingAction || isWhitelisted}
-                className="flex-1 lg:flex-none flex items-center justify-center px-5 h-11 rounded-lg border border-slate-200 bg-white text-slate-700 font-bold text-sm hover:bg-slate-50 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center justify-center px-4 h-10 rounded-lg border border-slate-200 bg-white text-slate-700 font-bold text-xs hover:bg-slate-50 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <CheckCircle2
-                  className={`w-5 h-5 mr-2 ${isWhitelisted ? "text-emerald-500" : ""}`}
+                  className={`w-4 h-4 mr-1.5 ${isWhitelisted ? "text-emerald-500" : ""}`}
                 />
                 {isWhitelisted ? "Whitelisted" : "Whitelist"}
               </button>
               <button
                 onClick={handleTakeAction}
                 disabled={isPendingAction}
-                className="flex-1 lg:flex-none flex items-center justify-center px-8 h-11 rounded-lg bg-gradient-to-r from-teal-400 to-blue-500 hover:from-teal-500 hover:to-blue-600 text-white font-black text-sm transition-all shadow-lg hover:shadow-cyan-500/25 border-none disabled:opacity-50"
+                className="flex items-center justify-center px-6 h-10 rounded-lg bg-gradient-to-r from-teal-400 to-blue-500 hover:from-teal-500 hover:to-blue-600 text-white font-black text-xs transition-all shadow-lg hover:shadow-cyan-500/25 border-none disabled:opacity-50"
               >
                 {isPendingAction ? (
-                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                  <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
                 ) : (
-                  <Ban className="w-5 h-5 mr-2 font-bold" />
+                  <Ban className="w-4 h-4 mr-1.5 font-bold" />
                 )}
                 TAKE ACTION
               </button>
@@ -888,6 +922,30 @@ export default function ThreatIntelligencePage() {
           __html: `@keyframes scan { 0% { top: 0; opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { top: 100%; opacity: 0; } }`,
         }}
       />
+      {/* Takedown Modal */}
+      {scan && (
+        <TakedownModal
+          isOpen={takedownOpen}
+          onClose={() => setTakedownOpen(false)}
+          target={scan.target}
+          registrarAbuseEmail={
+            (deepScanData?.whois as any)?.abuse_email ||
+            (deepScanData?.whois as any)?.registrar_abuse_email ||
+            null
+          }
+          resolvedIp={(deepScanData?.dns as any)?.a_records?.[0] || null}
+          riskScore={riskScore}
+          aiScore={
+            heuristicStore.getResult(scan.target)?.heuristicScore ?? null
+          }
+          hasSSL={!!(deepScanData?.ssl as any)?.valid}
+          threatCategory={threatTag}
+          openPorts={[]}
+          manipulationTactics={
+            heuristicStore.getResult(scan.target)?.manipulationTactics || []
+          }
+        />
+      )}
     </div>
   );
 }

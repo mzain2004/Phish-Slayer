@@ -21,7 +21,10 @@ export type AuditAction =
   | 'login'
   | 'logout'
   | 'profile_updated'
-  | 'deep_scan_triggered';
+  | 'deep_scan_triggered'
+  | 'ai_heuristic_analysis'
+  | 'port_patrol_scan'
+  | 'siem_push';
 
 export interface AuditEntry {
   action: AuditAction;

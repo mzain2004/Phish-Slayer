@@ -1,0 +1,327 @@
+"use client";
+
+import { useState } from "react";
+import { useHeuristicStore } from "@/lib/stores/heuristicStore";
+import { useThreatStore } from "@/lib/stores/threatStore";
+import {
+  Brain,
+  Loader2,
+  ShieldCheck,
+  ShieldAlert,
+  AlertTriangle,
+  Eye,
+  Lock,
+  RefreshCw,
+  Sparkles,
+} from "lucide-react";
+import { toast } from "sonner";
+
+interface AIHeuristicsPanelProps {
+  target: string;
+  existingRiskScore: number;
+}
+
+export default function AIHeuristicsPanel({
+  target,
+  existingRiskScore,
+}: AIHeuristicsPanelProps) {
+  const {
+    getResult,
+    setResult,
+    loading,
+    setLoading,
+    errors,
+    setError,
+    clearError,
+  } = useHeuristicStore();
+  const { deepScanData } = useThreatStore();
+  const result = getResult(target);
+  const isLoading = loading[target] || false;
+  const error = errors[target] || null;
+
+  const runAnalysis = async () => {
+    if (!target) return;
+    clearError(target);
+    setLoading(target, true);
+
+    try {
+      // Get DOM text from deep scan data
+      let domText = "";
+      if (deepScanData?.domTree) {
+        const dt = deepScanData.domTree as any;
+        domText =
+          dt.textContent || dt.bodyText || dt.rawHtml?.slice(0, 50000) || "";
+      }
+
+      if (!domText || domText.length < 10) {
+        domText = `Target domain: ${target}. No DOM text available — analyze based on domain name patterns and known threat intelligence.`;
+      }
+
+      const res = await fetch("/api/threat/ai-analysis", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ domText, target, existingRiskScore }),
+      });
+
+      if (!res.ok) {
+        const err = await res
+          .json()
+          .catch(() => ({ error: "Analysis failed" }));
+        throw new Error(err.error || "Analysis failed");
+      }
+
+      const data = await res.json();
+      setResult(target, data);
+      toast.success("AI heuristic analysis complete");
+    } catch (err: any) {
+      setError(target, err.message || "Analysis failed");
+      toast.error(err.message || "AI analysis failed");
+    } finally {
+      setLoading(target, false);
+    }
+  };
+
+  const scoreColor = (score: number) => {
+    if (score <= 3) return "text-emerald-600 bg-emerald-50 border-emerald-200";
+    if (score <= 7) return "text-amber-600 bg-amber-50 border-amber-200";
+    return "text-red-600 bg-red-50 border-red-200";
+  };
+
+  const riskColor = (score: number) => {
+    if (score <= 30) return "text-emerald-600 bg-emerald-50 border-emerald-200";
+    if (score <= 70) return "text-amber-600 bg-amber-50 border-amber-200";
+    return "text-red-600 bg-red-50 border-red-200";
+  };
+
+  const confBadge = (c: string) => {
+    switch (c) {
+      case "high":
+        return "bg-red-100 text-red-700 border-red-300";
+      case "medium":
+        return "bg-amber-100 text-amber-700 border-amber-300";
+      default:
+        return "bg-slate-100 text-slate-600 border-slate-300";
+    }
+  };
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-4">
+        <div className="relative">
+          <div className="w-16 h-16 rounded-full bg-violet-100 flex items-center justify-center animate-pulse">
+            <Brain className="w-8 h-8 text-violet-600" />
+          </div>
+          <Loader2 className="absolute -top-1 -right-1 w-5 h-5 text-violet-600 animate-spin" />
+        </div>
+        <p className="text-sm font-semibold text-slate-700">
+          Gemini is analyzing page content...
+        </p>
+        <p className="text-xs text-slate-400">
+          Scanning for manipulation tactics, credential harvesting, and
+          deceptive patterns
+        </p>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 gap-4">
+        <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center">
+          <AlertTriangle className="w-7 h-7 text-red-500" />
+        </div>
+        <p className="text-sm font-semibold text-red-600">{error}</p>
+        <button
+          onClick={runAnalysis}
+          className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 transition-colors"
+        >
+          <RefreshCw className="w-3.5 h-3.5" />
+          Retry Analysis
+        </button>
+      </div>
+    );
+  }
+
+  // Not yet analyzed state
+  if (!result) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-5">
+        <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-violet-100 to-purple-100 flex items-center justify-center shadow-sm">
+          <Brain className="w-10 h-10 text-violet-600" />
+        </div>
+        <div className="text-center">
+          <h3 className="text-lg font-bold text-slate-900">
+            AI Heuristics Engine
+          </h3>
+          <p className="text-sm text-slate-500 mt-1 max-w-xs">
+            Deep behavioral analysis of page content using Gemini AI
+          </p>
+        </div>
+        <button
+          onClick={runAnalysis}
+          className="flex items-center gap-2 px-6 py-3 bg-violet-600 text-white font-bold text-sm rounded-xl hover:bg-violet-700 transition-all shadow-lg shadow-violet-200 hover:shadow-violet-300 hover:-translate-y-0.5"
+        >
+          <Sparkles className="w-4 h-4" />
+          Run AI Analysis
+        </button>
+      </div>
+    );
+  }
+
+  // Results view
+  return (
+    <div className="space-y-5 p-1">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Brain className="w-5 h-5 text-violet-600" />
+          <h3 className="text-base font-bold text-slate-900">
+            AI Heuristics Engine
+          </h3>
+          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 bg-violet-100 text-violet-700 rounded-full">
+            Powered by Gemini
+          </span>
+        </div>
+        <button
+          onClick={runAnalysis}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-violet-600 bg-violet-50 rounded-lg hover:bg-violet-100 border border-violet-200 transition-colors"
+        >
+          <RefreshCw className="w-3 h-3" />
+          Re-analyze
+        </button>
+      </div>
+
+      {/* Metric cards */}
+      <div className="grid grid-cols-3 gap-3">
+        <div
+          className={`rounded-xl border p-4 ${scoreColor(result.heuristicScore)}`}
+        >
+          <p className="text-[10px] font-bold uppercase tracking-wider opacity-70">
+            Heuristic Score
+          </p>
+          <p className="text-3xl font-black mt-1">
+            {result.heuristicScore}
+            <span className="text-lg">/10</span>
+          </p>
+        </div>
+        <div
+          className={`rounded-xl border p-4 ${riskColor(result.combinedRiskScore)}`}
+        >
+          <p className="text-[10px] font-bold uppercase tracking-wider opacity-70">
+            Combined Risk
+          </p>
+          <p className="text-3xl font-black mt-1">
+            {result.combinedRiskScore}
+            <span className="text-lg">/100</span>
+          </p>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            Confidence
+          </p>
+          <div className="mt-2">
+            <span
+              className={`text-xs font-black uppercase px-2.5 py-1 rounded-full border ${confBadge(result.confidence)}`}
+            >
+              {result.confidence}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Manipulation Tactics */}
+      <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Eye className="w-4 h-4 text-orange-500" />
+          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+            Manipulation Tactics
+          </h4>
+        </div>
+        {result.manipulationTactics.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {result.manipulationTactics.map((t, i) => (
+              <span
+                key={i}
+                className="text-xs font-semibold px-2.5 py-1 bg-orange-50 text-orange-700 border border-orange-200 rounded-full"
+              >
+                ⚠️ {t}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-emerald-600 font-medium">
+            ✓ No manipulation tactics detected
+          </p>
+        )}
+      </div>
+
+      {/* Credential Harvesting */}
+      <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Lock className="w-4 h-4 text-red-500" />
+          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+            Credential Harvesting Signals
+          </h4>
+        </div>
+        {result.credentialHarvestingSignals.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {result.credentialHarvestingSignals.map((s, i) => (
+              <span
+                key={i}
+                className="text-xs font-semibold px-2.5 py-1 bg-red-50 text-red-700 border border-red-200 rounded-full"
+              >
+                🔴 {s}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-emerald-600 font-medium">
+            ✓ No credential harvesting signals detected
+          </p>
+        )}
+      </div>
+
+      {/* Key Indicators */}
+      <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <ShieldAlert className="w-4 h-4 text-slate-500" />
+          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+            Key Indicators
+          </h4>
+        </div>
+        {result.indicators.length > 0 ? (
+          <ul className="space-y-1.5">
+            {result.indicators.map((ind, i) => (
+              <li
+                key={i}
+                className="flex items-start gap-2 text-sm text-slate-700"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-slate-400 mt-0.5 shrink-0" />
+                {ind}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-emerald-600 font-medium">
+            ✓ No suspicious indicators found
+          </p>
+        )}
+      </div>
+
+      {/* AI Summary */}
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+          AI Threat Summary
+        </h4>
+        <p className="text-sm text-slate-700 leading-relaxed">
+          {result.summary}
+        </p>
+        <p className="text-[10px] text-slate-400 mt-3">
+          Analyzed at: {new Date(result.analyzedAt).toLocaleString()}
+        </p>
+      </div>
+    </div>
+  );
+}

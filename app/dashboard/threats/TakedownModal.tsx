@@ -1,0 +1,239 @@
+"use client";
+
+import { useState } from "react";
+import { X, Copy, Mail, ExternalLink, CheckCircle2, Gavel } from "lucide-react";
+import { toast } from "sonner";
+
+interface TakedownModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  target: string;
+  registrarAbuseEmail: string | null;
+  resolvedIp: string | null;
+  riskScore: number;
+  aiScore: number | null;
+  hasSSL: boolean;
+  threatCategory: string;
+  openPorts: number[];
+  manipulationTactics: string[];
+}
+
+export default function TakedownModal({
+  isOpen,
+  onClose,
+  target,
+  registrarAbuseEmail,
+  resolvedIp,
+  riskScore,
+  aiScore,
+  hasSSL,
+  threatCategory,
+  openPorts,
+  manipulationTactics,
+}: TakedownModalProps) {
+  const defaultRecipient = registrarAbuseEmail || "";
+  const [recipient, setRecipient] = useState(defaultRecipient);
+  const [copied, setCopied] = useState(false);
+
+  const subject = `Abuse Report: Phishing/Malware Infrastructure — ${target}`;
+
+  const tactics =
+    manipulationTactics.length > 0
+      ? manipulationTactics.map((t) => `• ${t}`).join("\n")
+      : "• Suspicious content detected";
+
+  const body = `To Whom It May Concern,
+
+I am writing to report a confirmed phishing/malware threat hosted at the following domain/IP address under your management:
+
+THREAT DETAILS
+─────────────────────────────────
+Target:           ${target}
+Resolved IP:      ${resolvedIp || "See scan report"}
+Risk Score:       ${riskScore}/100
+AI Heuristic:     ${aiScore !== null ? `${aiScore}/10` : "Not analyzed"}
+Threat Category:  ${threatCategory}
+SSL Certificate:  ${hasSSL ? "Present" : "⚠️ MISSING — Likely Phishing"}
+Open Risk Ports:  ${openPorts.length > 0 ? openPorts.join(", ") : "None detected"}
+Detection Date:   ${new Date().toUTCString()}
+
+BEHAVIORAL INDICATORS
+─────────────────────────────────
+${tactics}
+
+REQUESTED ACTION
+─────────────────────────────────
+We request the immediate suspension of this domain/IP and investigation of the hosting account. This threat was identified by automated cybersecurity tooling and verified by AI analysis.
+
+Supporting evidence and full scan reports are available upon request.
+
+Reported via Phish-Slayer Threat Intelligence Platform`;
+
+  const [editableBody, setEditableBody] = useState(body);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(
+        `To: ${recipient}\nSubject: ${subject}\n\n${editableBody}`,
+      );
+      setCopied(true);
+      toast.success("Copied to clipboard");
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error("Failed to copy");
+    }
+  };
+
+  const handleMailto = () => {
+    const mailtoUrl = `mailto:${encodeURIComponent(recipient)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(editableBody)}`;
+    window.open(mailtoUrl, "_blank");
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto mx-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between p-5 border-b border-slate-200">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center">
+              <Gavel className="w-5 h-5 text-indigo-600" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">
+                Takedown Request Generator
+              </h2>
+              <p className="text-xs text-slate-500">
+                Auto-generated abuse report for{" "}
+                <span className="font-mono font-bold">{target}</span>
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+          >
+            <X className="w-5 h-5 text-slate-400" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="p-5 space-y-4">
+          {/* Recipient */}
+          <div>
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-1.5">
+              Recipient (Registrar Abuse Email)
+            </label>
+            <input
+              type="email"
+              value={recipient}
+              onChange={(e) => setRecipient(e.target.value)}
+              placeholder="abuse@registrar.com"
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 font-mono"
+            />
+            {!registrarAbuseEmail && (
+              <p className="text-xs text-amber-600 mt-1">
+                ⚠️ Registrar abuse email not found in WHOIS. Try abuse@
+                {target.split(".").slice(-2).join(".")}
+              </p>
+            )}
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              <span className="text-[10px] text-slate-400">
+                Also report to:
+              </span>
+              <button
+                onClick={() => setRecipient("reportphishing@google.com")}
+                className="text-[10px] text-indigo-600 hover:underline font-mono"
+              >
+                reportphishing@google.com
+              </button>
+              <button
+                onClick={() => setRecipient("phishing-report@us-cert.gov")}
+                className="text-[10px] text-indigo-600 hover:underline font-mono"
+              >
+                phishing-report@us-cert.gov
+              </button>
+            </div>
+          </div>
+
+          {/* Subject */}
+          <div>
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-1.5">
+              Subject
+            </label>
+            <input
+              type="text"
+              value={subject}
+              readOnly
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-900 bg-slate-50 font-mono"
+            />
+          </div>
+
+          {/* Email body */}
+          <div>
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-1.5">
+              Email Body
+            </label>
+            <textarea
+              value={editableBody}
+              onChange={(e) => setEditableBody(e.target.value)}
+              rows={14}
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-800 font-mono leading-relaxed focus:ring-2 focus:ring-indigo-500 resize-y"
+            />
+          </div>
+        </div>
+
+        {/* Action buttons */}
+        <div className="flex flex-wrap gap-2 p-5 border-t border-slate-200 bg-slate-50 rounded-b-2xl">
+          <button
+            onClick={handleCopy}
+            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-colors"
+          >
+            {copied ? (
+              <CheckCircle2 className="w-3.5 h-3.5" />
+            ) : (
+              <Copy className="w-3.5 h-3.5" />
+            )}
+            {copied ? "Copied!" : "Copy to Clipboard"}
+          </button>
+          <button
+            onClick={handleMailto}
+            className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white text-xs font-bold rounded-lg hover:bg-slate-800 transition-colors"
+          >
+            <Mail className="w-3.5 h-3.5" />
+            Open in Mail Client
+          </button>
+          <a
+            href="https://safebrowsing.google.com/safebrowsing/report_phish/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 text-slate-700 text-xs font-bold rounded-lg hover:bg-white transition-colors"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            Google Safe Browsing
+          </a>
+          <a
+            href="https://www.phishtank.com/add_web_phish.php"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 text-slate-700 text-xs font-bold rounded-lg hover:bg-white transition-colors"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            PhishTank
+          </a>
+        </div>
+
+        <p className="text-[10px] text-center text-slate-400 pb-3">
+          This report is auto-generated. Review before sending.
+        </p>
+      </div>
+    </div>
+  );
+}
