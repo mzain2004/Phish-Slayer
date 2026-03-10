@@ -165,7 +165,7 @@ export default function UserProfilePage() {
   if (!loaded) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
+        <Loader2 className="w-8 h-8 animate-spin text-teal-500" />
       </div>
     );
   }
@@ -173,14 +173,14 @@ export default function UserProfilePage() {
   const displayAvatar = previewImage || avatarUrl;
 
   return (
-    <div className="bg-transparent font-sans text-slate-900 min-h-screen w-full">
+    <div className="bg-[#0a0f1e] text-white font-sans min-h-screen w-full">
       {/* Scrollable Content Area */}
-      <div className="w-full max-w-5xl mx-auto space-y-8 pb-12">
+      <div className="w-full max-w-5xl mx-auto space-y-8 pb-12 p-6 md:p-10">
         {/* Profile Header */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-2 border-b border-slate-200">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-2 border-b border-slate-800">
           <div className="flex items-center gap-6">
             <div className="relative group">
-              <div className="w-24 h-24 rounded-full bg-teal-50 border-4 border-white shadow-sm flex items-center justify-center text-teal-600 overflow-hidden relative">
+              <div className="w-24 h-24 rounded-full bg-slate-900 border-4 border-slate-800 shadow-sm flex items-center justify-center overflow-hidden relative">
                 {displayAvatar ? (
                   <img
                     src={displayAvatar}
@@ -188,7 +188,7 @@ export default function UserProfilePage() {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <span className="text-3xl font-bold text-teal-600">
+                  <span className="text-3xl font-bold text-teal-400">
                     {getInitials()}
                   </span>
                 )}
@@ -198,7 +198,7 @@ export default function UserProfilePage() {
                   </div>
                 )}
               </div>
-              <label className="absolute bottom-0 right-0 w-8 h-8 bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-600 hover:text-teal-600 shadow-sm hover:shadow-md transition-all cursor-pointer">
+              <label className="absolute bottom-0 right-0 w-8 h-8 bg-slate-900 border border-slate-700 rounded-full flex items-center justify-center text-slate-400 hover:text-teal-400 hover:border-teal-500/50 shadow-sm hover:shadow-md transition-all cursor-pointer">
                 <Camera className="w-4 h-4" />
                 <input
                   type="file"
@@ -210,14 +210,14 @@ export default function UserProfilePage() {
               </label>
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-slate-900">
+              <h1 className="text-2xl font-bold text-white">
                 {fullName || "Your Profile"}
               </h1>
-              <p className="text-slate-500 font-medium">{department}</p>
-              <div className="flex items-center gap-2 mt-2 text-sm text-slate-500 font-medium">
+              <p className="text-slate-400 font-medium">{department}</p>
+              <div className="flex items-center gap-2 mt-2 text-sm text-green-400 font-medium">
                 <div className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400/50 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-400"></span>
                 </div>
                 <span>Session active</span>
               </div>
@@ -227,7 +227,7 @@ export default function UserProfilePage() {
             <button
               onClick={handleSave}
               disabled={isPending}
-              className="flex-1 md:flex-none px-6 py-2.5 bg-gradient-to-r from-teal-400 to-blue-500 text-white rounded-lg text-sm font-bold shadow-md hover:shadow-cyan-500/25 transition-all flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed border-none"
+              className="flex-1 md:flex-none px-6 py-2.5 bg-teal-500 hover:bg-teal-400 text-white rounded-lg text-sm font-bold transition-all flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed border-none"
             >
               {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
               {isPending ? "Saving…" : "Save Changes"}
@@ -236,13 +236,13 @@ export default function UserProfilePage() {
         </div>
 
         {/* Personal Information Card */}
-        <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+        <section className="bg-[#0f1629] rounded-xl border border-slate-800 overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-800 bg-slate-900/50 flex justify-between items-center">
             <div>
-              <h2 className="text-lg font-semibold text-slate-900">
+              <h2 className="text-lg font-semibold text-white">
                 Personal Information
               </h2>
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-slate-400">
                 Manage your personal details and contact preferences.
               </p>
             </div>
@@ -250,15 +250,15 @@ export default function UserProfilePage() {
           </div>
           <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-1">
-              <label className="text-sm font-medium text-slate-700">
+              <label className="text-sm font-medium text-slate-400">
                 Full Name
               </label>
               <div className="relative">
-                <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-teal-600">
+                <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-teal-400">
                   <IdCard className="w-5 h-5" />
                 </span>
                 <input
-                  className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all text-slate-900 outline-none"
+                  className="w-full pl-10 pr-4 py-2.5 bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-teal-500 focus:ring-1 focus:ring-teal-500/20 border rounded-lg text-sm outline-none"
                   type="text"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
@@ -267,15 +267,15 @@ export default function UserProfilePage() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-sm font-medium text-slate-700">
+              <label className="text-sm font-medium text-slate-400">
                 Email Address
               </label>
               <div className="relative">
-                <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-teal-600">
+                <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-teal-400">
                   <Mail className="w-5 h-5" />
                 </span>
                 <input
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-500 cursor-not-allowed outline-none"
+                  className="w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-slate-800 rounded-lg text-sm text-slate-500 cursor-not-allowed outline-none"
                   type="email"
                   value={email}
                   disabled
@@ -285,15 +285,15 @@ export default function UserProfilePage() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-sm font-medium text-slate-700">
+              <label className="text-sm font-medium text-slate-400">
                 Phone Number
               </label>
               <div className="relative">
-                <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-teal-600">
+                <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-teal-400">
                   <Phone className="w-5 h-5" />
                 </span>
                 <input
-                  className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all text-slate-900 outline-none"
+                  className="w-full pl-10 pr-4 py-2.5 bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-teal-500 focus:ring-1 focus:ring-teal-500/20 border rounded-lg text-sm outline-none"
                   type="tel"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
@@ -303,15 +303,15 @@ export default function UserProfilePage() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-sm font-medium text-slate-700">
+              <label className="text-sm font-medium text-slate-400">
                 Department
               </label>
               <div className="relative">
-                <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-teal-600">
+                <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-teal-400">
                   <Building2 className="w-5 h-5" />
                 </span>
                 <select
-                  className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all text-slate-900 appearance-none bg-none outline-none"
+                  className="w-full pl-10 pr-4 py-2.5 bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-teal-500 focus:ring-1 focus:ring-teal-500/20 border rounded-lg text-sm appearance-none outline-none"
                   value={department}
                   onChange={(e) => setDepartment(e.target.value)}
                 >
@@ -329,13 +329,13 @@ export default function UserProfilePage() {
         </section>
 
         {/* Change Password Card */}
-        <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+        <section className="bg-[#0f1629] rounded-xl border border-slate-800 overflow-hidden flex flex-col">
+          <div className="px-6 py-4 border-b border-slate-800 bg-slate-900/50 flex justify-between items-center">
             <div>
-              <h2 className="text-lg font-semibold text-slate-900">
+              <h2 className="text-lg font-semibold text-white">
                 Change Password
               </h2>
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-slate-400">
                 Ensure your account is using a long, random password.
               </p>
             </div>
@@ -343,11 +343,11 @@ export default function UserProfilePage() {
           </div>
           <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
             <div className="space-y-1">
-              <label className="text-sm font-medium text-slate-700">
+              <label className="text-sm font-medium text-slate-400">
                 New Password
               </label>
               <input
-                className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all text-slate-900 outline-none"
+                className="w-full px-4 py-2.5 bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-teal-500 focus:ring-1 focus:ring-teal-500/20 border rounded-lg text-sm outline-none"
                 type="password"
                 placeholder="••••••••"
                 value={newPassword}
@@ -355,11 +355,11 @@ export default function UserProfilePage() {
               />
             </div>
             <div className="space-y-1">
-              <label className="text-sm font-medium text-slate-700">
+              <label className="text-sm font-medium text-slate-400">
                 Confirm Password
               </label>
               <input
-                className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all text-slate-900 outline-none"
+                className="w-full px-4 py-2.5 bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-teal-500 focus:ring-1 focus:ring-teal-500/20 border rounded-lg text-sm outline-none"
                 type="password"
                 placeholder="••••••••"
                 value={confirmPassword}
@@ -370,7 +370,7 @@ export default function UserProfilePage() {
               <button
                 onClick={handlePasswordChange}
                 disabled={isPending || !newPassword || !confirmPassword}
-                className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-sm font-bold shadow-sm transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed border-none"
+                className="px-6 py-2.5 bg-teal-500 hover:bg-teal-400 text-white rounded-lg text-sm font-bold transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed border-none"
               >
                 {isPending && newPassword ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -386,20 +386,20 @@ export default function UserProfilePage() {
         {/* Security Settings Group */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* 2FA Card Replacement */}
-          <section className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+          <section className="lg:col-span-2 bg-[#0f1629] rounded-xl border border-slate-800 overflow-hidden flex flex-col">
+            <div className="px-6 py-4 border-b border-slate-800 bg-slate-900/50 flex justify-between items-center">
               <div>
-                <h2 className="text-lg font-semibold text-slate-900">
+                <h2 className="text-lg font-semibold text-white">
                   Two-Factor Authentication
                 </h2>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-slate-400">
                   Secure your account with an extra layer of protection.
                 </p>
               </div>
               <Lock className="w-5 h-5 text-slate-400" />
             </div>
             <div className="p-6 flex-1 flex items-center justify-center text-center">
-              <p className="text-slate-600 font-medium">
+              <p className="text-slate-400 font-medium">
                 Two-factor authentication is managed through your Supabase
                 account settings.
               </p>
@@ -407,52 +407,52 @@ export default function UserProfilePage() {
           </section>
 
           {/* Session Management Card */}
-          <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-              <h2 className="text-lg font-semibold text-slate-900">
+          <section className="bg-[#0f1629] rounded-xl border border-slate-800 overflow-hidden flex flex-col">
+            <div className="px-6 py-4 border-b border-slate-800 bg-slate-900/50">
+              <h2 className="text-lg font-semibold text-white">
                 Active Sessions
               </h2>
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-slate-400">
                 Devices logged into your account.
               </p>
             </div>
             <div className="p-6 space-y-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600">
+                <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center text-green-400">
                   <Monitor className="w-5 h-5" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-900 flex items-center gap-2">
+                  <p className="text-sm font-medium text-white flex items-center gap-2">
                     Current Device
-                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    <span className="w-2 h-2 rounded-full bg-green-400"></span>
                   </p>
-                  <p className="text-xs text-emerald-600 font-bold tracking-tight uppercase">
+                  <p className="text-xs text-green-400 font-bold tracking-tight uppercase">
                     Active now
                   </p>
                 </div>
               </div>
 
               {sessionInfo ? (
-                <p className="text-sm text-slate-500 font-medium pt-2 border-t border-slate-100">
+                <p className="text-sm text-slate-400 font-medium pt-2 border-t border-slate-800">
                   Session started:{" "}
-                  <span className="text-slate-900 font-semibold">
+                  <span className="text-white font-semibold">
                     {sessionInfo.created_at}
                   </span>
                 </p>
               ) : (
                 <div className="flex justify-center pt-2">
-                  <Loader2 className="w-4 h-4 animate-spin text-teal-600" />
+                  <Loader2 className="w-4 h-4 animate-spin text-teal-500" />
                 </div>
               )}
             </div>
-            <div className="mt-auto px-6 py-4 bg-slate-50 border-t border-slate-100 flex flex-col gap-3">
+            <div className="mt-auto px-6 py-4 bg-slate-900/50 border-t border-slate-800 flex flex-col gap-3">
               <button
                 onClick={async () => {
                   const supabase = createClient();
                   await supabase.auth.signOut({ scope: "local" });
                   window.location.href = "/auth/login";
                 }}
-                className="w-full py-2 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 hover:bg-white transition-colors flex items-center justify-center gap-2 shadow-sm"
+                className="w-full py-2 border border-slate-700 bg-transparent rounded-lg text-sm font-bold text-slate-300 hover:border-slate-500 hover:text-white transition-colors flex items-center justify-center gap-2"
               >
                 <LogOut className="w-4 h-4" />
                 Logout This Device
@@ -463,7 +463,7 @@ export default function UserProfilePage() {
                   await supabase.auth.signOut({ scope: "global" });
                   window.location.href = "/auth/login";
                 }}
-                className="w-full py-2 border border-red-200 bg-red-50 rounded-lg text-sm font-bold text-red-600 hover:bg-red-100 transition-colors flex items-center justify-center gap-2 shadow-sm"
+                className="w-full py-2 border border-red-500/20 bg-red-500/10 rounded-lg text-sm font-bold text-red-400 hover:bg-red-500/20 transition-colors flex items-center justify-center gap-2"
               >
                 <Ban className="w-4 h-4" />
                 Logout All Devices
@@ -474,12 +474,12 @@ export default function UserProfilePage() {
 
         {/* Danger Zone */}
         <div className="pt-6">
-          <div className="rounded-xl border border-red-200 bg-red-50 p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div>
-              <h3 className="text-base font-semibold text-red-700">
+              <h3 className="text-base font-semibold text-red-400">
                 Delete Account
               </h3>
-              <p className="text-sm text-red-600/80 mt-1">
+              <p className="text-sm text-red-400/80 mt-1">
                 Once you delete your account, there is no going back. Please be
                 certain.
               </p>
@@ -488,7 +488,7 @@ export default function UserProfilePage() {
               onClick={() =>
                 toast.error("Account termination workflow initiated.")
               }
-              className="px-4 py-2 bg-white border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 hover:text-red-700 hover:border-red-300 transition-colors shadow-sm whitespace-nowrap"
+              className="px-4 py-2 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg text-sm font-medium hover:bg-red-500/20 hover:text-red-300 transition-colors whitespace-nowrap"
             >
               Delete Account
             </button>

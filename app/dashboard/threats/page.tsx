@@ -145,15 +145,15 @@ export default function ThreatIntelligencePage() {
   if (!scan) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
-        <Radar className="w-16 h-16 text-slate-300 mb-4" />
-        <h2 className="text-xl font-bold text-slate-700 mb-2">
+        <Radar className="w-16 h-16 text-slate-700 mb-4" />
+        <h2 className="text-xl font-bold text-white mb-2">
           No threat data available
         </h2>
-        <p className="text-sm text-slate-500 max-w-md">
+        <p className="text-sm text-slate-400 max-w-md">
           Run a scan from the{" "}
           <a
             href="/dashboard/scans"
-            className="text-blue-600 font-semibold hover:underline"
+            className="text-teal-400 font-semibold hover:underline"
           >
             Scans
           </a>{" "}
@@ -205,24 +205,24 @@ export default function ThreatIntelligencePage() {
   const theme =
     riskScore >= 70
       ? {
-          text: "text-red-600",
-          bg: "bg-red-600",
-          bgLight: "bg-red-50/50",
-          border: "border-red-600",
-          ring: "ring-red-600/20",
+          text: "text-red-500",
+          bg: "bg-red-500",
+          bgLight: "bg-red-500/10",
+          border: "border-red-500",
+          ring: "ring-red-500/20",
         }
       : riskScore >= 40
         ? {
             text: "text-orange-500",
             bg: "bg-orange-500",
-            bgLight: "bg-orange-50/50",
+            bgLight: "bg-orange-500/10",
             border: "border-orange-500",
             ring: "ring-orange-500/20",
           }
         : {
-            text: "text-emerald-600",
-            bg: "bg-emerald-600",
-            bgLight: "bg-emerald-50/50",
+            text: "text-emerald-500",
+            bg: "bg-emerald-500",
+            bgLight: "bg-emerald-500/10",
             border: "border-emerald-500",
             ring: "ring-emerald-500/20",
           };
@@ -559,13 +559,13 @@ export default function ThreatIntelligencePage() {
         if (!canAccessFeature(userTier, "aiHeuristics")) {
           return (
             <div className="p-8 min-h-[400px] flex flex-col items-center justify-center gap-4 text-center">
-              <div className="w-16 h-16 rounded-2xl bg-violet-100 flex items-center justify-center">
+              <div className="w-16 h-16 rounded-2xl bg-violet-500/10 flex items-center justify-center">
                 <span className="text-2xl">🔒</span>
               </div>
-              <h3 className="text-lg font-bold text-slate-900">
+              <h3 className="text-lg font-bold text-white">
                 AI Heuristics Engine
               </h3>
-              <p className="text-sm text-slate-500 max-w-sm">
+              <p className="text-sm text-slate-400 max-w-sm">
                 AI-powered behavioral analysis requires a Pro or Enterprise
                 plan.
               </p>
@@ -590,11 +590,11 @@ export default function ThreatIntelligencePage() {
         if (!canAccessFeature(userTier, "portPatrol")) {
           return (
             <div className="p-8 min-h-[400px] flex flex-col items-center justify-center gap-4 text-center">
-              <div className="w-16 h-16 rounded-2xl bg-orange-100 flex items-center justify-center">
+              <div className="w-16 h-16 rounded-2xl bg-orange-500/10 flex items-center justify-center">
                 <span className="text-2xl">🔒</span>
               </div>
-              <h3 className="text-lg font-bold text-slate-900">Port Patrol</h3>
-              <p className="text-sm text-slate-500 max-w-sm">
+              <h3 className="text-lg font-bold text-white">Port Patrol</h3>
+              <p className="text-sm text-slate-400 max-w-sm">
                 Active port reconnaissance requires a Pro or Enterprise plan.
               </p>
               <a
@@ -619,10 +619,10 @@ export default function ThreatIntelligencePage() {
   const allRiskFlags = deepScanData?.allRiskFlags || [];
 
   return (
-    <div className="bg-transparent text-slate-900 font-sans min-h-screen flex flex-col w-full">
+    <div className="bg-[#0a0f1e] text-white font-sans min-h-screen flex flex-col w-full">
       {/* Threat Header */}
       <div className="sticky top-4 sm:top-6 z-40 w-full max-w-7xl mx-auto px-4 sm:px-6 pointer-events-none">
-        <section className="bg-white/95 backdrop-blur border border-slate-200 rounded-2xl px-6 py-4 shadow-sm pointer-events-auto">
+        <section className="bg-[#0f1629]/95 backdrop-blur border border-slate-800 rounded-2xl px-6 py-4 shadow-sm pointer-events-auto">
           <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-6 w-full lg:w-auto">
               <div className="flex flex-col">
@@ -632,20 +632,20 @@ export default function ThreatIntelligencePage() {
                   >
                     {priorityLabel}
                   </span>
-                  <span className="text-xs text-slate-500 font-medium tracking-wide">
+                  <span className="text-xs text-slate-400 font-medium tracking-wide">
                     {scan.id ? `ID-${String(scan.id).slice(0, 8)}` : "—"} •{" "}
                     {verdictLabel}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight leading-none truncate max-w-lg">
+                  <h1 className="text-xl md:text-2xl font-black text-white tracking-tight leading-none truncate max-w-lg">
                     {scan.target}
                   </h1>
                   {allScans.length > 1 && (
                     <div className="relative">
                       <button
                         onClick={() => setSelectorOpen(!selectorOpen)}
-                        className="flex items-center gap-1 px-2 py-1 rounded-md border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-500 transition-colors"
+                        className="flex items-center gap-1 px-2 py-1 rounded-md border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
                         aria-label="Select scan"
                       >
                         <ChevronDown
@@ -653,13 +653,13 @@ export default function ThreatIntelligencePage() {
                         />
                       </button>
                       {selectorOpen && (
-                        <div className="absolute top-full left-0 mt-2 w-80 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden">
-                          <div className="px-3 py-2 border-b border-slate-100 bg-slate-50">
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                        <div className="absolute top-full left-0 mt-2 w-80 bg-[#0f1629] border border-slate-800 rounded-xl shadow-xl z-50 overflow-hidden">
+                          <div className="px-3 py-2 border-b border-slate-800 bg-slate-900/50">
+                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
                               Recent Scans
                             </span>
                           </div>
-                          <div className="max-h-64 overflow-y-auto">
+                          <div className="max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700">
                             {allScans.map((s, i) => (
                               <button
                                 key={s.id || i}
@@ -669,22 +669,24 @@ export default function ThreatIntelligencePage() {
                                   setIsWhitelisted(false);
                                   setSelectorOpen(false);
                                 }}
-                                className={`w-full text-left px-3 py-2.5 hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-b-0 ${
-                                  s.id === scan.id ? "bg-teal-50" : ""
+                                className={`w-full text-left px-3 py-2.5 hover:bg-slate-800 transition-colors border-b border-slate-800/50 last:border-b-0 ${
+                                  s.id === scan.id ? "bg-teal-500/10" : ""
                                 }`}
                               >
                                 <div className="flex items-center justify-between">
-                                  <span className="font-mono text-xs font-bold text-slate-800 truncate max-w-[180px]">
+                                  <span
+                                    className={`font-mono text-xs font-bold truncate max-w-[180px] ${s.id === scan.id ? "text-teal-400" : "text-slate-300"}`}
+                                  >
                                     {s.target}
                                   </span>
                                   <div className="flex items-center gap-2">
                                     <span
                                       className={`text-[9px] font-black px-1.5 py-0.5 rounded ${
                                         s.verdict?.toLowerCase() === "malicious"
-                                          ? "bg-red-100 text-red-600"
+                                          ? "bg-red-500/10 text-red-500"
                                           : s.verdict?.toLowerCase() === "clean"
-                                            ? "bg-emerald-100 text-emerald-600"
-                                            : "bg-orange-100 text-orange-600"
+                                            ? "bg-emerald-500/10 text-emerald-500"
+                                            : "bg-orange-500/10 text-orange-500"
                                       }`}
                                     >
                                       {s.verdict?.toUpperCase() || "UNKNOWN"}
@@ -703,8 +705,8 @@ export default function ThreatIntelligencePage() {
                   )}
                 </div>
               </div>
-              <div className="hidden sm:flex flex-col items-center justify-center px-6 border-l border-slate-200 h-12">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+              <div className="hidden sm:flex flex-col items-center justify-center px-6 border-l border-slate-800 h-12">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                   Threat Score
                 </span>
                 <span
@@ -717,7 +719,7 @@ export default function ThreatIntelligencePage() {
             <div className="flex items-center gap-2 w-full lg:w-auto mt-4 lg:mt-0 flex-wrap">
               <button
                 onClick={generatePDF}
-                className="flex items-center justify-center px-4 h-10 rounded-lg border border-teal-200 bg-teal-50 text-teal-700 font-bold text-xs hover:bg-teal-100 transition-all shadow-sm"
+                className="flex items-center justify-center px-4 h-10 rounded-lg border border-teal-500/30 bg-teal-500/10 text-teal-400 font-bold text-xs hover:bg-teal-500/20 transition-all shadow-sm"
               >
                 <FileDown className="w-4 h-4 mr-1.5" />
                 Report
@@ -725,7 +727,7 @@ export default function ThreatIntelligencePage() {
               <button
                 onClick={() => setTakedownOpen(true)}
                 disabled={!scan}
-                className="flex items-center justify-center px-4 h-10 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 font-bold text-xs hover:bg-indigo-100 transition-all shadow-sm disabled:opacity-50"
+                className="flex items-center justify-center px-4 h-10 rounded-lg border border-indigo-500/30 bg-indigo-500/10 text-indigo-400 font-bold text-xs hover:bg-indigo-500/20 transition-all shadow-sm disabled:opacity-50"
               >
                 <Gavel className="w-4 h-4 mr-1.5" />
                 Takedown
@@ -733,7 +735,7 @@ export default function ThreatIntelligencePage() {
               <button
                 onClick={handleWhitelist}
                 disabled={isPendingAction || isWhitelisted}
-                className="flex items-center justify-center px-4 h-10 rounded-lg border border-slate-200 bg-white text-slate-700 font-bold text-xs hover:bg-slate-50 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center justify-center px-4 h-10 rounded-lg border border-slate-700 bg-slate-800 text-white font-bold text-xs hover:bg-slate-700 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <CheckCircle2
                   className={`w-4 h-4 mr-1.5 ${isWhitelisted ? "text-emerald-500" : ""}`}
@@ -743,7 +745,7 @@ export default function ThreatIntelligencePage() {
               <button
                 onClick={handleTakeAction}
                 disabled={isPendingAction}
-                className="flex items-center justify-center px-6 h-10 rounded-lg bg-gradient-to-r from-teal-400 to-blue-500 hover:from-teal-500 hover:to-blue-600 text-white font-black text-xs transition-all shadow-lg hover:shadow-cyan-500/25 border-none disabled:opacity-50"
+                className="flex items-center justify-center px-6 h-10 rounded-lg bg-teal-500 hover:bg-teal-400 text-white font-black text-xs transition-all shadow-lg border-none disabled:opacity-50"
               >
                 {isPendingAction ? (
                   <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
@@ -762,10 +764,10 @@ export default function ThreatIntelligencePage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
           {/* Scan Summary Panel */}
           <div className="lg:col-span-1 flex flex-col">
-            <div className="bg-white rounded-xl border border-slate-200 flex flex-col h-full shadow-sm overflow-hidden">
-              <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2 uppercase tracking-wide">
-                  <Activity className="w-5 h-5 text-teal-600" />
+            <div className="bg-[#0f1629] rounded-xl border border-slate-800 flex flex-col h-full shadow-sm overflow-hidden">
+              <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
+                <h3 className="font-bold text-sm text-white flex items-center gap-2 uppercase tracking-wide">
+                  <Activity className="w-5 h-5 text-teal-500" />
                   Scan Summary
                 </h3>
                 <span
@@ -774,8 +776,8 @@ export default function ThreatIntelligencePage() {
                   {verdictLabel.toUpperCase()}
                 </span>
               </div>
-              <div className="flex-1 overflow-y-auto max-h-[700px] scrollbar-thin scrollbar-thumb-slate-300">
-                <div className="flex flex-col divide-y divide-slate-50">
+              <div className="flex-1 overflow-y-auto max-h-[700px] scrollbar-thin scrollbar-thumb-slate-700">
+                <div className="flex flex-col divide-y divide-slate-800">
                   <div
                     className={`p-4 ${theme.bgLight} border-l-[6px] ${theme.border}`}
                   >
@@ -792,7 +794,7 @@ export default function ThreatIntelligencePage() {
                           />
                         )}
                       </div>
-                      <span className="text-[10px] text-slate-500 font-mono font-medium">
+                      <span className="text-[10px] text-slate-400 font-mono font-medium">
                         {malicious}/{totalEngines}
                       </span>
                     </div>
@@ -802,7 +804,7 @@ export default function ThreatIntelligencePage() {
                       {malicious} malicious detection
                       {malicious !== 1 ? "s" : ""}
                     </div>
-                    <div className="w-full bg-slate-200/50 rounded-full h-2 mt-2">
+                    <div className="w-full bg-slate-800 rounded-full h-2 mt-2">
                       <div
                         className={`${theme.bg} h-2 rounded-full transition-all`}
                         style={{
@@ -815,17 +817,17 @@ export default function ThreatIntelligencePage() {
                     </div>
                   </div>
                   <div
-                    className={`p-4 border-l-[6px] ${riskScore >= 40 ? theme.border : "border-slate-300"}`}
+                    className={`p-4 border-l-[6px] ${riskScore >= 40 ? theme.border : "border-slate-700"}`}
                   >
                     <div className="flex justify-between items-start mb-1.5">
                       <span
-                        className={`text-[10px] font-black text-white px-1.5 py-0.5 rounded ${riskScore >= 40 ? theme.bg : "bg-slate-400"}`}
+                        className={`text-[10px] font-black text-white px-1.5 py-0.5 rounded ${riskScore >= 40 ? theme.bg : "bg-slate-600"}`}
                       >
                         CATEGORY
                       </span>
                     </div>
                     <div
-                      className={`font-mono text-xs font-bold truncate mb-1 ${riskScore >= 40 ? theme.text : "text-slate-700"}`}
+                      className={`font-mono text-xs font-bold truncate mb-1 ${riskScore >= 40 ? theme.text : "text-slate-300"}`}
                     >
                       {threatTag}
                     </div>
@@ -833,23 +835,23 @@ export default function ThreatIntelligencePage() {
                       Risk score: {riskScore}/100
                     </p>
                   </div>
-                  <div className="p-4 hover:bg-slate-50 border-l-[6px] border-teal-500 transition-colors">
+                  <div className="p-4 hover:bg-slate-800/50 border-l-[6px] border-teal-500 transition-colors">
                     <div className="flex items-center gap-2 mb-2">
-                      <span className="text-[10px] font-bold text-teal-700 bg-teal-100 px-1.5 py-0.5 rounded">
+                      <span className="text-[10px] font-bold text-teal-400 bg-teal-500/10 border border-teal-500/20 px-1.5 py-0.5 rounded">
                         AI ANALYSIS
                       </span>
                     </div>
-                    <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-wrap">
+                    <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">
                       {scan.ai_summary || "No AI analysis available."}
                     </p>
                   </div>
-                  <div className="p-4 hover:bg-slate-50 border-l-[6px] border-transparent transition-colors">
+                  <div className="p-4 hover:bg-slate-800/50 border-l-[6px] border-transparent transition-colors">
                     <div className="flex justify-between items-start mb-1">
-                      <span className="text-[10px] font-bold text-teal-700 bg-teal-100 px-1.5 py-0.5 rounded">
+                      <span className="text-[10px] font-bold text-teal-400 bg-teal-500/10 border border-teal-500/20 px-1.5 py-0.5 rounded">
                         SCANNED
                       </span>
                     </div>
-                    <div className="font-mono text-xs text-slate-800 truncate mt-1">
+                    <div className="font-mono text-xs text-slate-300 truncate mt-1">
                       {scanDate}
                     </div>
                   </div>
@@ -860,9 +862,9 @@ export default function ThreatIntelligencePage() {
 
           {/* Sandbox & Deep Scan Panel */}
           <div className="lg:col-span-2 flex flex-col gap-6">
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col overflow-hidden h-full">
+            <div className="bg-[#0f1629] rounded-xl border border-slate-800 shadow-sm flex flex-col overflow-hidden h-full">
               {/* Tab Header */}
-              <div className="flex items-center bg-slate-50 border-b border-slate-200 px-4 pt-2.5 overflow-x-auto">
+              <div className="flex items-center bg-slate-900/50 border-b border-slate-800 px-4 pt-2.5 overflow-x-auto">
                 <div className="flex gap-1">
                   {TABS.map((tab) => (
                     <button
@@ -870,8 +872,8 @@ export default function ThreatIntelligencePage() {
                       onClick={() => setActiveTab(tab.key)}
                       className={`px-4 py-2.5 text-[11px] font-black tracking-wide whitespace-nowrap transition-colors ${
                         activeTab === tab.key
-                          ? "bg-white border-t border-x border-slate-200 rounded-t-lg text-teal-600 border-b-2 border-b-white z-10"
-                          : "text-slate-500 hover:text-slate-900"
+                          ? "bg-[#0f1629] border-t border-x border-slate-800 rounded-t-lg text-teal-400 border-b-2 border-b-[#0f1629] z-10"
+                          : "text-slate-500 hover:text-slate-300"
                       }`}
                     >
                       {tab.label}
@@ -880,7 +882,7 @@ export default function ThreatIntelligencePage() {
                 </div>
                 <div className="flex-1"></div>
                 <div className="flex items-center gap-3 pr-2">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase">
                     Live Sandbox
                   </span>
                   <div className="flex gap-1.5">
@@ -895,10 +897,10 @@ export default function ThreatIntelligencePage() {
 
             {/* Risk Flag Summary Strip */}
             {allRiskFlags.length > 0 && (
-              <div className="bg-white rounded-xl border border-orange-200 shadow-sm p-4">
+              <div className="bg-[#0f1629] rounded-xl border border-orange-500/30 shadow-sm p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <AlertTriangle className="w-4 h-4 text-orange-500" />
-                  <span className="text-[10px] font-black text-orange-600 uppercase tracking-widest">
+                  <span className="text-[10px] font-black text-orange-400 uppercase tracking-widest">
                     Risk Flag Summary ({allRiskFlags.length})
                   </span>
                 </div>
@@ -906,7 +908,7 @@ export default function ThreatIntelligencePage() {
                   {allRiskFlags.map((flag: string, i: number) => (
                     <span
                       key={i}
-                      className="text-[10px] font-bold text-orange-700 bg-orange-50 border border-orange-200 px-2.5 py-1 rounded-full"
+                      className="text-[10px] font-bold text-orange-400 bg-orange-500/10 border border-orange-500/20 px-2.5 py-1 rounded-full"
                     >
                       {flag}
                     </span>
@@ -917,9 +919,9 @@ export default function ThreatIntelligencePage() {
 
             {/* Deep scan error display */}
             {deepScanError && (
-              <div className="bg-red-50 rounded-xl border border-red-200 p-4 flex items-center gap-2">
+              <div className="bg-red-500/10 rounded-xl border border-red-500/20 p-4 flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-red-500" />
-                <span className="text-xs text-red-700">
+                <span className="text-xs text-red-400">
                   Deep scan error: {deepScanError}
                 </span>
               </div>
@@ -927,21 +929,21 @@ export default function ThreatIntelligencePage() {
 
             {/* Quick Intel Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-1">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              <div className="bg-[#0f1629] p-4 rounded-xl border border-slate-800 shadow-sm flex flex-col gap-1">
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
                   Engine Detection
                 </span>
-                <span className="font-bold text-slate-900">
+                <span className="font-bold text-white">
                   {malicious} / {totalEngines} engines
                 </span>
-                <span className="text-[11px] text-slate-500">
+                <span className="text-[11px] text-slate-400">
                   {totalEngines > 0
                     ? `${((malicious / totalEngines) * 100).toFixed(1)}% flagged`
                     : "No engine data"}
                 </span>
               </div>
-              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-1">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              <div className="bg-[#0f1629] p-4 rounded-xl border border-slate-800 shadow-sm flex flex-col gap-1">
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
                   Verdict
                 </span>
                 <div
@@ -954,21 +956,21 @@ export default function ThreatIntelligencePage() {
                   )}
                   <span>{verdictLabel}</span>
                 </div>
-                <span className="text-[11px] text-slate-500">
+                <span className="text-[11px] text-slate-400">
                   Risk: {riskScore}/100
                 </span>
               </div>
-              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-1">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              <div className="bg-[#0f1629] p-4 rounded-xl border border-slate-800 shadow-sm flex flex-col gap-1">
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
                   Category
                 </span>
                 <div className="flex items-center gap-2">
-                  <div className="w-5 h-5 bg-slate-900 rounded flex items-center justify-center text-[10px] text-white font-bold">
+                  <div className="w-5 h-5 bg-slate-800 rounded flex items-center justify-center text-[10px] text-teal-400 font-bold">
                     <ShieldAlert className="w-3 h-3" />
                   </div>
-                  <span className="font-bold text-slate-900">{threatTag}</span>
+                  <span className="font-bold text-white">{threatTag}</span>
                 </div>
-                <span className="text-[11px] text-red-600 font-bold">
+                <span className="text-[11px] text-red-500 font-bold">
                   {riskScore >= 70 ? "Action recommended" : "Monitor"}
                 </span>
               </div>

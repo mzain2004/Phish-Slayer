@@ -97,17 +97,17 @@ Reported via Phish-Slayer Threat Intelligence Platform`;
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto mx-4"
+        className="bg-[#0f1629] border border-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto mx-4"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-slate-200">
+        <div className="flex items-center justify-between p-5 border-b border-slate-800">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center">
-              <Gavel className="w-5 h-5 text-indigo-600" />
+            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20">
+              <Gavel className="w-5 h-5 text-indigo-400" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-900">
+              <h2 className="text-lg font-bold text-white">
                 Takedown Request Generator
               </h2>
               <p className="text-xs text-slate-500">
@@ -118,7 +118,7 @@ Reported via Phish-Slayer Threat Intelligence Platform`;
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+            className="p-1.5 rounded-lg hover:bg-slate-800 transition-colors"
           >
             <X className="w-5 h-5 text-slate-400" />
           </button>
@@ -136,7 +136,7 @@ Reported via Phish-Slayer Threat Intelligence Platform`;
               value={recipient}
               onChange={(e) => setRecipient(e.target.value)}
               placeholder="abuse@registrar.com"
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 font-mono"
+              className="w-full px-3 py-2 border border-slate-800 bg-[#0a0f1e] rounded-lg text-sm text-white focus:ring-2 focus:ring-indigo-500 font-mono"
             />
             {!registrarAbuseEmail && (
               <p className="text-xs text-amber-600 mt-1">
@@ -150,13 +150,13 @@ Reported via Phish-Slayer Threat Intelligence Platform`;
               </span>
               <button
                 onClick={() => setRecipient("reportphishing@google.com")}
-                className="text-[10px] text-indigo-600 hover:underline font-mono"
+                className="text-[10px] text-indigo-400 hover:text-indigo-300 hover:underline font-mono"
               >
                 reportphishing@google.com
               </button>
               <button
                 onClick={() => setRecipient("phishing-report@us-cert.gov")}
-                className="text-[10px] text-indigo-600 hover:underline font-mono"
+                className="text-[10px] text-indigo-400 hover:text-indigo-300 hover:underline font-mono"
               >
                 phishing-report@us-cert.gov
               </button>
@@ -172,7 +172,7 @@ Reported via Phish-Slayer Threat Intelligence Platform`;
               type="text"
               value={subject}
               readOnly
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-900 bg-slate-50 font-mono"
+              className="w-full px-3 py-2 border border-slate-800 rounded-lg text-sm text-white bg-slate-800/50 font-mono"
             />
           </div>
 
@@ -185,16 +185,16 @@ Reported via Phish-Slayer Threat Intelligence Platform`;
               value={editableBody}
               onChange={(e) => setEditableBody(e.target.value)}
               rows={14}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-800 font-mono leading-relaxed focus:ring-2 focus:ring-indigo-500 resize-y"
+              className="w-full px-3 py-2 border border-slate-800 bg-[#0a0f1e] rounded-lg text-xs text-slate-300 font-mono leading-relaxed focus:ring-2 focus:ring-indigo-500 resize-y"
             />
           </div>
         </div>
 
         {/* Action buttons */}
-        <div className="flex flex-wrap gap-2 p-5 border-t border-slate-200 bg-slate-50 rounded-b-2xl">
+        <div className="flex flex-wrap gap-2 p-5 border-t border-slate-800 bg-slate-900/50 rounded-b-2xl">
           <button
             onClick={handleCopy}
-            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-500 text-white text-xs font-bold rounded-lg hover:bg-indigo-400 transition-colors"
           >
             {copied ? (
               <CheckCircle2 className="w-3.5 h-3.5" />
@@ -205,7 +205,7 @@ Reported via Phish-Slayer Threat Intelligence Platform`;
           </button>
           <button
             onClick={handleMailto}
-            className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white text-xs font-bold rounded-lg hover:bg-slate-800 transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 text-white text-xs font-bold rounded-lg hover:bg-slate-700 border border-slate-700 transition-colors"
           >
             <Mail className="w-3.5 h-3.5" />
             Open in Mail App
@@ -215,7 +215,7 @@ Reported via Phish-Slayer Threat Intelligence Platform`;
               const gmailUrl = `https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(recipient)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(editableBody)}`;
               window.open(gmailUrl, "_blank");
             }}
-            className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 text-slate-700 text-xs font-bold rounded-lg hover:bg-white transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 border border-slate-700 text-slate-300 text-xs font-bold rounded-lg hover:bg-slate-800 transition-colors bg-slate-800/50"
           >
             <Mail className="w-3.5 h-3.5" />
             Open in Gmail
@@ -225,7 +225,7 @@ Reported via Phish-Slayer Threat Intelligence Platform`;
               const outlookUrl = `https://outlook.live.com/mail/0/deeplink/compose?to=${encodeURIComponent(recipient)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(editableBody)}`;
               window.open(outlookUrl, "_blank");
             }}
-            className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 text-slate-700 text-xs font-bold rounded-lg hover:bg-white transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 border border-slate-700 text-slate-300 text-xs font-bold rounded-lg hover:bg-slate-800 transition-colors bg-slate-800/50"
           >
             <Mail className="w-3.5 h-3.5" />
             Open in Outlook Web
@@ -234,7 +234,7 @@ Reported via Phish-Slayer Threat Intelligence Platform`;
             href="https://safebrowsing.google.com/safebrowsing/report_phish/"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 text-slate-700 text-xs font-bold rounded-lg hover:bg-white transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 border border-slate-700 text-slate-300 text-xs font-bold rounded-lg hover:bg-slate-800 transition-colors bg-slate-800/50"
           >
             <ExternalLink className="w-3.5 h-3.5" />
             Google Safe Browsing
@@ -243,7 +243,7 @@ Reported via Phish-Slayer Threat Intelligence Platform`;
             href="https://www.phishtank.com/add_web_phish.php"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 text-slate-700 text-xs font-bold rounded-lg hover:bg-white transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 border border-slate-700 text-slate-300 text-xs font-bold rounded-lg hover:bg-slate-800 transition-colors bg-slate-800/50"
           >
             <ExternalLink className="w-3.5 h-3.5" />
             PhishTank

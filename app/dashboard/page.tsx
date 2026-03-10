@@ -13,6 +13,8 @@ import {
   CheckCircle2,
   Clock,
   Activity,
+  Crosshair,
+  Eye,
 } from "lucide-react";
 import {
   getIncidents,
@@ -28,7 +30,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Cell,
 } from "recharts";
 
 type ScanRecord = {
@@ -64,14 +65,12 @@ export default function DashboardOverviewPage() {
   const [agentCriticalCount, setAgentCriticalCount] = useState(0);
 
   useEffect(() => {
-    // Fetch agent critical events in parallel
     getRecentCriticalEvents(50)
       .then((evts) => setAgentCriticalCount(evts.length))
       .catch(() => {});
 
     Promise.all([getIncidents(), getScans(), getIntelIndicators()])
       .then(([incidents, scans, intel]) => {
-        // ── KPIs ──────────────────────────────────────────────
         const scanArr = scans as ScanRecord[];
         setTotalScans(scanArr.length);
         setMaliciousScans(
@@ -102,13 +101,13 @@ export default function DashboardOverviewPage() {
             : 0,
         );
 
-        // ── Recent Scans (last 5) ─────────────────────────────
+        // Recent Scans (last 5)
         const sorted = [...scanArr].sort(
           (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
         );
         setRecentScans(sorted.slice(0, 5));
 
-        // ── Threats by Category ───────────────────────────────
+        // Threats by Category
         const cats: Record<string, number> = {};
         scanArr
           .filter((s) => s.threat_category && s.threat_category !== "Unknown")
@@ -134,45 +133,55 @@ export default function DashboardOverviewPage() {
 
   const Metric = ({ value }: { value: string | number }) =>
     !loaded ? (
-      <Loader2 className="w-6 h-6 animate-spin text-slate-300 mx-auto" />
+      <Loader2 className="w-6 h-6 animate-spin text-slate-500 mx-auto" />
     ) : (
       <>{value}</>
     );
 
-  const BAR_COLORS = [
-    "#0d9488",
-    "#0ea5e9",
-    "#f97316",
-    "#ef4444",
-    "#8b5cf6",
-    "#ec4899",
-  ];
+  const verdictColor = (v?: string) => {
+    const lv = v?.toLowerCase();
+    if (lv === "malicious") return "border-red-500";
+    if (lv === "suspicious") return "border-yellow-500";
+    return "border-green-500";
+  };
+  const verdictBadge = (v?: string) => {
+    const lv = v?.toLowerCase();
+    if (lv === "malicious")
+      return "text-red-400 bg-red-500/10 border-red-500/20";
+    if (lv === "suspicious")
+      return "text-yellow-400 bg-yellow-500/10 border-yellow-500/20";
+    return "text-green-400 bg-green-500/10 border-green-500/20";
+  };
 
   return (
     <>
-      <div className="relative flex-1 flex flex-col items-center p-8 bg-[#fdfdfb] min-h-full w-full pb-24">
-        {/* Decorative Blur */}
-        <div className="absolute inset-0 z-0">
-          <div className="absolute top-[-10%] right-[-5%] w-[40%] h-[40%] bg-emerald-100/30 rounded-full blur-[120px]" />
-          <div className="absolute bottom-[-10%] left-[-5%] w-[40%] h-[40%] bg-blue-100/30 rounded-full blur-[120px]" />
-        </div>
-
+      <div className="relative flex-1 flex flex-col p-6 md:p-8 bg-[#0a0f1e] min-h-full w-full pb-24">
         {/* Header */}
-        <header className="w-full max-w-7xl mx-auto flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 z-40 mb-10">
+        <header className="w-full max-w-7xl mx-auto flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 mb-10">
           <div>
-            <h2 className="text-slate-900 text-3xl font-light tracking-tight">
+            <h2 className="text-white text-3xl font-bold tracking-tight">
               Command Center
             </h2>
-            <p className="text-slate-500 text-sm mt-1 font-medium tracking-wide">
+            <p className="text-slate-500 text-sm mt-1 font-medium">
               Enterprise Security Posture — God&apos;s Eye View
             </p>
           </div>
           <div className="flex items-center gap-4">
             <div className="flex flex-col items-end">
-              <span className="text-slate-400 text-xs font-bold uppercase tracking-tighter">
+              <span className="text-slate-500 text-xs font-bold uppercase tracking-wider">
                 Network Integrity
               </span>
-              <span className="text-emerald-600 font-semibold">
+              <span
+                className={`font-semibold ${
+                  !loaded
+                    ? "text-slate-500"
+                    : activeIncidents === 0
+                      ? "text-emerald-400"
+                      : activeIncidents <= 5
+                        ? "text-yellow-400"
+                        : "text-red-400"
+                }`}
+              >
                 {!loaded ? (
                   <Loader2 className="w-4 h-4 animate-spin inline" />
                 ) : activeIncidents === 0 ? (
@@ -197,16 +206,16 @@ export default function DashboardOverviewPage() {
               className="relative flex items-center"
             >
               <div
-                className={`flex items-center bg-white/40 backdrop-blur-md border border-white/60 transition-all rounded-full overflow-hidden ${
+                className={`flex items-center bg-slate-900 border border-slate-700 transition-all rounded-full overflow-hidden ${
                   isSearchExpanded
-                    ? "w-64 px-4 bg-white/60 focus-within:ring-2 focus-within:ring-teal-500 focus-within:border-teal-500"
-                    : "w-12 hover:bg-white"
+                    ? "w-64 px-4 focus-within:ring-2 focus-within:ring-teal-500/50 focus-within:border-teal-500"
+                    : "w-12 hover:bg-slate-800"
                 } h-12`}
               >
                 <button
                   type="button"
                   onClick={() => setIsSearchExpanded(true)}
-                  className={`flex items-center justify-center shrink-0 ${isSearchExpanded ? "text-teal-600" : "text-slate-700 w-full h-full"}`}
+                  className={`flex items-center justify-center shrink-0 ${isSearchExpanded ? "text-teal-400" : "text-slate-400 w-full h-full"}`}
                 >
                   <Search className="w-5 h-5" />
                 </button>
@@ -217,7 +226,7 @@ export default function DashboardOverviewPage() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onFocus={() => setIsSearchExpanded(true)}
                   onBlur={() => !searchQuery && setIsSearchExpanded(false)}
-                  className={`bg-transparent outline-none text-sm text-slate-800 placeholder-slate-500 transition-all ${
+                  className={`bg-transparent outline-none text-sm text-white placeholder-slate-500 transition-all ${
                     isSearchExpanded
                       ? "w-full ml-3 opacity-100"
                       : "w-0 opacity-0"
@@ -228,74 +237,41 @@ export default function DashboardOverviewPage() {
 
             <button
               onClick={() => router.push("/dashboard/incidents")}
-              className="px-6 h-12 rounded-full bg-gradient-to-r from-teal-400 to-blue-500 text-white text-sm font-medium hover:from-teal-500 hover:to-blue-600 transition-all border-none shadow-lg hover:shadow-cyan-500/25"
+              className="px-6 h-12 rounded-full bg-teal-500 hover:bg-teal-400 text-white text-sm font-bold transition-all shadow-lg shadow-teal-500/20"
             >
               Intervene
             </button>
           </div>
         </header>
 
-        {/* ── Score Orb + Metrics ────────────────────────────────── */}
-        <div className="relative z-10 flex flex-col items-center justify-center group cursor-default mb-12">
-          {/* Ripple Effects */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-56 h-56 border border-emerald-200/40 rounded-full animate-[ripple_6s_infinite] opacity-40" />
-            <div
-              className="w-56 h-56 border border-blue-200/20 rounded-full animate-[ripple_6s_infinite] opacity-40"
-              style={{ animationDelay: "2s" }}
-            />
-          </div>
-
-          {/* Core Score Orb */}
-          <div
-            className="w-44 h-44 bg-gradient-to-br from-emerald-400 to-blue-500 flex items-center justify-center relative shadow-[0_0_80px_rgba(16,185,129,0.2)]"
-            style={{
-              animation: "float 15s infinite ease-in-out",
-              borderRadius: "42% 58% 70% 30% / 45% 45% 55% 55%",
-            }}
-          >
-            <div className="text-center text-white drop-shadow-lg z-10">
-              <span className="block text-5xl font-light tracking-tighter">
-                <Metric value={scoreIndex} />
-              </span>
-              <span className="text-[9px] font-bold uppercase tracking-[0.3em] opacity-80">
-                Score Index
-              </span>
-            </div>
-            <div className="absolute inset-0 animate-[spin_20s_linear_infinite] opacity-30 pointer-events-none">
-              <div className="absolute top-0 left-1/2 w-1 h-16 bg-gradient-to-b from-white to-transparent rounded-full" />
-            </div>
-          </div>
-        </div>
-
         {/* ── KPI Cards ─────────────────────────────────────────── */}
-        <div className="relative z-10 w-full max-w-7xl mx-auto grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+        <div className="w-full max-w-7xl mx-auto grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           {/* Total Scans */}
-          <div className="bg-white/80 backdrop-blur border border-slate-200/60 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow group">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+          <div className="bg-[#0f1629] border border-slate-800 rounded-xl p-5 border-t-2 border-t-teal-500">
+            <div className="flex items-center gap-2 mb-3">
+              <Radar className="w-4 h-4 text-teal-400" />
+              <span className="text-xs text-slate-400 uppercase tracking-wider font-medium">
                 Total Scans
               </span>
-              <Radar className="w-5 h-5 text-teal-500 opacity-60 group-hover:opacity-100 transition-opacity" />
             </div>
-            <p className="text-3xl font-bold text-slate-900">
+            <p className="text-4xl font-bold text-white">
               <Metric value={totalScans} />
             </p>
-            <p className="text-xs text-slate-400 mt-1">All time</p>
+            <p className="text-sm text-slate-500 mt-1">All time</p>
           </div>
 
           {/* Malicious */}
-          <div className="bg-white/80 backdrop-blur border border-red-100/60 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow group">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+          <div className="bg-[#0f1629] border border-slate-800 rounded-xl p-5 border-t-2 border-t-red-500">
+            <div className="flex items-center gap-2 mb-3">
+              <ShieldAlert className="w-4 h-4 text-red-400" />
+              <span className="text-xs text-slate-400 uppercase tracking-wider font-medium">
                 Malicious
               </span>
-              <ShieldAlert className="w-5 h-5 text-red-500 opacity-60 group-hover:opacity-100 transition-opacity" />
             </div>
-            <p className="text-3xl font-bold text-red-600">
+            <p className="text-4xl font-bold text-red-400">
               <Metric value={maliciousScans} />
             </p>
-            <p className="text-xs text-slate-400 mt-1">
+            <p className="text-sm text-slate-500 mt-1">
               {loaded && totalScans > 0
                 ? `${((maliciousScans / totalScans) * 100).toFixed(1)}% detection rate`
                 : "—"}
@@ -303,99 +279,96 @@ export default function DashboardOverviewPage() {
           </div>
 
           {/* Active Incidents */}
-          <div className="bg-white/80 backdrop-blur border border-orange-100/60 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow group">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+          <div className="bg-[#0f1629] border border-slate-800 rounded-xl p-5 border-t-2 border-t-orange-500">
+            <div className="flex items-center gap-2 mb-3">
+              <AlertTriangle className="w-4 h-4 text-orange-400" />
+              <span className="text-xs text-slate-400 uppercase tracking-wider font-medium">
                 Active Incidents
               </span>
-              <AlertTriangle className="w-5 h-5 text-orange-500 opacity-60 group-hover:opacity-100 transition-opacity" />
             </div>
-            <p className="text-3xl font-bold text-orange-600">
+            <p className="text-4xl font-bold text-orange-400">
               <Metric value={activeIncidents} />
             </p>
-            <p className="text-xs text-slate-400 mt-1">
+            <p className="text-sm text-slate-500 mt-1">
               {loaded ? `${resolvedCount} resolved` : "—"}
             </p>
           </div>
 
           {/* Intel Vault */}
-          <div className="bg-white/80 backdrop-blur border border-teal-100/60 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow group">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+          <div className="bg-[#0f1629] border border-slate-800 rounded-xl p-5 border-t-2 border-t-indigo-500">
+            <div className="flex items-center gap-2 mb-3">
+              <Database className="w-4 h-4 text-teal-400" />
+              <span className="text-xs text-slate-400 uppercase tracking-wider font-medium">
                 Intel Vault
               </span>
-              <Database className="w-5 h-5 text-teal-500 opacity-60 group-hover:opacity-100 transition-opacity" />
             </div>
-            <p className="text-3xl font-bold text-teal-600">
+            <p className="text-4xl font-bold text-teal-400">
               <Metric value={intelVaultSize} />
             </p>
-            <p className="text-xs text-slate-400 mt-1">
+            <p className="text-sm text-slate-500 mt-1">
               Proprietary indicators
             </p>
           </div>
         </div>
 
-        {/* Agent Events KPI (separate row, spans half) */}
-        <div className="relative z-10 w-full max-w-7xl mx-auto grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
-          <div
-            className="bg-white/80 backdrop-blur border border-slate-200/60 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow group cursor-pointer"
-            onClick={() => router.push("/dashboard/agent")}
+        {/* Quick Actions */}
+        <div className="w-full max-w-7xl mx-auto flex flex-wrap gap-3 mb-8">
+          <button
+            onClick={() => router.push("/dashboard/scans")}
+            className="flex items-center gap-2 px-5 py-2.5 bg-teal-500/10 border border-teal-500/20 text-teal-400 rounded-lg text-sm font-medium hover:bg-teal-500/20 transition-colors"
           >
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                Agent Events
-              </span>
-              <Activity className="w-5 h-5 text-teal-500 opacity-60 group-hover:opacity-100 transition-opacity" />
-            </div>
-            <p
-              className={`text-3xl font-bold ${agentCriticalCount > 0 ? "text-red-600" : "text-slate-900"}`}
+            <Crosshair className="w-4 h-4" /> New Scan
+          </button>
+          <button
+            onClick={() => router.push("/dashboard/incidents")}
+            className="flex items-center gap-2 px-5 py-2.5 bg-orange-500/10 border border-orange-500/20 text-orange-400 rounded-lg text-sm font-medium hover:bg-orange-500/20 transition-colors"
+          >
+            <AlertTriangle className="w-4 h-4" /> View Incidents
+          </button>
+          <button
+            onClick={() => router.push("/dashboard/intel")}
+            className="flex items-center gap-2 px-5 py-2.5 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-lg text-sm font-medium hover:bg-indigo-500/20 transition-colors"
+          >
+            <Database className="w-4 h-4" /> Threat Intel
+          </button>
+          {agentCriticalCount > 0 && (
+            <button
+              onClick={() => router.push("/dashboard/agent")}
+              className="flex items-center gap-2 px-5 py-2.5 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg text-sm font-medium hover:bg-red-500/20 transition-colors"
             >
-              <Metric value={agentCriticalCount} />
-            </p>
-            <div className="flex items-center gap-2 mt-1">
-              <span
-                className={`relative flex h-2 w-2 ${agentCriticalCount > 0 ? "" : ""}`}
-              >
-                {agentCriticalCount > 0 && (
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                )}
-                <span
-                  className={`relative inline-flex rounded-full h-2 w-2 ${agentCriticalCount > 0 ? "bg-red-500" : "bg-emerald-500"}`}
-                />
-              </span>
-              <p
-                className={`text-xs ${agentCriticalCount > 0 ? "text-red-500 font-semibold" : "text-emerald-500"}`}
-              >
-                {agentCriticalCount > 0 ? "Active Threats" : "All Clear"}
-              </p>
-            </div>
-          </div>
+              <Activity className="w-4 h-4" />
+              Agent Events ({agentCriticalCount})
+            </button>
+          )}
         </div>
 
         {/* ── Charts + Activity Feed ────────────────────────────── */}
-        <div className="relative z-10 w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
-          {/* Bar Chart — Threats by Category */}
-          <div className="lg:col-span-2 bg-white/80 backdrop-blur border border-slate-200/60 rounded-2xl p-6 shadow-sm">
+        <div className="w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
+          {/* Bar Chart */}
+          <div className="lg:col-span-2 bg-[#0f1629] border border-slate-800 rounded-xl p-6">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2">
-                <Activity className="w-5 h-5 text-teal-600" />
-                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">
+                <Activity className="w-5 h-5 text-teal-400" />
+                <h3 className="text-sm font-semibold text-white">
                   Threats by Category
                 </h3>
               </div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase">
-                {loaded ? `${categoryData.length} categories` : "Loading…"}
-              </span>
+              <button
+                onClick={() => router.push("/dashboard/scans")}
+                className="text-xs font-semibold text-teal-400 hover:text-teal-300 transition-colors"
+              >
+                View All →
+              </button>
             </div>
             {!loaded ? (
               <div className="flex items-center justify-center h-52">
-                <Loader2 className="w-6 h-6 animate-spin text-teal-600" />
+                <Loader2 className="w-6 h-6 animate-spin text-teal-500" />
               </div>
             ) : categoryData.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-52 text-center">
-                <Activity className="w-8 h-8 text-slate-300 mb-2" />
+                <Activity className="w-8 h-8 text-slate-700 mb-2" />
                 <p className="text-sm text-slate-500">
-                  No category data yet. Run some scans to populate.
+                  No category data yet. Run some scans.
                 </p>
               </div>
             ) : (
@@ -406,12 +379,12 @@ export default function DashboardOverviewPage() {
                 >
                   <CartesianGrid
                     strokeDasharray="3 3"
-                    stroke="#e2e8f0"
+                    stroke="#1e293b"
                     vertical={false}
                   />
                   <XAxis
                     dataKey="name"
-                    tick={{ fontSize: 11, fill: "#94a3b8", fontWeight: 600 }}
+                    tick={{ fontSize: 11, fill: "#64748b", fontWeight: 600 }}
                     tickLine={false}
                     axisLine={false}
                     interval={0}
@@ -420,7 +393,7 @@ export default function DashboardOverviewPage() {
                     height={50}
                   />
                   <YAxis
-                    tick={{ fontSize: 11, fill: "#94a3b8" }}
+                    tick={{ fontSize: 11, fill: "#64748b" }}
                     tickLine={false}
                     axisLine={false}
                     allowDecimals={false}
@@ -428,7 +401,7 @@ export default function DashboardOverviewPage() {
                   <Tooltip
                     contentStyle={{
                       background: "#0f172a",
-                      border: "none",
+                      border: "1px solid #334155",
                       borderRadius: "8px",
                       color: "#fff",
                       fontSize: "12px",
@@ -436,100 +409,96 @@ export default function DashboardOverviewPage() {
                     }}
                     cursor={{ fill: "rgba(13,148,136,0.06)" }}
                   />
-                  <Bar dataKey="count" radius={[6, 6, 0, 0]} barSize={32}>
-                    {categoryData.map((_entry, idx) => (
-                      <Cell
-                        key={`cell-${idx}`}
-                        fill={BAR_COLORS[idx % BAR_COLORS.length]}
-                        opacity={0.85}
-                      />
-                    ))}
-                  </Bar>
+                  <Bar
+                    dataKey="count"
+                    radius={[6, 6, 0, 0]}
+                    barSize={32}
+                    fill="#0d9488"
+                  />
                 </BarChart>
               </ResponsiveContainer>
             )}
           </div>
 
           {/* Activity Feed */}
-          <div className="bg-white/80 backdrop-blur border border-slate-200/60 rounded-2xl p-6 shadow-sm flex flex-col">
+          <div className="bg-[#0f1629] border border-slate-800 rounded-xl p-6 flex flex-col">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <Clock className="w-5 h-5 text-teal-600" />
-                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">
+                <Clock className="w-5 h-5 text-teal-400" />
+                <h3 className="text-sm font-semibold text-white">
                   Recent Activity
                 </h3>
               </div>
             </div>
             {!loaded ? (
               <div className="flex-1 flex items-center justify-center">
-                <Loader2 className="w-6 h-6 animate-spin text-teal-600" />
+                <Loader2 className="w-6 h-6 animate-spin text-teal-500" />
               </div>
             ) : recentScans.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center">
-                <Radar className="w-8 h-8 text-slate-300 mb-2" />
+                <Radar className="w-8 h-8 text-slate-700 mb-2" />
                 <p className="text-sm text-slate-500">No scans yet.</p>
               </div>
             ) : (
-              <ul className="space-y-1 flex-1">
-                {recentScans.map((s, i) => {
-                  const isMalicious = s.verdict?.toLowerCase() === "malicious";
-                  return (
-                    <li
-                      key={i}
-                      className="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-slate-50 transition-colors group cursor-pointer"
-                      onClick={() => router.push("/dashboard/threats")}
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div
-                          className={`w-2 h-2 rounded-full shrink-0 ${
-                            isMalicious
-                              ? "bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.4)]"
-                              : "bg-emerald-500"
-                          }`}
-                        />
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-slate-800 truncate max-w-[160px] font-mono">
-                            {s.target}
-                          </p>
-                          <p className="text-[10px] text-slate-400">
-                            {s.date
-                              ? new Date(s.date).toLocaleDateString("en-US", {
-                                  month: "short",
-                                  day: "numeric",
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                })
-                              : "—"}
-                          </p>
-                        </div>
-                      </div>
+              <ul className="space-y-2 flex-1">
+                {recentScans.map((s, i) => (
+                  <li
+                    key={i}
+                    className={`bg-[#0a0f1e] border border-slate-800 rounded-lg p-4 border-l-4 ${verdictColor(s.verdict)} hover:bg-slate-800/50 transition-colors cursor-pointer`}
+                    onClick={() => router.push("/dashboard/threats")}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-mono text-teal-400 text-sm truncate max-w-[160px]">
+                        {s.target}
+                      </span>
                       <span
-                        className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border ${
-                          isMalicious
-                            ? "text-red-700 bg-red-50 border-red-200"
-                            : "text-emerald-700 bg-emerald-50 border-emerald-200"
-                        }`}
+                        className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border ${verdictBadge(s.verdict)}`}
                       >
                         {s.verdict || "—"}
                       </span>
-                    </li>
-                  );
-                })}
+                    </div>
+                    <div className="flex items-center justify-between">
+                      {s.risk_score !== undefined && (
+                        <span
+                          className={`text-xs font-mono ${
+                            s.risk_score >= 75
+                              ? "text-red-400"
+                              : s.risk_score >= 40
+                                ? "text-yellow-400"
+                                : "text-green-400"
+                          }`}
+                        >
+                          Risk: {s.risk_score}/100
+                        </span>
+                      )}
+                      <span className="text-slate-500 text-xs">
+                        {s.date
+                          ? new Date(s.date).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })
+                          : "—"}
+                      </span>
+                    </div>
+                  </li>
+                ))}
               </ul>
             )}
           </div>
         </div>
 
         {/* Bottom Stats */}
-        <div className="relative z-40 w-full max-w-7xl mx-auto flex flex-wrap items-end justify-between gap-6 px-2">
+        <div className="w-full max-w-7xl mx-auto flex flex-wrap items-end justify-between gap-6 px-2">
           <div className="flex flex-wrap gap-6 sm:gap-8">
             <div className="flex flex-col gap-1">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                 Posture Delta
               </p>
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                <span className="text-lg font-medium text-slate-700">
+                <span className="text-lg font-medium text-slate-300">
                   {!loaded ? (
                     <Loader2 className="w-4 h-4 animate-spin inline" />
                   ) : (
@@ -538,15 +507,15 @@ export default function DashboardOverviewPage() {
                 </span>
               </div>
             </div>
-            <div className="flex flex-col gap-1 border-l border-slate-200 pl-6 sm:pl-8">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+            <div className="flex flex-col gap-1 border-l border-slate-800 pl-6 sm:pl-8">
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                 Avg Risk Index
               </p>
               <div className="flex items-center gap-2">
                 <span
                   className={`w-2 h-2 rounded-full ${avgRisk >= 70 ? "bg-red-500" : avgRisk >= 40 ? "bg-orange-400" : "bg-emerald-500"}`}
                 />
-                <span className="text-lg font-medium text-slate-700">
+                <span className="text-lg font-medium text-slate-300">
                   {!loaded ? (
                     <Loader2 className="w-4 h-4 animate-spin inline" />
                   ) : (
@@ -557,24 +526,7 @@ export default function DashboardOverviewPage() {
             </div>
           </div>
         </div>
-
-        <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#fdfdfb] to-transparent pointer-events-none z-30" />
       </div>
-
-      <style
-        dangerouslySetInnerHTML={{
-          __html: `
-          @keyframes float {
-            0%, 100% { transform: translateY(0) scale(1); }
-            50% { transform: translateY(-20px) scale(1.02); }
-          }
-          @keyframes ripple {
-            0% { transform: scale(1); opacity: 0.4; }
-            100% { transform: scale(2); opacity: 0; }
-          }
-        `,
-        }}
-      />
     </>
   );
 }

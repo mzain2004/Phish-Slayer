@@ -180,40 +180,40 @@ export default function AgentDashboardPage() {
   }
 
   return (
-    <div className="bg-transparent text-slate-900 font-sans min-h-screen flex flex-col w-full">
+    <div className="bg-[#0a0f1e] text-white font-sans min-h-screen flex flex-col w-full">
       <main className="flex-1 px-4 sm:px-8 py-8 w-full max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center gap-2 text-sm text-slate-500 mb-4">
+          <div className="flex items-center gap-2 text-sm text-slate-400 mb-4">
             <a
-              className="hover:text-teal-600 transition-colors"
+              className="hover:text-teal-500 transition-colors"
               href="/dashboard"
             >
               Dashboard
             </a>
-            <ChevronRight className="w-4 h-4 text-slate-400" />
-            <span className="text-slate-900 font-medium">Endpoint Agent</span>
+            <ChevronRight className="w-4 h-4 text-slate-500" />
+            <span className="text-white font-medium">Endpoint Agent</span>
           </div>
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
             <div>
               <div className="flex items-center gap-3">
-                <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
+                <h1 className="text-3xl font-bold text-white tracking-tight">
                   Endpoint Agent
                 </h1>
                 {stats && stats.total > 0 && (
                   <span className="relative flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500" />
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-400" />
                   </span>
                 )}
               </div>
-              <p className="text-slate-500 font-medium mt-1">
+              <p className="text-slate-400 font-medium mt-1">
                 Real-time endpoint anomaly detection
               </p>
             </div>
             <div className="flex items-center gap-3">
               <div className="relative">
-                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
                   <Search className="w-4 h-4" />
                 </span>
                 <input
@@ -224,12 +224,12 @@ export default function AgentDashboardPage() {
                     setPage(0);
                   }}
                   placeholder="Filter by process, IP, level…"
-                  className="w-56 py-2 pl-10 pr-4 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-teal-600 focus:border-teal-600 shadow-sm"
+                  className="w-56 py-2 pl-10 pr-4 bg-[#0f1629] border border-slate-800 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-teal-500 focus:border-teal-500 shadow-sm"
                 />
               </div>
               <button
                 onClick={handleRefresh}
-                className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 shadow-sm"
+                className="flex items-center gap-2 rounded-lg border border-slate-800 bg-[#0f1629] px-4 py-2.5 text-sm font-semibold text-slate-300 hover:bg-slate-800 shadow-sm transition-colors"
               >
                 <RefreshCw
                   className={`w-4 h-4 ${!loaded ? "animate-spin" : ""}`}
@@ -238,7 +238,7 @@ export default function AgentDashboardPage() {
               </button>
               <button
                 onClick={exportCsv}
-                className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 shadow-sm"
+                className="flex items-center gap-2 rounded-lg border border-slate-800 bg-[#0f1629] px-4 py-2.5 text-sm font-semibold text-slate-300 hover:bg-slate-800 shadow-sm transition-colors"
               >
                 <Download className="w-4 h-4" />
                 Export CSV
@@ -249,43 +249,43 @@ export default function AgentDashboardPage() {
 
         {/* KPI Strip */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <div className="flex flex-col gap-1 rounded-xl bg-white p-5 shadow-sm border border-slate-200">
+          <div className="flex flex-col gap-1 rounded-xl bg-[#0f1629] p-5 shadow-sm border border-slate-800">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-slate-500">Total Events</p>
-              <Shield className="text-teal-600 w-5 h-5" />
+              <p className="text-sm font-medium text-slate-400">Total Events</p>
+              <Shield className="text-teal-400 w-5 h-5" />
             </div>
-            <p className="text-3xl font-bold text-slate-900 mt-2">
+            <p className="text-3xl font-bold text-white mt-2">
               {stats?.total ?? 0}
             </p>
           </div>
-          <div className="flex flex-col gap-1 rounded-xl bg-white p-5 shadow-sm border border-slate-200">
+          <div className="flex flex-col gap-1 rounded-xl bg-[#0f1629] p-5 shadow-sm border border-slate-800">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-slate-500">
+              <p className="text-sm font-medium text-slate-400">
                 Critical / High
               </p>
-              <AlertTriangle className="text-red-500 w-5 h-5" />
+              <AlertTriangle className="text-red-400 w-5 h-5" />
             </div>
-            <p className="text-3xl font-bold text-red-600 mt-2">
+            <p className="text-3xl font-bold text-red-500 mt-2">
               {(stats?.critical ?? 0) + (stats?.high ?? 0)}
             </p>
           </div>
-          <div className="flex flex-col gap-1 rounded-xl bg-white p-5 shadow-sm border border-slate-200">
+          <div className="flex flex-col gap-1 rounded-xl bg-[#0f1629] p-5 shadow-sm border border-slate-800">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-slate-500">Unique IPs</p>
-              <Globe className="text-blue-500 w-5 h-5" />
+              <p className="text-sm font-medium text-slate-400">Unique IPs</p>
+              <Globe className="text-blue-400 w-5 h-5" />
             </div>
-            <p className="text-3xl font-bold text-slate-900 mt-2">
+            <p className="text-3xl font-bold text-white mt-2">
               {stats?.uniqueIps ?? 0}
             </p>
           </div>
-          <div className="flex flex-col gap-1 rounded-xl bg-white p-5 shadow-sm border border-slate-200">
+          <div className="flex flex-col gap-1 rounded-xl bg-[#0f1629] p-5 shadow-sm border border-slate-800">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-slate-500">
+              <p className="text-sm font-medium text-slate-400">
                 Processes Flagged
               </p>
-              <Activity className="text-orange-500 w-5 h-5" />
+              <Activity className="text-orange-400 w-5 h-5" />
             </div>
-            <p className="text-3xl font-bold text-slate-900 mt-2">
+            <p className="text-3xl font-bold text-white mt-2">
               {stats?.topProcesses?.length ?? 0}
             </p>
           </div>
@@ -294,17 +294,17 @@ export default function AgentDashboardPage() {
         {/* Charts + Beaconing */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           {/* Bar Chart */}
-          <div className="lg:col-span-2 bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+          <div className="lg:col-span-2 bg-[#0f1629] border border-slate-800 rounded-xl p-6 shadow-sm">
             <div className="flex items-center gap-2 mb-4">
-              <Activity className="w-5 h-5 text-teal-600" />
-              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">
+              <Activity className="w-5 h-5 text-teal-400" />
+              <h3 className="text-sm font-bold text-white uppercase tracking-wide">
                 Top Processes
               </h3>
             </div>
             {(stats?.topProcesses?.length ?? 0) === 0 ? (
               <div className="flex flex-col items-center justify-center h-52 text-center">
-                <Activity className="w-8 h-8 text-slate-300 mb-2" />
-                <p className="text-sm text-slate-500">No process data yet.</p>
+                <Activity className="w-8 h-8 text-slate-600 mb-2" />
+                <p className="text-sm text-slate-400">No process data yet.</p>
               </div>
             ) : (
               <ResponsiveContainer width="100%" height={240}>
@@ -314,17 +314,17 @@ export default function AgentDashboardPage() {
                 >
                   <CartesianGrid
                     strokeDasharray="3 3"
-                    stroke="#e2e8f0"
+                    stroke="#1e293b"
                     vertical={false}
                   />
                   <XAxis
                     dataKey="name"
-                    tick={{ fontSize: 11, fill: "#94a3b8", fontWeight: 600 }}
+                    tick={{ fontSize: 11, fill: "#64748b", fontWeight: 600 }}
                     tickLine={false}
                     axisLine={false}
                   />
                   <YAxis
-                    tick={{ fontSize: 11, fill: "#94a3b8" }}
+                    tick={{ fontSize: 11, fill: "#64748b" }}
                     tickLine={false}
                     axisLine={false}
                     allowDecimals={false}
@@ -354,27 +354,27 @@ export default function AgentDashboardPage() {
           </div>
 
           {/* Beaconing Alert */}
-          <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm flex flex-col">
+          <div className="bg-[#0f1629] border border-slate-800 rounded-xl p-6 shadow-sm flex flex-col">
             <div className="flex items-center gap-2 mb-4">
               <AlertTriangle className="w-5 h-5 text-orange-500" />
-              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">
+              <h3 className="text-sm font-bold text-white uppercase tracking-wide">
                 Beaconing Detection
               </h3>
             </div>
             {beaconingEvents.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center">
-                <Shield className="w-8 h-8 text-emerald-300 mb-2" />
-                <p className="text-sm text-emerald-600 font-semibold">
+                <Shield className="w-8 h-8 text-emerald-500/50 mb-2" />
+                <p className="text-sm text-emerald-400 font-semibold">
                   No beaconing detected
                 </p>
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-xs text-slate-500 mt-1">
                   Monitoring for C2 patterns
                 </p>
               </div>
             ) : (
               <div className="flex-1 flex flex-col gap-3">
-                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                  <p className="text-xs font-black text-red-600 uppercase">
+                <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
+                  <p className="text-xs font-black text-red-400 uppercase">
                     ⚠️ BEACONING DETECTED — Possible C2 Communication
                   </p>
                 </div>
@@ -382,13 +382,13 @@ export default function AgentDashboardPage() {
                   {beaconingEvents.map((e, i) => (
                     <li
                       key={i}
-                      className="text-xs bg-slate-50 rounded p-2 border border-slate-100"
+                      className="text-xs bg-slate-900/50 rounded p-2 border border-slate-800"
                     >
-                      <span className="font-mono font-bold text-red-600">
+                      <span className="font-mono font-bold text-red-400">
                         {e.process_name}
                       </span>
-                      <span className="text-slate-400"> → </span>
-                      <span className="font-mono text-slate-700">
+                      <span className="text-slate-500"> → </span>
+                      <span className="font-mono text-slate-300">
                         {e.remote_address}:{e.remote_port}
                       </span>
                     </li>
@@ -400,11 +400,11 @@ export default function AgentDashboardPage() {
         </div>
 
         {/* Events Table */}
-        <div className="rounded-xl bg-white shadow-sm border border-slate-200 overflow-hidden mb-8">
+        <div className="rounded-xl bg-[#0f1629] shadow-sm border border-slate-800 overflow-hidden mb-8">
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200">
+                <tr className="bg-slate-900/50 border-b border-slate-800">
                   {[
                     "Timestamp",
                     "Process",
@@ -419,19 +419,19 @@ export default function AgentDashboardPage() {
                   ].map((h) => (
                     <th
                       key={h}
-                      className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap"
+                      className="px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap"
                     >
                       {h}
                     </th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-800/50">
                 {paged.length === 0 ? (
                   <tr>
                     <td
                       colSpan={10}
-                      className="px-4 py-12 text-center text-sm text-slate-500"
+                      className="px-4 py-12 text-center text-sm text-slate-400"
                     >
                       No endpoint events found.
                     </td>
@@ -440,9 +440,9 @@ export default function AgentDashboardPage() {
                   paged.map((e) => (
                     <tr
                       key={e.id}
-                      className="hover:bg-slate-50/60 transition-colors"
+                      className="hover:bg-slate-800/50 transition-colors"
                     >
-                      <td className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">
+                      <td className="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">
                         {new Date(e.timestamp).toLocaleString("en-US", {
                           month: "short",
                           day: "numeric",
@@ -450,23 +450,23 @@ export default function AgentDashboardPage() {
                           minute: "2-digit",
                         })}
                       </td>
-                      <td className="px-4 py-3 text-xs font-mono font-bold text-slate-800">
+                      <td className="px-4 py-3 text-xs font-mono font-bold text-white">
                         {e.process_name}
                       </td>
-                      <td className="px-4 py-3 text-xs font-mono text-slate-500">
+                      <td className="px-4 py-3 text-xs font-mono text-slate-400">
                         {e.pid}
                       </td>
-                      <td className="px-4 py-3 text-xs font-mono text-slate-800">
+                      <td className="px-4 py-3 text-xs font-mono text-white">
                         {e.remote_address}
                       </td>
-                      <td className="px-4 py-3 text-xs font-mono text-slate-600">
+                      <td className="px-4 py-3 text-xs font-mono text-slate-400">
                         {e.remote_port}
                       </td>
-                      <td className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">
+                      <td className="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">
                         {countryFlag(e.country_code)} {e.country || "—"}
                         {e.city ? `, ${e.city}` : ""}
                       </td>
-                      <td className="px-4 py-3 text-xs text-slate-500 truncate max-w-[120px]">
+                      <td className="px-4 py-3 text-xs text-slate-400 truncate max-w-[120px]">
                         {e.isp || "—"}
                       </td>
                       <td className="px-4 py-3">
@@ -478,10 +478,10 @@ export default function AgentDashboardPage() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-slate-800">
+                          <span className="text-xs font-bold text-white">
                             {e.threat_score}
                           </span>
-                          <div className="w-12 bg-slate-100 rounded-full h-1.5">
+                          <div className="w-12 bg-slate-800 rounded-full h-1.5">
                             <div
                               className={`h-1.5 rounded-full ${e.threat_score >= 70 ? "bg-red-500" : e.threat_score >= 50 ? "bg-orange-400" : e.threat_score >= 30 ? "bg-yellow-400" : "bg-emerald-500"}`}
                               style={{
@@ -497,7 +497,7 @@ export default function AgentDashboardPage() {
                           disabled={
                             isPending && blockingIp === e.remote_address
                           }
-                          className="inline-flex items-center gap-1 rounded-lg border border-orange-200 bg-orange-50 px-2.5 py-1 text-[10px] font-semibold text-orange-700 hover:bg-orange-100 transition-colors disabled:opacity-50"
+                          className="inline-flex items-center gap-1 rounded-lg border border-orange-500/20 bg-orange-500/10 px-2.5 py-1 text-[10px] font-semibold text-orange-400 hover:bg-orange-500/20 transition-colors disabled:opacity-50"
                         >
                           {isPending && blockingIp === e.remote_address ? (
                             <Loader2 className="w-3 h-3 animate-spin" />
@@ -515,22 +515,22 @@ export default function AgentDashboardPage() {
           </div>
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 bg-slate-50">
-              <span className="text-xs text-slate-500">
+            <div className="flex items-center justify-between px-4 py-3 border-t border-slate-800 bg-slate-900/50">
+              <span className="text-xs text-slate-400">
                 {filtered.length} events · Page {page + 1} of {totalPages}
               </span>
               <div className="flex gap-2">
                 <button
                   onClick={() => setPage(Math.max(0, page - 1))}
                   disabled={page === 0}
-                  className="px-3 py-1 rounded border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-white disabled:opacity-40"
+                  className="px-3 py-1 rounded border border-slate-700 text-xs font-semibold text-slate-300 hover:bg-slate-800 disabled:opacity-40"
                 >
                   Prev
                 </button>
                 <button
                   onClick={() => setPage(Math.min(totalPages - 1, page + 1))}
                   disabled={page >= totalPages - 1}
-                  className="px-3 py-1 rounded border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-white disabled:opacity-40"
+                  className="px-3 py-1 rounded border border-slate-700 text-xs font-semibold text-slate-300 hover:bg-slate-800 disabled:opacity-40"
                 >
                   Next
                 </button>

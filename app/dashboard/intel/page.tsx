@@ -24,16 +24,17 @@ import { canManageIntelVault } from "@/lib/rbac/roles";
 /* ── Severity Badge ───────────────────────────────────────────────── */
 function SeverityBadge({ severity }: { severity: string }) {
   const s = severity?.toLowerCase() ?? "";
-  let bg = "bg-slate-100 text-slate-600 border-slate-200";
+  let bg = "bg-slate-500/10 text-slate-400 border-slate-500/20";
   if (s === "critical")
     bg =
-      "bg-red-50 text-red-700 border-red-200 shadow-[0_0_6px_rgba(239,68,68,0.15)]";
+      "bg-red-500/10 text-red-400 border-red-500/20 shadow-[0_0_6px_rgba(239,68,68,0.15)]";
   else if (s === "high")
     bg =
-      "bg-orange-50 text-orange-700 border-orange-200 shadow-[0_0_6px_rgba(249,115,22,0.12)]";
-  else if (s === "medium") bg = "bg-amber-50 text-amber-700 border-amber-200";
+      "bg-orange-500/10 text-orange-400 border-orange-500/20 shadow-[0_0_6px_rgba(249,115,22,0.12)]";
+  else if (s === "medium")
+    bg = "bg-yellow-500/10 text-yellow-400 border-yellow-500/20";
   else if (s === "low")
-    bg = "bg-emerald-50 text-emerald-700 border-emerald-200";
+    bg = "bg-slate-500/10 text-slate-400 border-slate-500/20";
 
   return (
     <span
@@ -98,12 +99,12 @@ export default function IntelVaultPage() {
 
   /* ── Page ─────────────────────────────────────────────────────────── */
   return (
-    <div className="bg-transparent text-slate-900 font-sans min-h-screen flex flex-col w-full overflow-x-hidden">
+    <div className="bg-[#0a0f1e] text-white font-sans min-h-screen flex flex-col w-full overflow-x-hidden">
       <main className="flex-1 w-full max-w-7xl mx-auto p-6 md:p-10">
         {/* Page Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
-            <Database className="w-7 h-7 text-teal-600" />
+          <h1 className="text-3xl font-bold text-white tracking-tight flex items-center gap-3">
+            <Database className="w-7 h-7 text-teal-400" />
             Intel Vault
           </h1>
           <p className="text-slate-500 mt-2 text-sm">
@@ -113,9 +114,9 @@ export default function IntelVaultPage() {
         </div>
 
         {!isManager && (
-          <div className="mb-8 rounded-xl bg-blue-50 border border-blue-200 p-4 flex items-center gap-3">
-            <ShieldCheck className="w-5 h-5 text-blue-600" />
-            <p className="text-sm font-medium text-blue-800">
+          <div className="mb-8 rounded-xl bg-blue-500/10 border border-blue-500/20 p-4 flex items-center gap-3">
+            <ShieldCheck className="w-5 h-5 text-blue-400" />
+            <p className="text-sm font-medium text-blue-300">
               You have view-only access to the Intel Vault. Only SOC Managers
               and Super Admins can add or remove items.
             </p>
@@ -129,13 +130,13 @@ export default function IntelVaultPage() {
               label: "Whitelisted",
               value: whitelist.length,
               icon: ShieldCheck,
-              color: "text-emerald-600 bg-emerald-50 border-emerald-200",
+              color: "text-green-400 bg-green-500/10 border-green-500/20",
             },
             {
               label: "Total Indicators",
               value: indicators.length,
               icon: Database,
-              color: "text-teal-600 bg-teal-50 border-teal-200",
+              color: "text-teal-400 bg-teal-500/10 border-teal-500/20",
             },
             {
               label: "Critical",
@@ -143,7 +144,7 @@ export default function IntelVaultPage() {
                 (i) => i.severity?.toLowerCase() === "critical",
               ).length,
               icon: AlertTriangle,
-              color: "text-red-600 bg-red-50 border-red-200",
+              color: "text-red-400 bg-red-500/10 border-red-500/20",
             },
             {
               label: "High",
@@ -151,12 +152,12 @@ export default function IntelVaultPage() {
                 (i) => i.severity?.toLowerCase() === "high",
               ).length,
               icon: AlertTriangle,
-              color: "text-orange-600 bg-orange-50 border-orange-200",
+              color: "text-orange-400 bg-orange-500/10 border-orange-500/20",
             },
           ].map((kpi) => (
             <div
               key={kpi.label}
-              className={`rounded-xl border p-4 flex items-center gap-4 ${kpi.color} transition-shadow hover:shadow-md`}
+              className={`rounded-xl border bg-[#0f1629] border-slate-800 p-4 flex items-center gap-4 ${kpi.color} transition-shadow hover:shadow-md`}
             >
               <kpi.icon className="w-6 h-6 shrink-0 opacity-80" />
               <div>
@@ -171,20 +172,20 @@ export default function IntelVaultPage() {
 
         <div className="flex flex-col xl:flex-row gap-8 items-start">
           {/* ────────────── Whitelist Table ────────────── */}
-          <div className="w-full xl:w-[380px] xl:min-w-[340px] bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+          <div className="w-full xl:w-[380px] xl:min-w-[340px] bg-[#0f1629] rounded-xl border border-slate-800 overflow-hidden flex flex-col">
             {/* Header */}
-            <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
-              <ListPlus className="w-5 h-5 text-teal-600" />
-              <h2 className="text-base font-semibold text-slate-900">
+            <div className="px-5 py-4 border-b border-slate-800 flex items-center gap-2">
+              <ListPlus className="w-5 h-5 text-teal-400" />
+              <h2 className="text-base font-semibold text-white">
                 Target Whitelist
               </h2>
-              <span className="ml-auto text-xs font-bold text-slate-400 bg-slate-100 rounded-full px-2.5 py-0.5">
+              <span className="ml-auto text-xs font-bold text-slate-400 bg-slate-900 rounded-full px-2.5 py-0.5 border border-slate-800">
                 {whitelist.length}
               </span>
             </div>
 
             {/* Table header */}
-            <div className="bg-slate-50 px-5 py-2 border-b border-slate-200 flex items-center justify-between">
+            <div className="bg-slate-900/50 px-5 py-2 border-b border-slate-800 flex items-center justify-between">
               <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                 Target
               </span>
@@ -206,14 +207,14 @@ export default function IntelVaultPage() {
                 </p>
               </div>
             ) : (
-              <ul className="divide-y divide-slate-100 max-h-[480px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200">
+              <ul className="divide-y divide-slate-800 max-h-[480px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700">
                 {whitelist.map((item) => (
                   <li
                     key={item.id}
-                    className="px-5 py-3.5 flex items-center justify-between gap-3 hover:bg-slate-50/70 transition-colors group"
+                    className="px-5 py-3.5 flex items-center justify-between gap-3 hover:bg-slate-800/30 transition-colors group"
                   >
                     <div className="flex flex-col min-w-0">
-                      <span className="text-sm font-semibold text-slate-900 truncate">
+                      <span className="text-sm font-semibold text-white truncate">
                         {item.target}
                       </span>
                       <span className="text-[11px] text-slate-400 mt-0.5">
@@ -229,7 +230,7 @@ export default function IntelVaultPage() {
                         onClick={() => handleRemoveWhitelist(item.id)}
                         disabled={isPending}
                         aria-label={`Remove ${item.target} from whitelist`}
-                        className="p-1.5 rounded-md text-slate-300 hover:text-red-600 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 disabled:opacity-50"
+                        className="p-1.5 rounded-md text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 disabled:opacity-50"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -241,20 +242,20 @@ export default function IntelVaultPage() {
           </div>
 
           {/* ────────────── Intel Vault Table ────────────── */}
-          <div className="flex-1 w-full bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+          <div className="flex-1 w-full bg-[#0f1629] rounded-xl border border-slate-800 overflow-hidden flex flex-col">
             {/* Header */}
-            <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
-              <Database className="w-5 h-5 text-teal-600" />
-              <h2 className="text-base font-semibold text-slate-900">
+            <div className="px-5 py-4 border-b border-slate-800 flex items-center gap-2">
+              <Database className="w-5 h-5 text-teal-400" />
+              <h2 className="text-base font-semibold text-white">
                 Proprietary Intel Vault
               </h2>
-              <span className="ml-auto text-xs font-bold text-slate-400 bg-slate-100 rounded-full px-2.5 py-0.5">
+              <span className="ml-auto text-xs font-bold text-slate-400 bg-slate-900 border border-slate-800 rounded-full px-2.5 py-0.5">
                 {indicators.length}
               </span>
             </div>
 
             {/* Table header */}
-            <div className="bg-slate-50 px-5 py-2 border-b border-slate-200 grid grid-cols-12 gap-3 items-center">
+            <div className="bg-slate-900/50 px-5 py-2 border-b border-slate-800 grid grid-cols-12 gap-3 items-center">
               <span className="col-span-5 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                 Indicator
               </span>
@@ -283,16 +284,16 @@ export default function IntelVaultPage() {
                 </p>
               </div>
             ) : (
-              <ul className="divide-y divide-slate-100 max-h-[520px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200">
+              <ul className="divide-y divide-slate-800 max-h-[520px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700">
                 {indicators.map((item) => (
                   <li
                     key={item.id}
-                    className="px-5 py-3 grid grid-cols-12 gap-3 items-center hover:bg-slate-50/70 transition-colors group"
+                    className="px-5 py-3 grid grid-cols-12 gap-3 items-center hover:bg-slate-800/30 transition-colors group"
                   >
                     {/* Indicator */}
                     <div className="col-span-5 min-w-0">
                       <p
-                        className="text-sm font-semibold text-slate-900 truncate"
+                        className="text-sm font-semibold text-white truncate"
                         title={item.indicator}
                       >
                         {item.indicator}
@@ -301,7 +302,7 @@ export default function IntelVaultPage() {
 
                     {/* Type */}
                     <div className="col-span-2">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider text-cyan-700 bg-cyan-50 border border-cyan-200">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider text-teal-400 bg-teal-500/10 border border-teal-500/20">
                         {item.type || "—"}
                       </span>
                     </div>
@@ -325,7 +326,7 @@ export default function IntelVaultPage() {
                           onClick={() => handleRemoveIndicator(item.id)}
                           disabled={isPending}
                           aria-label={`Remove indicator ${item.indicator}`}
-                          className="p-1.5 rounded-md text-slate-300 hover:text-red-600 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 disabled:opacity-50"
+                          className="p-1.5 rounded-md text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 disabled:opacity-50"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -339,13 +340,13 @@ export default function IntelVaultPage() {
         </div>
 
         {/* ────────────── API Documentation ────────────── */}
-        <div className="mt-10 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-100 bg-slate-900 flex items-center gap-3">
+        <div className="mt-10 bg-[#0f1629] rounded-xl border border-slate-800 overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-800 bg-slate-900/50 flex items-center gap-3">
             <Code className="w-5 h-5 text-teal-400" />
             <h2 className="text-base font-semibold text-white">
               Public API v1
             </h2>
-            <span className="ml-auto text-[10px] font-bold text-teal-400 bg-teal-400/10 rounded-full px-2.5 py-0.5 border border-teal-400/20">
+            <span className="ml-auto text-[10px] font-bold text-teal-400 bg-teal-500/10 rounded-full px-2.5 py-0.5 border border-teal-500/20">
               BETA
             </span>
           </div>
@@ -353,13 +354,13 @@ export default function IntelVaultPage() {
           <div className="p-6 space-y-6">
             {/* Endpoint */}
             <div>
-              <h3 className="text-sm font-bold text-slate-900 mb-2 uppercase tracking-wide">
+              <h3 className="text-sm font-bold text-white mb-2 uppercase tracking-wide">
                 Endpoint
               </h3>
-              <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 font-mono text-sm text-slate-800 flex items-center justify-between gap-4">
+              <div className="bg-slate-950 border border-slate-800 rounded-lg px-4 py-3 font-mono text-sm text-green-400 flex items-center justify-between gap-4">
                 <span>
-                  <span className="text-teal-600 font-bold">GET</span>{" "}
-                  <span className="text-slate-500">/api/v1/scan</span>
+                  <span className="text-teal-400 font-bold">GET</span>{" "}
+                  <span className="text-slate-300">/api/v1/scan</span>
                   <span className="text-slate-400">?target=example.com</span>
                 </span>
               </div>
@@ -367,16 +368,16 @@ export default function IntelVaultPage() {
 
             {/* Auth */}
             <div>
-              <h3 className="text-sm font-bold text-slate-900 mb-2 uppercase tracking-wide">
+              <h3 className="text-sm font-bold text-white mb-2 uppercase tracking-wide">
                 Authentication
               </h3>
-              <p className="text-sm text-slate-600 mb-3">
+              <p className="text-sm text-slate-400 mb-3">
                 Include your API key in the{" "}
-                <code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded font-mono text-teal-700 border border-slate-200">
+                <code className="text-xs bg-slate-950 px-1.5 py-0.5 rounded font-mono text-teal-400 border border-slate-800">
                   x-api-key
                 </code>{" "}
                 header. Set{" "}
-                <code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded font-mono text-teal-700 border border-slate-200">
+                <code className="text-xs bg-slate-950 px-1.5 py-0.5 rounded font-mono text-teal-400 border border-slate-800">
                   PHISH_SLAYER_API_KEY
                 </code>{" "}
                 in your environment.
@@ -386,7 +387,7 @@ export default function IntelVaultPage() {
             {/* cURL Example */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">
+                <h3 className="text-sm font-bold text-white uppercase tracking-wide">
                   cURL Example
                 </h3>
                 <button
@@ -396,12 +397,12 @@ export default function IntelVaultPage() {
                     );
                     toast.success("Copied to clipboard!");
                   }}
-                  className="flex items-center gap-1.5 text-xs font-semibold text-teal-600 hover:text-teal-700 transition-colors"
+                  className="flex items-center gap-1.5 text-xs font-semibold text-teal-400 hover:text-teal-300 transition-colors"
                 >
                   <Copy className="w-3.5 h-3.5" /> Copy
                 </button>
               </div>
-              <pre className="bg-slate-900 text-slate-300 rounded-lg p-4 text-xs font-mono overflow-x-auto leading-relaxed">
+              <pre className="bg-slate-950 text-slate-300 rounded-lg p-4 text-xs font-mono overflow-x-auto leading-relaxed border border-slate-800">
                 {`curl -X GET \\
   "https://your-domain.com/api/v1/scan?target=example.com" \\
   -H "x-api-key: YOUR_API_KEY"`}
@@ -410,10 +411,10 @@ export default function IntelVaultPage() {
 
             {/* POST Example */}
             <div>
-              <h3 className="text-sm font-bold text-slate-900 mb-2 uppercase tracking-wide">
+              <h3 className="text-sm font-bold text-white mb-2 uppercase tracking-wide">
                 POST Example
               </h3>
-              <pre className="bg-slate-900 text-slate-300 rounded-lg p-4 text-xs font-mono overflow-x-auto leading-relaxed">
+              <pre className="bg-slate-950 text-slate-300 rounded-lg p-4 text-xs font-mono overflow-x-auto leading-relaxed border border-slate-800">
                 {`curl -X POST "https://your-domain.com/api/v1/scan" \\
   -H "x-api-key: YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
@@ -423,10 +424,10 @@ export default function IntelVaultPage() {
 
             {/* Response */}
             <div>
-              <h3 className="text-sm font-bold text-slate-900 mb-2 uppercase tracking-wide">
+              <h3 className="text-sm font-bold text-white mb-2 uppercase tracking-wide">
                 Response Format
               </h3>
-              <pre className="bg-slate-900 text-emerald-400 rounded-lg p-4 text-xs font-mono overflow-x-auto leading-relaxed">
+              <pre className="bg-slate-950 text-green-400 rounded-lg p-4 text-xs font-mono overflow-x-auto leading-relaxed border border-slate-800">
                 {`{
   "success": true,
   "data": {
