@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod';
+import { safeCompare } from '@/lib/security/safeCompare';
 
 // Admin Supabase client (bypasses RLS for agent writes)
 const getSupabaseAdmin = () =>
@@ -115,7 +116,8 @@ export async function POST(request: Request) {
   // 1. Authenticate via AGENT_SECRET bearer token
   const authHeader = request.headers.get('Authorization');
   const expectedToken = process.env.AGENT_SECRET;
-  if (!authHeader || !expectedToken || authHeader !== `Bearer ${expectedToken}`) {
+  const providedToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  if (!expectedToken || !providedToken || !safeCompare(providedToken, expectedToken)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

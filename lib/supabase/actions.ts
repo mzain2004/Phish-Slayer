@@ -127,7 +127,6 @@ export async function createIncident(data: any) {
     }
   }
   
-  console.log('Inserting Incident:', payload);
   const { error } = await supabase.from('incidents').insert([payload]);
   
   if (error) {
@@ -244,8 +243,6 @@ export async function blockIp(ipAddress: string) {
   // Determine type based on IP regex
   const isIp = /^(?:\d{1,3}\.){3}\d{1,3}$/.test(validIp);
 
-  console.log('[blockIp] Upserting indicator:', validIp, '| type:', isIp ? 'ipv4' : 'domain');
-  
   // Upsert into proprietary_intel (handles duplicates gracefully)
   const { data, error } = await supabase
     .from('proprietary_intel')
@@ -261,8 +258,6 @@ export async function blockIp(ipAddress: string) {
     console.error('SUPABASE UPSERT ERROR (blockIp):', JSON.stringify(error));
     throw new Error(error.message || 'Failed to block IP');
   }
-
-  console.log('[blockIp] SUCCESS — upserted row:', JSON.stringify(data));
 
   // Siren: Discord notification for manual blocks
   fireDiscordAlert({

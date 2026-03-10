@@ -4,6 +4,7 @@ import { checkDnsRecords } from '@/lib/deep-scan/dnsCheck';
 import { getSslProfile } from '@/lib/deep-scan/sslProfile';
 import { detectTyposquatting } from '@/lib/deep-scan/typosquat';
 import { getDomTree } from '@/lib/deep-scan/domTree';
+import { sanitizeTarget } from '@/lib/security/safeCompare';
 
 function stripTarget(input: string): string {
   let d = input.trim();
@@ -26,7 +27,16 @@ export async function GET(request: Request) {
       );
     }
 
-    const target = stripTarget(rawTarget);
+    const stripped = stripTarget(rawTarget);
+
+    // Validate sanitized target
+    const { target, error: sanitizeError } = sanitizeTarget(stripped);
+    if (sanitizeError || !target) {
+      return NextResponse.json(
+        { error: sanitizeError || 'Invalid target.' },
+        { status: 400 }
+      );
+    }
 
     // Run all 5 modules in parallel — never let one failure block others
     const [whoisResult, dnsResult, sslResult, typosquatResult, domTreeResult] =

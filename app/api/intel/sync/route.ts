@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { safeCompare } from '@/lib/security/safeCompare';
 
 export async function GET(request: NextRequest) {
   // ── CRON Secret Guard ───────────────────────────────────────────────
   const authHeader = request.headers.get('authorization');
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  const cronSecret = process.env.CRON_SECRET;
+  const providedToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  if (!cronSecret || !providedToken || !safeCompare(providedToken, cronSecret)) {
     return NextResponse.json(
       { error: 'Unauthorized. Invalid or missing CRON secret.' },
       { status: 401 }
@@ -81,7 +84,7 @@ export async function GET(request: NextRequest) {
   } catch (err: any) {
     console.error('Intel Sync Error:', err);
     return NextResponse.json(
-      { error: 'An unexpected error occurred during sync.', details: err.message },
+      { error: 'An unexpected error occurred during sync.' },
       { status: 500 }
     );
   }

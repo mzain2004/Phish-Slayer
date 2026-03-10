@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { DashboardErrorBoundary } from "./components/ErrorBoundary";
 import {
   ShieldAlert,
   LayoutDashboard,
@@ -262,7 +263,7 @@ export default function DashboardLayout({
       </aside>
 
       <main className="flex-1 min-w-0 h-full overflow-y-auto bg-[#fafafa] p-4 md:p-8 [&>div>aside]:hidden [&>div]:w-full">
-        {children}
+        <DashboardErrorBoundary>{children}</DashboardErrorBoundary>
       </main>
     </div>
   );

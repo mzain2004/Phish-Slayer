@@ -2,8 +2,21 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { scanTarget } from '@/lib/scanners/threatScanner';
 import { scoreCtiFinding } from '@/lib/ai/analyzer';
+import { safeCompare, sanitizeTarget } from '@/lib/security/safeCompare';
 
 // ── Public API V1 — Scan Engine ──────────────────────────────────────
+
+function corsHeaders() {
+  return {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'x-api-key, Content-Type',
+  };
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: corsHeaders() });
+}
 
 export async function GET(request: NextRequest) {
   return handleScan(request);
@@ -14,42 +27,51 @@ export async function POST(request: NextRequest) {
 }
 
 async function handleScan(request: NextRequest) {
-  // ── Auth: API Key Check ──────────────────────────────────────────
+  const headers = corsHeaders();
+
+  // ── Auth: API Key Check (timing-safe) ─────────────────────────────
   const apiKey = request.headers.get('x-api-key');
   const serverKey = process.env.PHISH_SLAYER_API_KEY;
 
-  if (!serverKey || apiKey !== serverKey) {
+  if (!serverKey || !apiKey || !safeCompare(apiKey, serverKey)) {
     return NextResponse.json(
       { error: 'Unauthorized. Provide a valid x-api-key header.' },
-      { status: 401 }
+      { status: 401, headers }
     );
   }
 
-  // ── Extract target ───────────────────────────────────────────────
-  let target: string | null = null;
+  // ── Extract target ────────────────────────────────────────────────
+  let rawTarget: string | null = null;
 
   if (request.method === 'GET') {
-    target = request.nextUrl.searchParams.get('target');
+    rawTarget = request.nextUrl.searchParams.get('target');
   } else {
     try {
       const body = await request.json();
-      target = body.target || null;
+      rawTarget = body.target || null;
     } catch {
       return NextResponse.json(
         { error: 'Invalid JSON body. Expected: { "target": "example.com" }' },
-        { status: 400 }
+        { status: 400, headers }
       );
     }
   }
 
-  if (!target || typeof target !== 'string' || target.trim().length === 0) {
+  if (!rawTarget) {
     return NextResponse.json(
       { error: 'Missing required parameter: target' },
-      { status: 400 }
+      { status: 400, headers }
     );
   }
 
-  const validTarget = target.trim();
+  // ── Sanitize & validate target ────────────────────────────────────
+  const { target: validTarget, error: sanitizeError } = sanitizeTarget(rawTarget);
+  if (sanitizeError || !validTarget) {
+    return NextResponse.json(
+      { error: sanitizeError || 'Invalid target.' },
+      { status: 400, headers }
+    );
+  }
 
   try {
     const supabase = await createClient();
@@ -88,7 +110,7 @@ async function handleScan(request: NextRequest) {
         payload: whitelistHit,
       }]);
 
-      return NextResponse.json({ success: true, data: result });
+      return NextResponse.json({ success: true, data: result }, { headers });
     }
 
     // ── Gate 2: Proprietary Intel Vault ──────────────────────────
@@ -124,7 +146,7 @@ async function handleScan(request: NextRequest) {
         payload: intelHit,
       }]);
 
-      // Discord webhook fires via launchScan — for API we fire it inline
+      // Discord webhook (fire-and-forget)
       const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
       if (webhookUrl) {
         fetch(webhookUrl, {
@@ -144,10 +166,10 @@ async function handleScan(request: NextRequest) {
               timestamp: new Date().toISOString(),
             }],
           }),
-        }).catch(() => {}); // Fire-and-forget
+        }).catch(() => {});
       }
 
-      return NextResponse.json({ success: true, data: result });
+      return NextResponse.json({ success: true, data: result }, { headers });
     }
 
     // ── Gate 3: External Scan (VirusTotal → Gemini) ──────────────
@@ -204,20 +226,20 @@ async function handleScan(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ success: true, data: result });
+    return NextResponse.json({ success: true, data: result }, { headers });
 
   } catch (err: any) {
     if (err?.message === 'RATE_LIMIT') {
       return NextResponse.json(
         { error: 'Rate limit exceeded. Please wait 60 seconds.' },
-        { status: 429 }
+        { status: 429, headers }
       );
     }
 
     console.error('API v1 scan error:', err);
     return NextResponse.json(
-      { error: err?.message || 'Internal scan error.' },
-      { status: 500 }
+      { error: 'An internal error occurred. Please try again.' },
+      { status: 500, headers }
     );
   }
 }
