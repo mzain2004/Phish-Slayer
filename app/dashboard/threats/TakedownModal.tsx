@@ -208,7 +208,27 @@ Reported via Phish-Slayer Threat Intelligence Platform`;
             className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white text-xs font-bold rounded-lg hover:bg-slate-800 transition-colors"
           >
             <Mail className="w-3.5 h-3.5" />
-            Open in Mail Client
+            Open in Mail App
+          </button>
+          <button
+            onClick={() => {
+              const gmailUrl = `https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(recipient)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(editableBody)}`;
+              window.open(gmailUrl, "_blank");
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 text-slate-700 text-xs font-bold rounded-lg hover:bg-white transition-colors"
+          >
+            <Mail className="w-3.5 h-3.5" />
+            Open in Gmail
+          </button>
+          <button
+            onClick={() => {
+              const outlookUrl = `https://outlook.live.com/mail/0/deeplink/compose?to=${encodeURIComponent(recipient)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(editableBody)}`;
+              window.open(outlookUrl, "_blank");
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 text-slate-700 text-xs font-bold rounded-lg hover:bg-white transition-colors"
+          >
+            <Mail className="w-3.5 h-3.5" />
+            Open in Outlook Web
           </button>
           <a
             href="https://safebrowsing.google.com/safebrowsing/report_phish/"
