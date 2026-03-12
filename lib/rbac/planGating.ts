@@ -71,9 +71,12 @@ export function canAccessFeature(
 }
 
 export function getUpgradeMessage(feature: string): string {
-  return `${feature} is not available on your current plan. Upgrade to Pro or Enterprise to unlock this feature.`;
+  return `${feature} is not available on your current plan. Upgrade to SOC Pro or Command & Control to unlock this feature.`;
 }
 
 export function getPlanLabel(tier: SubscriptionTier): string {
-  return tier.charAt(0).toUpperCase() + tier.slice(1);
+  if (tier === 'free') return 'Recon';
+  if (tier === 'pro') return 'SOC Pro';
+  if (tier === 'enterprise') return 'Command & Control';
+  return (tier as string).charAt(0).toUpperCase() + (tier as string).slice(1);
 }

@@ -23,6 +23,7 @@ import { BackgroundBeams } from "@/lib/ui/aceternity/background-beams";
 import { Spotlight } from "@/lib/ui/aceternity/spotlight";
 import { Typewriter } from "@/lib/ui/aceternity/typewriter";
 import { FloatingThreatCard } from "@/lib/ui/aceternity/floating-card";
+import { createClient } from "@/lib/supabase/client";
 
 /* ─── Animation variants ──────────────────────────────────── */
 const fadeInUp = {
@@ -79,6 +80,14 @@ function Counter({
 function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      setIsLoggedIn(!!data.user);
+    });
+  }, []);
 
   useEffect(() => {
     const h = () => setScrolled(window.scrollY > 20);
@@ -119,18 +128,29 @@ function Navbar() {
           </a>
         </div>
         <div className="hidden md:flex items-center gap-3">
-          <Link
-            href="/auth/login"
-            className="px-4 py-2 text-sm font-semibold text-slate-300 hover:text-white transition-colors"
-          >
-            Login
-          </Link>
-          <Link
-            href="/auth/signup"
-            className="px-5 py-2.5 bg-teal-500 hover:bg-teal-400 text-white text-sm font-bold rounded-lg transition-all shadow-lg shadow-teal-500/20"
-          >
-            Start Free
-          </Link>
+          {isLoggedIn ? (
+            <a
+              href="/dashboard"
+              className="bg-teal-500 hover:bg-teal-400 text-white font-semibold px-5 py-2 rounded-lg text-sm transition-colors"
+            >
+              Go to Dashboard →
+            </a>
+          ) : (
+            <>
+              <a
+                href="/auth/login"
+                className="text-slate-300 hover:text-white text-sm font-medium transition-colors"
+              >
+                Login
+              </a>
+              <a
+                href="/auth/signup"
+                className="bg-teal-500 hover:bg-teal-400 text-white font-semibold px-5 py-2 rounded-lg text-sm transition-colors"
+              >
+                Start Free
+              </a>
+            </>
+          )}
         </div>
         <button
           onClick={() => setMenuOpen(!menuOpen)}
@@ -168,15 +188,26 @@ function Navbar() {
             >
               Pricing
             </a>
-            <Link href="/auth/login" className="block text-slate-300 py-2">
-              Login
-            </Link>
-            <Link
-              href="/auth/signup"
-              className="block bg-teal-500 text-white text-center py-2.5 rounded-lg font-bold"
-            >
-              Start Free
-            </Link>
+            {isLoggedIn ? (
+              <a
+                href="/dashboard"
+                className="block bg-teal-500 text-white text-center py-2.5 rounded-lg font-bold mt-2"
+              >
+                Go to Dashboard →
+              </a>
+            ) : (
+              <>
+                <Link href="/auth/login" className="block text-slate-300 py-2">
+                  Login
+                </Link>
+                <Link
+                  href="/auth/signup"
+                  className="block bg-teal-500 text-white text-center py-2.5 rounded-lg font-bold"
+                >
+                  Start Free
+                </Link>
+              </>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

@@ -84,7 +84,7 @@ export async function getUser() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('*')
+    .select('id, display_name, avatar_url, role, department, phone_number, email, api_key, notify_email, notify_critical, notify_assignments, notify_digest')
     .eq('id', user.id)
     .single();
 
@@ -132,9 +132,10 @@ export async function updateProfile(data: {
   const profileUpdate: any = {
     display_name: data.fullName,
     phone_number: data.phone,
-    department: data.department
+    department: data.department,
+    updated_at: new Date().toISOString()
   };
-  
+
   if (data.notifyEmail !== undefined) profileUpdate.notify_email = data.notifyEmail;
   if (data.notifyCritical !== undefined) profileUpdate.notify_critical = data.notifyCritical;
   if (data.notifyAssignments !== undefined) profileUpdate.notify_assignments = data.notifyAssignments;

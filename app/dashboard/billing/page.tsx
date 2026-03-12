@@ -10,13 +10,34 @@ import {
   Download,
   Shield,
   Zap,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { createStripePortalSession } from "@/lib/supabase/actions";
 
 export default function BillingPage() {
   const [activePlan, setActivePlan] = useState("free");
   const [loading, setLoading] = useState(true);
+  const [manageLoading, setManageLoading] = useState(false);
+
+  const handleManagePayment = async () => {
+    setManageLoading(true);
+    const result = await createStripePortalSession();
+
+    if (result.error === "stripe_not_configured") {
+      toast.info("Payment management coming soon", {
+        description:
+          "Stripe integration will be available shortly. " +
+          "Contact support@phishslayer.tech for billing inquiries.",
+      });
+    } else if (result.error) {
+      toast.error("Error", { description: result.error });
+    } else if (result.url) {
+      window.location.href = result.url;
+    }
+    setManageLoading(false);
+  };
 
   useEffect(() => {
     async function loadData() {
@@ -158,9 +179,15 @@ export default function BillingPage() {
                 Upgrade Plan
               </Link>
               <button
-                onClick={() => toast.info("Payment management coming soon")}
-                className="w-full sm:w-auto px-6 py-2.5 bg-transparent border border-slate-700 hover:border-slate-500 text-slate-300 hover:text-white font-semibold rounded-lg transition-colors"
+                onClick={handleManagePayment}
+                disabled={manageLoading}
+                className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-2.5 bg-transparent border border-slate-700 text-slate-300 font-semibold hover:border-slate-500 hover:text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
+                {manageLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <CreditCard className="w-4 h-4" />
+                )}
                 Manage Payment
               </button>
             </div>

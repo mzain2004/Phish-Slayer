@@ -139,11 +139,13 @@ export default function DashboardLayout({
   return (
     <div className="min-h-screen bg-transparent text-white font-sans">
       <aside className="fixed left-0 top-0 h-screen w-64 bg-[#080d1a]/40 backdrop-blur-3xl border-r border-white/10 flex flex-col z-40 overflow-y-auto shadow-[4px_0_24px_-4px_rgba(0,0,0,0.3)]">
-        <div className="flex items-center gap-3 px-4 py-5 border-b border-slate-800/50 shrink-0">
-          <div className="w-8 h-8 bg-teal-500/20 rounded-lg flex items-center justify-center">
+        <div className="flex items-center gap-3 px-4 py-5 border-b border-slate-800/50">
+          <div className="w-8 h-8 bg-teal-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
             <Shield className="w-4 h-4 text-teal-400" />
           </div>
-          <span className="text-white font-bold text-lg">Phish-Slayer</span>
+          <span className="text-white font-bold text-lg tracking-tight">
+            Phish-Slayer
+          </span>
         </div>
 
         <nav className="flex-1 py-6 px-3 space-y-1 w-full flex flex-col">

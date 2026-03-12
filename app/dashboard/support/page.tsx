@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import {
   CheckCircle2,
@@ -13,6 +13,8 @@ import {
   Upload,
   Send,
   Loader2,
+  Paperclip,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -84,6 +86,37 @@ export default function SupportPage() {
   const [priority, setPriority] = useState("Low");
   const [message, setMessage] = useState("");
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [attachedFile, setAttachedFile] = useState<File | null>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowedTypes = [
+      "image/png",
+      "image/jpeg",
+      "image/gif",
+      "application/pdf",
+      "text/plain",
+      "text/csv",
+    ];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error("Invalid file type", {
+        description: "Only PNG, JPG, PDF, TXT, CSV allowed",
+      });
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("File too large", {
+        description: "Maximum file size is 10MB",
+      });
+      return;
+    }
+    setAttachedFile(file);
+    toast.success("File attached", { description: file.name });
+  };
+
   useEffect(() => {
     async function loadUser() {
       const supabase = createClient();
@@ -109,11 +142,17 @@ export default function SupportPage() {
       toast.error("Please fill in all required fields.");
       return;
     }
-    toast.success("Ticket submitted! We'll respond within 24 hours.");
+    toast.success(
+      `Ticket submitted! We'll respond within 24 hours.${
+        attachedFile ? ` Attachment: ${attachedFile.name}` : ""
+      }`,
+    );
     setSubject("");
     setCategory("General Question");
     setPriority("Low");
     setMessage("");
+    setAttachedFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const toggleFaq = (index: number) => {
@@ -264,14 +303,32 @@ export default function SupportPage() {
               </div>
 
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => toast.info("File picker opened...")}
-                  className="flex items-center gap-2 px-4 py-2 bg-slate-900 border border-slate-700 text-slate-300 hover:text-white rounded-lg text-sm font-medium transition-colors w-full sm:w-auto justify-center"
-                >
-                  <Upload className="w-4 h-4" />
-                  Attach File
-                </button>
+                <div className="flex items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    accept=".png,.jpg,.jpeg,.gif,.pdf,.txt,.csv"
+                    onChange={handleFileChange}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-slate-700 text-slate-300 text-sm hover:border-slate-500 hover:text-white transition-colors"
+                  >
+                    <Paperclip className="w-4 h-4" />
+                    {attachedFile ? attachedFile.name : "Attach File"}
+                  </button>
+                  {attachedFile && (
+                    <button
+                      type="button"
+                      onClick={() => setAttachedFile(null)}
+                      className="text-slate-500 hover:text-red-400 transition-colors ml-1"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
                 <button
                   type="submit"
                   className="flex items-center gap-2 px-6 py-2.5 bg-teal-500 hover:bg-teal-400 text-white rounded-lg text-sm font-bold transition-colors w-full sm:w-auto justify-center"

@@ -36,12 +36,14 @@ import {
 import { createClient } from "@/lib/supabase/client";
 
 export default function UserProfilePage() {
-  const [fullName, setFullName] = useState("");
+  const [formData, setFormData] = useState({
+    display_name: "",
+    phone_number: "", // NEVER use email here
+    department: "Security Operations",
+    avatar_url: "",
+  });
   const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [department, setDepartment] = useState("Security Operations");
   const [loaded, setLoaded] = useState(false);
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [newPassword, setNewPassword] = useState("");
@@ -67,11 +69,13 @@ export default function UserProfilePage() {
   useEffect(() => {
     getUser().then((user) => {
       if (user) {
-        setFullName(user.fullName);
+        setFormData({
+          display_name: user.fullName || "",
+          phone_number: user.phone || "", // NEVER use email here
+          department: user.department || "Security Operations",
+          avatar_url: user.avatarUrl || "",
+        });
         setEmail(user.email);
-        setPhone(user.phone);
-        setDepartment(user.department);
-        if (user.avatarUrl) setAvatarUrl(user.avatarUrl);
       }
       setLoaded(true);
     });
@@ -84,7 +88,8 @@ export default function UserProfilePage() {
   }, [previewImage]);
 
   const getInitials = () => {
-    if (fullName) return fullName.charAt(0).toUpperCase();
+    if (formData.display_name)
+      return formData.display_name.charAt(0).toUpperCase();
     if (email) return email.charAt(0).toUpperCase();
     return "?";
   };
@@ -109,7 +114,8 @@ export default function UserProfilePage() {
         setPreviewImage(null);
       } else {
         toast.success("Avatar uploaded successfully!");
-        if (result?.avatarUrl) setAvatarUrl(result.avatarUrl);
+        if (result?.avatarUrl)
+          setFormData((prev) => ({ ...prev, avatar_url: result.avatarUrl }));
         setPreviewImage(null); // Use the real URL now
       }
     } catch {
@@ -123,9 +129,9 @@ export default function UserProfilePage() {
   const handleSave = () => {
     startTransition(async () => {
       const result = await updateProfile({
-        fullName,
-        phone,
-        department,
+        fullName: formData.display_name,
+        phone: formData.phone_number,
+        department: formData.department,
       });
       if (result?.error) {
         toast.error(result.error);
@@ -170,7 +176,7 @@ export default function UserProfilePage() {
     );
   }
 
-  const displayAvatar = previewImage || avatarUrl;
+  const displayAvatar = previewImage || formData.avatar_url;
 
   return (
     <div className="bg-[#0a0f1e] text-white font-sans min-h-screen w-full">
@@ -211,9 +217,11 @@ export default function UserProfilePage() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-white">
-                {fullName || "Your Profile"}
+                {formData.display_name || "Your Profile"}
               </h1>
-              <p className="text-slate-400 font-medium">{department}</p>
+              <p className="text-slate-400 font-medium">
+                {formData.department}
+              </p>
               <div className="flex items-center gap-2 mt-2 text-sm text-green-400 font-medium">
                 <div className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400/50 opacity-75"></span>
@@ -260,8 +268,13 @@ export default function UserProfilePage() {
                 <input
                   className="w-full pl-10 pr-4 py-2.5 bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-teal-500 focus:ring-1 focus:ring-teal-500/20 border rounded-lg text-sm outline-none"
                   type="text"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
+                  value={formData.display_name}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      display_name: e.target.value,
+                    }))
+                  }
                 />
               </div>
             </div>
@@ -293,10 +306,15 @@ export default function UserProfilePage() {
                   <Phone className="w-5 h-5" />
                 </span>
                 <input
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-teal-500 focus:ring-1 focus:ring-teal-500/20 border rounded-lg text-sm outline-none"
+                  className="bg-slate-900 border border-slate-700 text-white rounded-lg px-4 py-2.5 w-full pl-10 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500/20 placeholder:text-slate-500"
                   type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  value={formData.phone_number}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      phone_number: e.target.value,
+                    }))
+                  }
                   placeholder="+1 (555) 000-0000"
                 />
               </div>
@@ -312,8 +330,13 @@ export default function UserProfilePage() {
                 </span>
                 <select
                   className="w-full pl-10 pr-4 py-2.5 bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-teal-500 focus:ring-1 focus:ring-teal-500/20 border rounded-lg text-sm appearance-none outline-none"
-                  value={department}
-                  onChange={(e) => setDepartment(e.target.value)}
+                  value={formData.department}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      department: e.target.value,
+                    }))
+                  }
                 >
                   <option>Security Operations</option>
                   <option>IT Administration</option>

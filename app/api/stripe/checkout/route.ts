@@ -8,10 +8,10 @@ const bodySchema = z.object({
 });
 
 const PRICE_MAP: Record<string, string | undefined> = {
-  pro_monthly: process.env.STRIPE_PRO_MONTHLY_PRICE_ID,
-  pro_annual: process.env.STRIPE_PRO_ANNUAL_PRICE_ID,
-  enterprise_monthly: process.env.STRIPE_ENTERPRISE_MONTHLY_PRICE_ID,
-  enterprise_annual: process.env.STRIPE_ENTERPRISE_ANNUAL_PRICE_ID,
+  pro_monthly: process.env.NEXT_PUBLIC_STRIPE_PRICE_FLEET,
+  pro_annual: process.env.NEXT_PUBLIC_STRIPE_PRICE_FLEET_ANNUAL,
+  enterprise_monthly: process.env.NEXT_PUBLIC_STRIPE_PRICE_ENTERPRISE,
+  enterprise_annual: process.env.NEXT_PUBLIC_STRIPE_PRICE_ENTERPRISE_ANNUAL,
 };
 
 export async function POST(request: Request) {
@@ -54,14 +54,27 @@ export async function POST(request: Request) {
       );
     }
 
+    // Fetch existing Stripe customer ID to prevent duplicates
+    const { data: profile } = await supabase.from('profiles').select('stripe_customer_id').eq('id', user.id).single();
+    let customerId = profile?.stripe_customer_id;
+
     // Dynamic Stripe import to avoid build errors when not installed
     const stripe = (await import('stripe')).default;
     const stripeClient = new stripe(stripeKey);
 
+    if (!customerId) {
+        const customer = await stripeClient.customers.create({
+            email: user.email,
+            metadata: { supabase_id: user.id }
+        });
+        customerId = customer.id;
+        await supabase.from('profiles').update({ stripe_customer_id: customerId }).eq('id', user.id);
+    }
+
     const session = await stripeClient.checkout.sessions.create({
       mode: 'subscription',
       payment_method_types: ['card'],
-      customer_email: user.email,
+      customer: customerId,
       line_items: [{ price: priceId, quantity: 1 }],
       success_url: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/dashboard?upgraded=true`,
       cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/pricing`,
