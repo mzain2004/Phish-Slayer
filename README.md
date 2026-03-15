@@ -4,7 +4,7 @@
 
 ### Next-Gen Threat Intelligence Platform
 
-[![Next.js](https://img.shields.io/badge/Next.js-16-000?style=for-the-badge&logo=next.js)](https://nextjs.org)
+[![Next.js](https://img.shields.io/badge/Next.js-15-000?style=for-the-badge&logo=next.js)](https://nextjs.org)
 [![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?style=for-the-badge&logo=supabase)](https://supabase.com)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-CSS-06B6D4?style=for-the-badge&logo=tailwindcss)](https://tailwindcss.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-0D9488?style=for-the-badge)](LICENSE)
@@ -19,7 +19,7 @@ _Built and maintained by [@mzain2004](https://github.com/mzain2004) (Muhammad Za
 
 ## 🔍 Overview
 
-**Phish-Slayer** is an enterprise-grade cybersecurity command center that provides real-time threat intelligence, automated vulnerability scanning, and AI-powered incident response. Designed for SOC analysts and security teams, it combines a proprietary threat intelligence vault with external scanning engines to deliver instantaneous threat verdicts — all wrapped in a premium, cyber-themed dashboard.
+**Phish-Slayer** is an enterprise-grade cybersecurity command center that provides real-time threat intelligence, automated vulnerability scanning, AI-powered incident response, and endpoint detection & response (EDR). Designed for SOC analysts and security teams, it combines a proprietary threat intelligence vault with external scanning engines to deliver instantaneous threat verdicts — all wrapped in a premium, cyber-themed dashboard.
 
 ```
 ┌─────────────────────────────────────────────────────┐
@@ -36,6 +36,8 @@ _Built and maintained by [@mzain2004](https://github.com/mzain2004) (Muhammad Za
 │                          │   📊 DASHBOARD       │  │
 │                          └──────────────────────┘  │
 └─────────────────────────────────────────────────────┘
+
+EDR Endpoints ──▶ WebSocket (server.js) ──▶ Agent Fleet Dashboard
 ```
 
 ---
@@ -47,18 +49,28 @@ _Built and maintained by [@mzain2004](https://github.com/mzain2004) (Muhammad Za
 - Supabase SSR authentication with email/password + Google/GitHub OAuth
 - Middleware-enforced route protection on all dashboard routes
 - Row Level Security (RLS) policies — authenticated users only
+- 4-tier RBAC: `super_admin`, `admin`, `analyst`, `viewer`
 
 ### 🏴 Proprietary Intel Vault
 
 - Private threat intelligence database with custom indicators (IPs, domains)
 - Manual administrative blocking from the incident dashboard
 - Instant local lookups before any external API call
+- Automated URLhaus feed ingestion every 12 hours
 
 ### 🤖 Automated Threat Harvester
 
 - URLhaus malware feed auto-sync via Vercel Cron Jobs (every 12h)
 - VirusTotal API integration with rate limiting and smart caching
 - Google Gemini AI-powered threat analysis and risk scoring
+
+### 🖥️ EDR — Endpoint Detection & Response
+
+- Lightweight agent (`lib/agent/endpointMonitor.ts`) deployable on any Linux/macOS endpoint
+- File Integrity Monitoring (FIM) via chokidar
+- Process and network connection monitoring via osquery (with fallback)
+- Real-time WebSocket C2 channel (`server.js`)
+- Agent Fleet dashboard at `/dashboard/agents`
 
 ### 🚨 Discord Siren Webhooks
 
@@ -96,7 +108,7 @@ _Built and maintained by [@mzain2004](https://github.com/mzain2004) (Muhammad Za
 
 | Layer           | Technology                             |
 | --------------- | -------------------------------------- |
-| **Framework**   | Next.js 15.5.12 (App Router)           |
+| **Framework**   | Next.js 15 (App Router)                |
 | **Language**    | TypeScript                             |
 | **Auth & DB**   | Supabase (PostgreSQL + SSR Auth + RLS) |
 | **Styling**     | Tailwind CSS v3.4 + shadcn/ui          |
@@ -107,7 +119,9 @@ _Built and maintained by [@mzain2004](https://github.com/mzain2004) (Muhammad Za
 | **PDF**         | jsPDF + jsPDF-AutoTable                |
 | **Charts**      | Recharts                               |
 | **Excel**       | SheetJS (xlsx)                         |
-| **Deployment**  | Vercel (with Cron Jobs)                |
+| **EDR**         | ws (WebSocket) + chokidar + osquery    |
+| **Email**       | Resend                                 |
+| **Deployment**  | Azure VM (Ubuntu 24.04) + PM2 + Nginx  |
 
 ---
 
@@ -115,7 +129,7 @@ _Built and maintained by [@mzain2004](https://github.com/mzain2004) (Muhammad Za
 
 ### Prerequisites
 
-- Node.js 18+ and npm
+- Node.js 20+ and npm
 - A [Supabase](https://supabase.com) project
 - A [VirusTotal](https://virustotal.com) API key
 - A [Google AI Studio](https://aistudio.google.com) API key (Gemini)
@@ -136,7 +150,7 @@ cp .env.example .env.local
 
 ### Environment Variables
 
-Create a `.env.local` file in the root directory with the following:
+Create a `.env.local` file in the root directory:
 
 ```env
 # Supabase
@@ -158,25 +172,33 @@ PHISH_SLAYER_API_KEY=your_api_key
 URLHAUS_AUTH_KEY=your_urlhaus_key
 CRON_SECRET=your_cron_secret
 
+# EDR Agent (use double quotes if value contains #)
+AGENT_SECRET="your_agent_secret"
+
 # Stripe (optional)
 STRIPE_SECRET_KEY=your_stripe_secret
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=your_stripe_publishable
 STRIPE_WEBHOOK_SECRET=your_stripe_webhook_secret
 
+# Email
+RESEND_API_KEY=your_resend_key
+RESEND_FROM_EMAIL=onboarding@resend.dev
+
 # Site
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
-
-# EDR Agent
-AGENT_SECRET=your_agent_secret
 ```
 
 ### Run Locally
 
 ```bash
+# Development (uses Next.js dev server)
 npm run dev
+
+# Production (required for WebSocket/EDR support)
+node server.js
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+> ⚠️ The EDR WebSocket server only runs via `node server.js`. `npm run dev` does not start the WebSocket server.
 
 ---
 
@@ -184,28 +206,74 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ```
 phish-slayer/
+├── server.js               # Custom Next.js + WebSocket server (EDR C2)
+├── ecosystem.config.js     # PM2 process manager config
+├── project-docs/           # Spec-driven documentation for AI-assisted development
+│   ├── PRD.md
+│   ├── Features.md
+│   ├── UIUX.md
+│   ├── TechStack.md
+│   ├── Database.md
+│   ├── API.md
+│   ├── Architecture.md
+│   ├── Security.md
+│   ├── Deployment.md
+│   └── AI_Instructions.md
 ├── app/
 │   ├── auth/               # Login, signup, OAuth callback
 │   ├── api/
 │   │   ├── v1/scan/        # Public REST API
 │   │   ├── intel/sync/     # URLhaus CRON harvester
-│   │   └── agent/          # EDR Agent APIs (WS, Commands, Download)
+│   │   ├── flag-ioc/       # Agent IOC reporting
+│   │   └── stripe/webhook/ # Stripe payment webhooks
 │   └── dashboard/
 │       ├── page.tsx         # God's Eye Command Center
+│       ├── agents/          # EDR Agent Fleet dashboard
 │       ├── incidents/       # Incident management + Excel export
 │       ├── scans/           # Scan launcher & history
 │       ├── threats/         # Threat deep-dive + PDF export
 │       ├── intel/           # Intel Vault + API docs
-│       └── agents/          # EDR Agent Fleet Management
+│       └── settings/        # User/org configuration
 ├── lib/
 │   ├── ai/analyzer.ts       # Gemini AI threat analysis
-│   ├── scanners/             # VirusTotal integration
-│   ├── supabase/             # Auth, actions, middleware
-│   └── agent/                # Endpoint monitoring agent code
-├── public/                 # Agent installer scripts
-├── server.js               # Custom Next.js server with WebSocket support
-├── middleware.ts             # Route protection guard
-└── vercel.json               # CRON job configuration
+│   ├── scanners/            # VirusTotal integration
+│   ├── agent/               # EDR agent (endpointMonitor.ts)
+│   └── supabase/            # Auth, actions, middleware, queries
+└── middleware.ts            # Route protection guard
+```
+
+---
+
+## 🖥️ Production Deployment (Azure VM)
+
+The app runs on an Azure VM (Ubuntu 24.04) via PM2 and Nginx.
+
+### Start the App
+
+```bash
+# Initial start
+NODE_ENV=production pm2 start server.js --name phish-slayer --node-args="--max-old-space-size=768"
+pm2 save
+
+# After code changes
+npm run build && pm2 restart phish-slayer --update-env
+
+# After .env.production changes (full cycle required)
+pm2 stop phish-slayer && pm2 delete phish-slayer
+NODE_ENV=production pm2 start server.js --name phish-slayer --node-args="--max-old-space-size=768"
+pm2 save
+```
+
+> ⚠️ A full `pm2 delete` + restart is **required** when environment variables change. `pm2 restart --update-env` alone does not reliably reload all variables.
+
+### EDR Agent Test Run
+
+```bash
+AGENT_SECRET='your_secret' \
+NEXT_PUBLIC_SITE_URL=https://phishslayer.tech \
+npx ts-node --skipProject \
+  --compiler-options '{"module":"commonjs"}' \
+  lib/agent/endpointMonitor.ts
 ```
 
 ---
@@ -216,6 +284,7 @@ phish-slayer/
 - **RLS Enforced:** Database operations restricted to authenticated users only
 - **API Key Auth:** Public API secured with `x-api-key` header validation
 - **CRON Security:** Intel harvester secured with bearer token verification
+- **WebSocket Auth:** EDR agents authenticated via `x-agent-secret` header; invalid secret → immediate `1008` close
 - **Input Validation:** Zod schemas on all server action payloads
 - **No Secrets in Git:** Comprehensive `.gitignore` covering all environment files
 
@@ -224,19 +293,6 @@ phish-slayer/
 ## 📜 License
 
 This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
-
----
-
-## PM2 Deployment Update
-
-After the EDR server extension, the Azure VM PM2 config MUST be updated manually to prevent crashes:
-
-```bash
-pm2 stop phish-slayer
-pm2 delete phish-slayer
-pm2 start server.js --name phish-slayer --node-args="--max-old-space-size=512"
-pm2 save
-```
 
 ---
 
