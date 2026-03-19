@@ -18,6 +18,7 @@ import {
   Star,
   Quote,
   ArrowRight,
+  CheckCircle,
 } from "lucide-react";
 import { BackgroundBeams } from "@/lib/ui/aceternity/background-beams";
 import { Spotlight } from "@/lib/ui/aceternity/spotlight";
@@ -26,6 +27,7 @@ import { FloatingThreatCard } from "@/lib/ui/aceternity/floating-card";
 import { ParticleNetwork } from "@/components/ui/particle-network";
 import { TiltCard } from "@/components/ui/tilt-card";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
+import WaitlistModal from "@/components/ui/WaitlistModal";
 
 /* ─── Animation variants ──────────────────────────────────── */
 const fadeInUp = {
@@ -214,6 +216,16 @@ interface Props { isAuthenticated?: boolean }
 const PhishSlayerLanding: React.FC<Props> = ({ isAuthenticated = false }) => {
   const { scrollYProgress } = useScroll();
 
+  // Waitlist state
+  const [isWaitlistOpen, setIsWaitlistOpen] = useState(false);
+  const [waitlistTier, setWaitlistTier] = useState<{ id: 'soc_pro' | 'command_control', name: string }>({ id: 'soc_pro', name: 'SOC Pro' });
+  const [joinedTiers, setJoinedTiers] = useState<Set<string>>(new Set());
+
+  const openWaitlist = (tier: 'soc_pro' | 'command_control', tierName: string) => {
+    setWaitlistTier({ id: tier, name: tierName });
+    setIsWaitlistOpen(true);
+  };
+
   return (
     <div className="bg-[#0a0f1e] text-white font-sans overflow-x-hidden">
       <motion.div
@@ -283,6 +295,19 @@ const PhishSlayerLanding: React.FC<Props> = ({ isAuthenticated = false }) => {
                 >
                   {isAuthenticated ? "Go to Dashboard" : "Start Free"} <ArrowRight className="w-4 h-4" />
                 </Link>
+              </motion.div>
+              <motion.div
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <a
+                  href="https://discord.gg/phishslayer"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 bg-white/5 hover:bg-white/10 text-white border border-white/10 font-semibold px-8 py-3 rounded-lg transition-all text-sm"
+                >
+                  Join Discord
+                </a>
               </motion.div>
             </div>
 
@@ -787,16 +812,35 @@ const PhishSlayerLanding: React.FC<Props> = ({ isAuthenticated = false }) => {
                     </li>
                   ))}
                 </ul>
-                <Link
-                  href={p.href}
-                  className={`block text-center py-3 rounded-lg text-sm font-bold transition-all ${
-                    p.pop
-                      ? "bg-teal-500 hover:bg-teal-400 text-white shadow-lg shadow-teal-500/25"
-                      : "bg-white/10 hover:bg-white/15 text-white border border-white/10"
-                  }`}
-                >
-                  {p.cta}
-                </Link>
+                
+                {p.name === "Pro" || p.name === "Enterprise" ? (
+                  joinedTiers.has(p.name === "Pro" ? 'soc_pro' : 'command_control') ? (
+                    <button
+                      disabled
+                      className="w-full border border-[#3fb950] text-[#3fb950] font-semibold py-3 rounded-lg text-sm opacity-75 cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      <CheckCircle size={16} /> On the Waitlist
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => openWaitlist(p.name === "Pro" ? 'soc_pro' : 'command_control', p.name === "Pro" ? 'SOC Pro' : 'Command & Control')}
+                      className={`w-full border border-[#2dd4bf] text-[#2dd4bf] hover:bg-[#2dd4bf]/10 font-semibold py-3 rounded-lg transition-all text-sm`}
+                    >
+                      Join Waitlist
+                    </button>
+                  )
+                ) : (
+                  <Link
+                    href={p.href}
+                    className={`block text-center py-3 rounded-lg text-sm font-bold transition-all ${
+                      p.pop
+                        ? "bg-teal-500 hover:bg-teal-400 text-white shadow-lg shadow-teal-500/25"
+                        : "bg-white/10 hover:bg-white/15 text-white border border-white/10"
+                    }`}
+                  >
+                    {p.cta}
+                  </Link>
+                )}
               </motion.div>
             ))}
           </motion.div>
@@ -823,8 +867,8 @@ const PhishSlayerLanding: React.FC<Props> = ({ isAuthenticated = false }) => {
             <h2 className="text-3xl md:text-4xl font-black text-white mb-4">
               Ready to secure your organization?
             </h2>
-            <p className="text-teal-100 mb-8 text-lg">
-              Join hundreds of SOC teams using Phish-Slayer
+            <p className="text-[#e6edf3]/80 text-lg mb-8">
+              Start free today. No credit card required. No setup fees.
             </p>
             <motion.div
               whileHover={{ scale: 1.02 }}
@@ -860,24 +904,24 @@ const PhishSlayerLanding: React.FC<Props> = ({ isAuthenticated = false }) => {
                 links: [
                   { l: "Features", h: "#features" },
                   { l: "Pricing", h: "/pricing" },
-                  { l: "API Docs", h: "/api/v1" },
-                  { l: "Changelog", h: "#" },
+                  { l: "API Docs", h: "/dashboard/intel" },
+                  { l: "Changelog", h: "#", note: "coming-soon" },
                 ],
               },
               {
                 title: "Security",
                 links: [
-                  { l: "How it works", h: "#how-it-works" },
-                  { l: "Compliance", h: "#" },
-                  { l: "Bug Bounty", h: "#" },
+                  { l: "How It Works", h: "#how-it-works" },
+                  { l: "Compliance", h: "/legal/privacy" },
+                  { l: "Bug Bounty", h: "mailto:security@phishslayer.tech" },
                 ],
               },
               {
                 title: "Company",
                 links: [
-                  { l: "About", h: "#" },
-                  { l: "Blog", h: "#" },
-                  { l: "Careers", h: "#" },
+                  { l: "About", h: "#about" },
+                  { l: "Blog", h: "#", note: "coming-soon" },
+                  { l: "Careers", h: "mailto:careers@phishslayer.tech" },
                   { l: "Contact", h: "mailto:support@phishslayer.tech" },
                 ],
               },
@@ -899,7 +943,14 @@ const PhishSlayerLanding: React.FC<Props> = ({ isAuthenticated = false }) => {
                     const isTermly = lnk.h === "#termly";
                     return (
                       <li key={j}>
-                        {isTermly ? (
+                        {lnk.note === "coming-soon" ? (
+                          <span className="text-[#8b949e] text-sm cursor-not-allowed flex items-center gap-1">
+                            {lnk.l}
+                            <span className="text-[10px] bg-[#1c2128] border border-[#30363d] text-[#8b949e] px-1.5 py-0.5 rounded-full">
+                              Soon
+                            </span>
+                          </span>
+                        ) : isTermly ? (
                           <button
                             onClick={() => {
                               const el = document.querySelector('.termly-display-preferences') as HTMLElement
@@ -928,9 +979,30 @@ const PhishSlayerLanding: React.FC<Props> = ({ isAuthenticated = false }) => {
               </div>
             ))}
           </div>
-          <div className="mt-12 pt-8 border-t border-white/5 text-center text-xs text-slate-600">
-            © 2026 Phish-Slayer. Built by MinionCore.
+          <div className="mt-12 pt-8 border-t border-white/5 text-center px-6">
+            <p className="text-[#8b949e] text-xs">
+              Built with 🛡️ by{' '}
+              <a
+                href="https://linkedin.com/in/mzain2004"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[#2dd4bf] hover:underline"
+              >
+                mzain2004
+              </a>
+              {' '}· © 2026 Phish-Slayer
+            </p>
           </div>
+          
+          <WaitlistModal
+            isOpen={isWaitlistOpen}
+            onClose={() => setIsWaitlistOpen(false)}
+            tier={waitlistTier.id}
+            tierName={waitlistTier.name}
+            onSuccess={(tier) => {
+              setJoinedTiers((prev) => new Set(prev).add(tier));
+            }}
+          />
         </div>
       </footer>
     </div>

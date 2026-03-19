@@ -8,9 +8,10 @@ interface WaitlistModalProps {
   onClose: () => void
   tier: 'soc_pro' | 'command_control'
   tierName: string
+  onSuccess?: (tier: 'soc_pro' | 'command_control') => void
 }
 
-export default function WaitlistModal({ isOpen, onClose, tier, tierName }: WaitlistModalProps) {
+export default function WaitlistModal({ isOpen, onClose, tier, tierName, onSuccess }: WaitlistModalProps) {
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -28,6 +29,7 @@ export default function WaitlistModal({ isOpen, onClose, tier, tierName }: Waitl
       setError(result.error)
     } else {
       setSuccess(true)
+      onSuccess?.(tier)
     }
   }
 
