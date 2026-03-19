@@ -200,11 +200,11 @@ export default function SupportPage() {
 
       {/* Contact Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div
-          className="bg-[#0f1629] border border-slate-800 rounded-xl p-6 hover:border-teal-500/50 transition-colors cursor-pointer"
-          onClick={() => toast.info("Emailing support...")}
+        <a
+          href="mailto:support@phishslayer.tech"
+          className="bg-[#0f1629] border border-slate-800 rounded-xl p-6 hover:border-teal-500/50 transition-colors cursor-pointer block group"
         >
-          <div className="w-10 h-10 rounded-lg bg-teal-500/10 flex items-center justify-center mb-4">
+          <div className="w-10 h-10 rounded-lg bg-teal-500/10 flex items-center justify-center mb-4 group-hover:bg-teal-500/20 transition-colors">
             <Mail className="w-5 h-5 text-teal-400" />
           </div>
           <h3 className="text-white font-semibold flex items-center gap-2">
@@ -213,29 +213,31 @@ export default function SupportPage() {
           <p className="text-slate-400 text-sm mt-1">
             support@phishslayer.tech
           </p>
-        </div>
-        <div
-          className="bg-[#0f1629] border border-slate-800 rounded-xl p-6 hover:border-[#5865F2]/50 transition-colors cursor-pointer"
-          onClick={() => toast.info("Opening Discord...")}
+        </a>
+        <a
+          href="https://discord.com/invite/phishslayer"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="bg-[#0f1629] border border-slate-800 rounded-xl p-6 hover:border-[#5865F2]/50 transition-colors cursor-pointer block group"
         >
-          <div className="w-10 h-10 rounded-lg bg-[#5865F2]/10 flex items-center justify-center mb-4">
+          <div className="w-10 h-10 rounded-lg bg-[#5865F2]/10 flex items-center justify-center mb-4 group-hover:bg-[#5865F2]/20 transition-colors">
             <MessageSquare className="w-5 h-5 text-[#5865F2]" />
           </div>
           <h3 className="text-white font-semibold">Community Discord</h3>
           <p className="text-slate-400 text-sm mt-1">Join the conversation</p>
-        </div>
-        <div
-          className="bg-[#0f1629] border border-slate-800 rounded-xl p-6 hover:border-indigo-500/50 transition-colors cursor-pointer"
-          onClick={() => toast.info("Opening Documentation...")}
+        </a>
+        <Link
+          href="/dashboard/intel"
+          className="bg-[#0f1629] border border-slate-800 rounded-xl p-6 hover:border-indigo-500/50 transition-colors cursor-pointer block group"
         >
-          <div className="w-10 h-10 rounded-lg bg-indigo-500/10 flex items-center justify-center mb-4">
+          <div className="w-10 h-10 rounded-lg bg-indigo-500/10 flex items-center justify-center mb-4 group-hover:bg-indigo-500/20 transition-colors">
             <BookOpen className="w-5 h-5 text-indigo-400" />
           </div>
           <h3 className="text-white font-semibold">Documentation</h3>
           <p className="text-slate-400 text-sm mt-1">
             Read the technical guides
           </p>
-        </div>
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 mb-8">
