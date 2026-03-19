@@ -37,6 +37,7 @@ import PortPatrolPanel from "./PortPatrolPanel";
 import TakedownModal from "./TakedownModal";
 import { canAccessFeature, type SubscriptionTier } from "@/lib/rbac/planGating";
 import { createClient } from "@/lib/supabase/client";
+import { useTier } from "@/hooks/useTier";
 
 type ScanRecord = {
   id?: string;
@@ -76,6 +77,7 @@ export default function ThreatIntelligencePage() {
   const [siemPushing, setSiemPushing] = useState(false);
   const heuristicStore = useHeuristicStore();
   const [userTier, setUserTier] = useState<SubscriptionTier>("free");
+  const { limits, isSuperAdmin } = useTier();
 
   const {
     activeTab,
@@ -719,7 +721,9 @@ export default function ThreatIntelligencePage() {
             <div className="flex items-center gap-2 w-full lg:w-auto mt-4 lg:mt-0 flex-wrap">
               <button
                 onClick={generatePDF}
-                className="flex items-center justify-center px-4 h-10 rounded-lg border border-teal-500/30 bg-teal-500/10 text-teal-400 font-bold text-xs hover:bg-teal-500/20 transition-all shadow-sm"
+                disabled={!limits.canExportPDF && !isSuperAdmin}
+                title={!limits.canExportPDF && !isSuperAdmin ? 'Upgrade to SOC Pro to export reports' : 'Export PDF Report'}
+                className="flex items-center justify-center px-4 h-10 rounded-lg border border-teal-500/30 bg-teal-500/10 text-teal-400 font-bold text-xs hover:bg-teal-500/20 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <FileDown className="w-4 h-4 mr-1.5" />
                 Report

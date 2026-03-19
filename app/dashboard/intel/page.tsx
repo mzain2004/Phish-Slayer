@@ -20,6 +20,8 @@ import {
 } from "@/lib/supabase/actions";
 import { useRole } from "@/lib/rbac/useRole";
 import { canManageIntelVault } from "@/lib/rbac/roles";
+import { useTier } from "@/hooks/useTier";
+import { UpgradeBanner } from "@/components/ui/UpgradeBanner";
 
 /* ── Severity Badge ───────────────────────────────────────────────── */
 function SeverityBadge({ severity }: { severity: string }) {
@@ -88,11 +90,21 @@ export default function IntelVaultPage() {
     });
   };
 
+  const { limits, isSuperAdmin, loading: tierLoading } = useTier();
+
   /* ── Loading ─────────────────────────────────────────────────────── */
-  if (!loaded || roleLoading) {
+  if (!loaded || roleLoading || tierLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
+      </div>
+    );
+  }
+
+  if (!limits.canUseIntelVault && !isSuperAdmin) {
+    return (
+      <div className="text-white font-sans min-h-screen pt-20">
+        <UpgradeBanner feature="Proprietary Intel Vault" requiredTier="Command & Control" />
       </div>
     );
   }

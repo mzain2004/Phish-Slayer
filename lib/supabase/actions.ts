@@ -4,7 +4,9 @@ import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { analyzeThreat, scoreCtiFinding } from '@/lib/ai/analyzer';
 import { scanTarget } from '@/lib/scanners/threatScanner';
-import { logAuditEvent } from '@/lib/audit/auditLogger';
+import { logAuditEvent } from '@/lib/security/audit';
+import { getTierLimits, canPerformScan, type Tier } from '@/lib/rbac/tierLimits';
+import { normalizeTarget, scanTargetSchema } from '@/lib/security/sanitize';
 import { sendCriticalThreatAlert, sendIncidentAssignmentEmail, sendWeeklyDigest } from '@/lib/email/emailService';
 import { z } from 'zod';
 import { canAccessFeature, type SubscriptionTier } from '@/lib/rbac/planGating';
@@ -135,12 +137,7 @@ export async function createIncident(data: any) {
     return { error: error.message || 'Failed to create incident' };
   }
   
-  await logAuditEvent({
-    action: 'incident_created',
-    resource_type: 'incident',
-    resource_id: payload.title,
-    details: { severity: payload.severity }
-  });
+  await logAuditEvent(user?.id || 'system', 'incident_created', payload.title, { severity: payload.severity });
   
   revalidatePath('/dashboard/incidents');
   return { success: true };
@@ -194,12 +191,8 @@ export async function resolveIncident(id: string, comment: string) {
     throw new Error(updateError.message || 'Failed to resolve incident');
   }
   
-  await logAuditEvent({
-    action: 'incident_resolved',
-    resource_type: 'incident',
-    resource_id: validId,
-    details: { comment: validComment }
-  });
+  const { data: { user } } = await supabase.auth.getUser();
+  await logAuditEvent(user?.id || 'system', 'incident_resolved', validId, { comment: validComment });
 
   revalidatePath('/dashboard');
 }
@@ -221,11 +214,8 @@ export async function deleteIncident(id: string) {
     throw new Error(error.message || 'Failed to delete incident');
   }
   
-  await logAuditEvent({
-    action: 'incident_deleted',
-    resource_type: 'incident',
-    resource_id: validId
-  });
+  const { data: { user } } = await supabase.auth.getUser();
+  await logAuditEvent(user?.id || 'system', 'incident_deleted', validId);
 
   revalidatePath('/dashboard');
 }
@@ -268,12 +258,8 @@ export async function blockIp(ipAddress: string) {
     ai_summary: `Manual block executed by administrator. Indicator: ${validIp} (${isIp ? 'IPv4' : 'Domain'}) added to the proprietary intel vault with CRITICAL severity.`,
   });
   
-  await logAuditEvent({
-    action: 'ip_blocked',
-    resource_type: 'intel',
-    resource_id: validIp,
-    details: { source: 'Manual Administrative Block' }
-  });
+  const { data: { user } } = await supabase.auth.getUser();
+  await logAuditEvent(user?.id || 'system', 'ip_blocked', validIp, { source: 'Manual Administrative Block' });
 
   revalidatePath('/dashboard');
   revalidatePath('/dashboard/intel');
@@ -298,11 +284,8 @@ export async function addToWhitelist(target: string) {
     return { error: error.message || 'Failed to add target to whitelist' };
   }
   
-  await logAuditEvent({
-    action: 'whitelist_added',
-    resource_type: 'whitelist_target',
-    resource_id: validTarget
-  });
+  const { data: { user } } = await supabase.auth.getUser();
+  await logAuditEvent(user?.id || 'system', 'whitelist_added', validTarget);
 
   revalidatePath('/dashboard/threats');
   return { success: true };
@@ -333,11 +316,8 @@ export async function removeFromWhitelist(id: string) {
     throw new Error(error.message || 'Failed to remove from whitelist');
   }
   
-  await logAuditEvent({
-    action: 'whitelist_removed',
-    resource_type: 'whitelist_target',
-    resource_id: parsed.data.id.toString()
-  });
+  const { data: { user } } = await supabase.auth.getUser();
+  await logAuditEvent(user?.id || 'system', 'whitelist_removed', parsed.data.id.toString());
 
   revalidatePath('/dashboard/settings');
   revalidatePath('/dashboard/threats');
@@ -345,30 +325,59 @@ export async function removeFromWhitelist(id: string) {
 }
 
 export async function launchScan(target: string): Promise<{ error?: string }> {
-  // URL normalization — strip protocol, www, trailing slashes, path
-  let normalizedTarget = target.trim();
-  normalizedTarget = normalizedTarget.replace(/^https?:\/\//i, '');
-  normalizedTarget = normalizedTarget.replace(/^www\./i, '');
-  normalizedTarget = normalizedTarget.replace(/\/+$/, '');
-  normalizedTarget = normalizedTarget.split('/')[0];
-
-  // Validate armor
-  const parsed = launchScanSchema.safeParse({ target: normalizedTarget });
-  if (!parsed.success) {
-    const errorMessage = parsed.error.issues?.[0]?.message || 'Invalid target format detected.';
-    return { error: errorMessage };
-  }
-  const validTarget = parsed.data.target;
-
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const date = new Date().toISOString();
+  const userId = user?.id;
+  if (!userId) return { error: 'Unauthorized' };
 
-  await logAuditEvent({
-    action: 'scan_launched',
-    resource_type: 'scan',
-    resource_id: validTarget
-  });
+  // 1. Validate and normalize target
+  const parseResult = scanTargetSchema.safeParse(target);
+  if (!parseResult.success) {
+    return { error: 'Invalid scan target: ' + parseResult.error.issues[0].message };
+  }
+  const normalizedTarget = normalizeTarget(target);
+
+  // 2. Fetch profile for RBAC
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('subscription_tier, scan_count_today, scan_count_reset_at, role')
+    .eq('id', userId)
+    .single();
+
+  if (!profile) return { error: 'Profile not found' };
+
+  // 3. Reset daily counter if new day
+  const resetAt = new Date(profile.scan_count_reset_at);
+  const now = new Date();
+  if (now.toDateString() !== resetAt.toDateString()) {
+    await supabase.from('profiles').update({
+      scan_count_today: 0,
+      scan_count_reset_at: now.toISOString()
+    }).eq('id', userId);
+    profile.scan_count_today = 0;
+  }
+
+  // 4. Enforce scan limit (super_admin bypasses)
+  if (profile.role !== 'super_admin') {
+    const tier = (profile.subscription_tier as Tier) ?? 'recon';
+    const limits = getTierLimits(tier);
+    if (!canPerformScan(tier, profile.scan_count_today || 0)) {
+      return {
+        error: `Daily scan limit reached. Your ${tier} plan allows ${limits.scansPerDay} scans/day. Upgrade to scan more.`
+      };
+    }
+  }
+
+  // 5. Increment scan counter
+  await supabase.from('profiles')
+    .update({ scan_count_today: (profile.scan_count_today ?? 0) + 1 })
+    .eq('id', userId);
+
+  // 7. Log audit event
+  await logAuditEvent(userId, 'scan_launched', normalizedTarget, { tier: profile.subscription_tier });
+
+  const date = new Date().toISOString();
+  const validTarget = normalizedTarget;
 
   // ── Gate 1: Whitelist Check (instant Safe) ──────────────────────────
   const { data: whitelistHit } = await supabase
@@ -397,7 +406,7 @@ export async function launchScan(target: string): Promise<{ error?: string }> {
       return { error: 'Target is whitelisted but failed to record scan.' };
     }
 
-    await logAuditEvent({ action: 'scan_completed', resource_type: 'scan', resource_id: validTarget, details: { verdict: 'clean', reason: 'whitelist_hit' } });
+    await logAuditEvent(userId, 'scan_completed', validTarget, { verdict: 'clean', reason: 'whitelist_hit' });
     revalidatePath('/dashboard/scans');
     return {};
   }
@@ -461,7 +470,7 @@ export async function launchScan(target: string): Promise<{ error?: string }> {
       }
     }
 
-    await logAuditEvent({ action: 'scan_completed', resource_type: 'scan', resource_id: validTarget, details: { verdict: 'malicious', reason: 'intel_hit' } });
+    await logAuditEvent(userId, 'scan_completed', validTarget, { verdict: 'malicious', reason: 'intel_hit' });
     return {};
   }
 
@@ -556,7 +565,7 @@ export async function launchScan(target: string): Promise<{ error?: string }> {
     return { error: err?.message || 'Scan failed due to an unexpected error.' };
   }
 
-  await logAuditEvent({ action: 'scan_completed', resource_type: 'scan', resource_id: validTarget, details: { verdict: 'scanned natively' } });
+  await logAuditEvent(userId, 'scan_completed', validTarget, { verdict: 'scanned natively' });
   revalidatePath('/dashboard/scans');
   return {};
 }
@@ -591,11 +600,8 @@ export async function removeIntelIndicator(id: string) {
     throw new Error(error.message || 'Failed to remove indicator');
   }
 
-  await logAuditEvent({
-    action: 'intel_removed',
-    resource_type: 'intel',
-    resource_id: parsed.data.id
-  });
+  const { data: { user } } = await supabase.auth.getUser();
+  await logAuditEvent(user?.id || 'system', 'intel_removed', parsed.data.id);
 
   revalidatePath('/dashboard/intel');
   revalidatePath('/dashboard/settings');
@@ -630,12 +636,8 @@ export async function assignIncident(incidentId: string, assignToUserId: string)
     .eq('id', incidentId);
 
   if (error) return { error: error.message };
-  await logAuditEvent({
-    action: 'incident_assigned',
-    resource_type: 'incident',
-    resource_id: incidentId,
-    details: { assigned_to: assignToUserId }
-  });
+  const { data: { user } } = await supabase.auth.getUser();
+  await logAuditEvent(user?.id || 'system', 'incident_assigned', incidentId, { assigned_to: assignToUserId });
 
   // Fetch incident details to send email
   const serviceClient = getServiceSupabase();
@@ -718,12 +720,7 @@ export async function updateUserRole(userId: string, newRole: UserRole) {
     .eq('id', userId);
 
   if (error) return { error: error.message };
-  await logAuditEvent({
-    action: 'user_role_changed',
-    resource_type: 'user',
-    resource_id: userId,
-    details: { new_role: newRole }
-  });
+  await logAuditEvent(user?.id || 'system', 'user_role_changed', userId, { new_role: newRole });
 
   revalidatePath('/dashboard/admin');
   return { success: true };
@@ -747,12 +744,7 @@ export async function toggleUserStatus(userId: string, isActive: boolean) {
     .eq('id', userId);
 
   if (error) return { error: error.message };
-  await logAuditEvent({
-    action: 'user_status_changed',
-    resource_type: 'user',
-    resource_id: userId,
-    details: { is_active: isActive }
-  });
+  await logAuditEvent(user?.id || 'system', 'user_status_changed', userId, { is_active: isActive });
 
   revalidatePath('/dashboard/admin');
   return { success: true };
@@ -802,12 +794,7 @@ export async function inviteOrgUser(email: string, roleAssignment: UserRole) {
     }
   }
 
-  await logAuditEvent({
-    action: 'user_invited',
-    resource_type: 'user',
-    resource_id: email,
-    details: { role: roleAssignment }
-  });
+  await logAuditEvent('system', 'user_invited', email, { role: roleAssignment });
 
   revalidatePath('/dashboard/admin');
   return { success: true };
@@ -912,12 +899,7 @@ export async function triggerWeeklyDigest() {
     });
   }
 
-  await logAuditEvent({
-    action: 'profile_updated', // Generic action for now
-    resource_type: 'system',
-    resource_id: 'weekly_digest',
-    details: { sent_to_count: emails.length }
-  });
+  await logAuditEvent('system', 'profile_updated', 'weekly_digest', { sent_to_count: emails.length });
 
   return { success: true, sentCount: emails.length };
 }

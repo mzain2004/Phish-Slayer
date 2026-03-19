@@ -17,12 +17,15 @@ import {
   generateApiKey,
   revokeApiKey,
 } from "@/lib/supabase/auth-actions";
+import { useTier } from "@/hooks/useTier";
+import { UpgradeBanner } from "@/components/ui/UpgradeBanner";
 
 export default function ApiKeysPage() {
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [showKey, setShowKey] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const { limits, isSuperAdmin, loading: tierLoading } = useTier();
 
   const fetchKey = async () => {
     const user = await getUser();
@@ -70,12 +73,20 @@ export default function ApiKeysPage() {
     });
   };
 
-  if (!loaded)
+  if (!loaded || tierLoading)
     return (
       <div className="flex justify-center py-20">
         <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
       </div>
     );
+
+  if (!limits.canUsePublicAPI && !isSuperAdmin) {
+    return (
+      <div className="text-white font-sans min-h-screen pt-20 bg-[#0a0f1e]">
+        <UpgradeBanner feature="Public REST API Access" requiredTier="SOC Pro" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 md:p-8 max-w-5xl mx-auto w-full flex flex-col min-h-screen font-sans">
