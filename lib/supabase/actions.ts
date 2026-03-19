@@ -904,50 +904,6 @@ export async function triggerWeeklyDigest() {
   return { success: true, sentCount: emails.length };
 }
 
-// ── Stripe Integration ───────────────────────────────────────────────
-
-export async function createStripePortalSession() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Unauthorized' };
-
-  // Check if Stripe is configured
-  if (!process.env.STRIPE_SECRET_KEY || 
-      !process.env.STRIPE_SECRET_KEY.startsWith('sk_')) {
-    return { error: 'stripe_not_configured' };
-  }
-
-  try {
-    const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-    
-    // Get or create Stripe customer
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('stripe_customer_id')
-      .eq('id', user.id)
-      .single();
-
-    let customerId = profile?.stripe_customer_id;
-    
-    if (!customerId) {
-      const customer = await stripe.customers.create({
-        email: user.email,
-        metadata: { supabase_id: user.id }
-      });
-      customerId = customer.id;
-      await supabase
-        .from('profiles')
-        .update({ stripe_customer_id: customerId })
-        .eq('id', user.id);
-    }
-
-    const session = await stripe.billingPortal.sessions.create({
-      customer: customerId,
-      return_url: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard/billing`,
-    });
-
-    return { url: session.url };
-  } catch (err) {
-    return { error: 'stripe_not_configured' };
-  }
-}
+// ── Billing placeholder (was Stripe) ───────────────────────────────────────────────
+// Payments moved to Paddle (coming soon). 
+// Use billing_customer_id for all gateway-neutral customer tracking.

@@ -13,7 +13,6 @@ const optional = [
   'AGENT_SECRET',
   'DISCORD_WEBHOOK_URL',
   'CRON_SECRET',
-  'STRIPE_WEBHOOK_SECRET',
   'RESEND_API_KEY',
 ];
 

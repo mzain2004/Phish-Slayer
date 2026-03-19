@@ -10,28 +10,22 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { createStripePortalSession } from "@/lib/supabase/actions";
+import WaitlistModal from "@/components/ui/WaitlistModal";
 
 export default function BillingPage() {
   const [activePlan, setActivePlan] = useState("free");
   const [loading, setLoading] = useState(true);
   const [manageLoading, setManageLoading] = useState(false);
 
-  const handleManagePayment = async () => {
-    setManageLoading(true);
-    const result = await createStripePortalSession();
+  const [waitlistOpen, setWaitlistOpen] = useState(false);
+  const [waitlistTier, setWaitlistTier] = useState<'soc_pro' | 'command_control'>('soc_pro');
+  const [waitlistTierName, setWaitlistTierName] = useState('');
 
-    if (result.error === "stripe_not_configured") {
-      toast.info("Payment management coming soon", {
-        description:
-          "Stripe integration will be available shortly. Contact support@phishslayer.tech for billing inquiries.",
-      });
-    } else if (result.error) {
-      toast.error("Error", { description: result.error });
-    } else if (result.url) {
-      window.location.href = result.url;
-    }
-    setManageLoading(false);
+  const handleManagePayment = async () => {
+    // legacy Stripe portal removed
+    toast.info("Payment management coming soon", {
+      description: "We are moving to a new billing provider. Contact support@phishslayer.tech for inquiries."
+    });
   };
 
   useEffect(() => {
@@ -123,18 +117,21 @@ export default function BillingPage() {
             <p className="text-[#8b949e] text-sm">{plan.tagline}</p>
           </div>
           <div className="flex items-center gap-3">
-            <Link
-              href="/pricing"
+            <button
+              onClick={() => {
+                setWaitlistTier('soc_pro');
+                setWaitlistTierName('SOC Pro');
+                setWaitlistOpen(true);
+              }}
               className="px-4 py-2 bg-teal-500 hover:bg-teal-400 text-white text-sm font-medium rounded-lg transition-colors"
             >
-              Upgrade
-            </Link>
+              Join Waitlist
+            </button>
             <button
               onClick={handleManagePayment}
-              disabled={manageLoading}
               className="flex items-center gap-2 px-4 py-2 bg-[#1c2128] border border-[#30363d] text-[#e6edf3] hover:bg-[#21262d] text-sm font-medium rounded-lg transition-colors"
             >
-              {manageLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
+              <CreditCard className="w-4 h-4" />
               Manage Payment
             </button>
           </div>
@@ -253,6 +250,13 @@ export default function BillingPage() {
           </table>
         </div>
       </div>
+
+      <WaitlistModal
+        isOpen={waitlistOpen}
+        onClose={() => setWaitlistOpen(false)}
+        tier={waitlistTier}
+        tierName={waitlistTierName}
+      />
     </div>
   );
 }

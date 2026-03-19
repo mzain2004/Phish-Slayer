@@ -884,9 +884,9 @@ const PhishSlayerLanding: React.FC<Props> = ({ isAuthenticated = false }) => {
               {
                 title: "Legal",
                 links: [
-                  { l: "Privacy Policy", h: "#" },
-                  { l: "Terms of Service", h: "#" },
-                  { l: "Cookie Policy", h: "#" },
+                  { l: "Privacy Policy", h: "/legal/privacy" },
+                  { l: "Terms of Service", h: "/legal/terms" },
+                  { l: "Consent Preferences", h: "#", className: "termly-display-preferences" },
                 ],
               },
             ].map((col, i) => (
@@ -899,7 +899,7 @@ const PhishSlayerLanding: React.FC<Props> = ({ isAuthenticated = false }) => {
                     <li key={j}>
                       <a
                         href={lnk.h}
-                        className="text-sm hover:text-white transition-colors"
+                        className={`text-sm hover:text-white transition-colors ${"className" in lnk ? lnk.className : ""}`}
                       >
                         {lnk.l}
                       </a>

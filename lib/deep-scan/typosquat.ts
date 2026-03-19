@@ -13,7 +13,7 @@ const BRANDS = [
   'americanexpress.com', 'visa.com', 'mastercard.com', 'dropbox.com', 'github.com',
   'gitlab.com', 'slack.com', 'zoom.us', 'adobe.com', 'salesforce.com',
   'yahoo.com', 'outlook.com', 'office365.com', 'onedrive.com', 'icloud.com',
-  'coinbase.com', 'binance.com', 'robinhood.com', 'stripe.com', 'shopify.com',
+  'coinbase.com', 'binance.com', 'robinhood.com', 'shopify.com',
   'ebay.com', 'walmart.com', 'target.com', 'fedex.com', 'ups.com',
   'dhl.com', 'usps.com', 'irs.gov', 'ssa.gov', 'medicare.gov',
   'discord.com', 'twitch.tv', 'spotify.com', 'steam.com', 'epicgames.com',

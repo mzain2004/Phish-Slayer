@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Shield, Check, X, ArrowLeft, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
-import { createStripePortalSession } from "@/lib/supabase/actions";
+import WaitlistModal from "@/components/ui/WaitlistModal";
 
 const tiers = [
   {
@@ -31,8 +31,6 @@ const tiers = [
     annualPrice: 79,
     desc: "For SOC professionals managing small fleets",
     popular: true,
-    stripePriceIdMonth: process.env.NEXT_PUBLIC_STRIPE_PRICE_FLEET || "mock_fleet_monthly",
-    stripePriceIdAnnual: process.env.NEXT_PUBLIC_STRIPE_PRICE_FLEET_ANNUAL || "mock_fleet_annual",
     features: [
       { text: "Core Scan Engine", ok: true },
       { text: "WHOIS & DNS Analysis", ok: true },
@@ -49,8 +47,6 @@ const tiers = [
     annualPrice: 239,
     desc: "For global SOC operations and MSSPs",
     popular: false,
-    stripePriceIdMonth: process.env.NEXT_PUBLIC_STRIPE_PRICE_ENTERPRISE || "mock_enterprise_monthly",
-    stripePriceIdAnnual: process.env.NEXT_PUBLIC_STRIPE_PRICE_ENTERPRISE_ANNUAL || "mock_enterprise_annual",
     features: [
       { text: "Core Scan Engine", ok: true },
       { text: "WHOIS & DNS Analysis", ok: true },
@@ -106,50 +102,32 @@ export default function PricingPage() {
   }, []);
 
   const handleCheckout = async (plan: string) => {
-    try {
-      const res = await fetch("/api/stripe/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan, billingPeriod: billing }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        if (res.status === 503 || data.error === 'stripe_not_configured') {
-          toast.info("Payments coming soon! Sign up to be notified.");
-          if (!isLoggedIn) window.location.href = `/auth/signup?plan=${plan}`;
-          return;
-        }
-        throw new Error(data.error || "Checkout failed");
-      }
-      const { url } = await res.json();
-      if (url) window.location.href = url;
-    } catch (err: any) {
-      toast.error(err.message || "Failed to start checkout");
-    }
+    // Legacy Stripe checkout removed
+    toast.info("Payments coming soon! Sign up for the waitlist.");
   };
 
-  const handleManagePlan = async () => {
-    const res = await createStripePortalSession();
-    if (res?.url) window.location.href = res.url;
-    else if (res?.error) toast.error("Payments coming soon!");
-  };
+  const [waitlistOpen, setWaitlistOpen] = useState(false);
+  const [waitlistTier, setWaitlistTier] = useState<'soc_pro' | 'command_control'>('soc_pro');
+  const [waitlistTierName, setWaitlistTierName] = useState('');
 
   const getButtonConfig = (t: typeof tiers[0]) => {
-    if (!isLoggedIn) {
+    if (t.id === "free") {
       return {
-        text: "Get Started",
-        action: () => { window.location.href = t.id === "free" ? "/auth/signup" : `/auth/signup?plan=${t.id}`; },
-        disabled: false,
+        text: isLoggedIn ? (userTier === "recon" || userTier === "free" ? "Current Plan" : "Downgrade") : "Get Started",
+        action: () => { if (!isLoggedIn) window.location.href = "/auth/signup"; },
+        disabled: isLoggedIn && (userTier === "recon" || userTier === "free"),
       };
     }
-    
-    const tierOrder: Record<string, number> = { 'free': 0, 'community': 0, 'pro': 1, 'fleet command': 1, 'enterprise': 2, 'enterprise edge': 2 };
-    const currentOrder = tierOrder[userTier] ?? 0;
-    const thisOrder = tierOrder[t.id] ?? 0;
 
-    if (currentOrder === thisOrder) return { text: "Current Plan", action: () => {}, disabled: true };
-    if (thisOrder > currentOrder) return { text: "Upgrade →", action: () => currentOrder === 0 ? handleCheckout(t.id) : handleManagePlan(), disabled: false };
-    return { text: "Switch Plan", action: handleManagePlan, disabled: false };
+    return {
+      text: "Join Waitlist",
+      action: () => {
+        setWaitlistTier(t.id === "pro" ? 'soc_pro' : 'command_control');
+        setWaitlistTierName(t.name);
+        setWaitlistOpen(true);
+      },
+      disabled: false,
+    };
   };
 
   return (
@@ -271,6 +249,13 @@ export default function PricingPage() {
       <footer className="py-12 border-t border-[#30363d] text-center text-xs text-[#6e7681]">
         © 2026 Phish-Slayer Platform. All rights reserved.
       </footer>
+
+      <WaitlistModal
+        isOpen={waitlistOpen}
+        onClose={() => setWaitlistOpen(false)}
+        tier={waitlistTier}
+        tierName={waitlistTierName}
+      />
     </div>
   );
 }
