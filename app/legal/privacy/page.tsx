@@ -1,93 +1,84 @@
-const PRIVACY_POLICY_HTML = `
-<style>
-  [data-custom-class='body'], [data-custom-class='body'] * {
-          background: transparent !important;
-        }
-[data-custom-class='title'], [data-custom-class='title'] * {
-          font-family: Inter, sans-serif !important;
-font-size: 26px !important;
-color: #e6edf3 !important;
-        }
-[data-custom-class='subtitle'], [data-custom-class='subtitle'] * {
-          font-family: Inter, sans-serif !important;
-color: #8b949e !important;
-font-size: 14px !important;
-        }
-[data-custom-class='heading_1'], [data-custom-class='heading_1'] * {
-          font-family: Inter, sans-serif !important;
-font-size: 19px !important;
-color: #2dd4bf !important;
-        }
-[data-custom-class='heading_2'], [data-custom-class='heading_2'] * {
-          font-family: Inter, sans-serif !important;
-font-size: 17px !important;
-color: #e6edf3 !important;
-        }
-[data-custom-class='body_text'], [data-custom-class='body_text'] * {
-          color: #8b949e !important;
-font-size: 14px !important;
-font-family: Inter, sans-serif !important;
-        }
-[data-custom-class='link'], [data-custom-class='link'] * {
-          color: #2dd4bf !important;
-font-size: 14px !important;
-font-family: Inter, sans-serif !important;
-word-break: break-word !important;
-        }
-</style>
-
-      <div data-custom-class="body">
-      <div><strong><span style="font-size: 26px;"><span data-custom-class="title"><h1>PRIVACY POLICY</h1></span></span></strong></div><div><span style="color: rgb(127, 127, 127);"><strong><span style="font-size: 15px;"><span data-custom-class="subtitle">Last updated March 19, 2026</span></span></strong></span></div><div><br></div><div><br></div><div><br></div><div style="line-height: 1.5;"><span style="color: rgb(127, 127, 127);"><span style="color: rgb(89, 89, 89); font-size: 15px;"><span data-custom-class="body_text">This Privacy Notice for Phish Slayer ("<strong>we</strong>," "<strong>us</strong>," or "<strong>our</strong>"), describes how and why we might access, collect, store, use, and/or share ("<strong>process</strong>") your personal information when you use our services ("<strong>Services</strong>"), including when you:</span></span></span></div><ul><li data-custom-class="body_text" style="line-height: 1.5;"><span style="font-size: 15px; color: rgb(89, 89, 89);"><span style="font-size: 15px; color: rgb(89, 89, 89);"><span data-custom-class="body_text">Visit our website at <span style="color: rgb(0, 58, 250);"><a target="_blank" data-custom-class="link" href="https://phishslayer.tech">https://phishslayer.tech</a></span> or any website of ours that links to this Privacy Notice</span></span></span></li></ul><div style="line-height: 1.5;"><span style="font-size: 15px;"><span style="color: rgb(127, 127, 127);"><span data-custom-class="body_text"><span style="color: rgb(89, 89, 89);"><span data-custom-class="body_text"></span></span></span></span></span></div><ul><li data-custom-class="body_text" style="line-height: 1.5;"><span style="font-size: 15px; color: rgb(89, 89, 89);"><span style="font-size: 15px; color: rgb(89, 89, 89);"><span data-custom-class="body_text">Engage with us in other related ways, including any marketing or events</span></span></span></li></ul><div style="line-height: 1.5;"><span style="font-size: 15px;"><span style="color: rgb(127, 127, 127);"><span data-custom-class="body_text"><strong>Questions or concerns? </strong>Reading this Privacy Notice will help you understand your privacy rights and choices. We are responsible for making decisions about how your personal information is processed. If you do not agree with our policies and practices, please do not use our Services.</span></span></span></div><div style="line-height: 1.5;"><br></div><div style="line-height: 1.5;"><br></div><div style="line-height: 1.5;"><strong><span style="font-size: 15px;"><span data-custom-class="heading_1"><h2>SUMMARY OF KEY POINTS</h2></span></span></strong></div><div style="line-height: 1.5;"><span style="font-size: 15px;"><span data-custom-class="body_text"><strong><em>This summary provides key points from our Privacy Notice, but you can find out more details about any of these topics by clicking the link following each key point or by using our </em></strong></span></span><a data-custom-class="link" href="#toc"><span style="color: rgb(0, 58, 250); font-size: 15px;"><span data-custom-class="body_text"><strong><em>table of contents</em></strong></span></span></a><span style="font-size: 15px;"><span data-custom-class="body_text"><strong><em> below to find the section you are looking for.</em></strong></span></span></div><div style="line-height: 1.5;"><br></div><div style="line-height: 1.5;"><span style="font-size: 15px;"><span data-custom-class="body_text"><strong>What personal information do we process?</strong> When you visit, use, or navigate our Services, we may process personal information depending on how you interact with us and the Services, the choices you make, and the products and features you use. Learn more about </span></span><a data-custom-class="link" href="#personalinfo"><span style="color: rgb(0, 58, 250); font-size: 15px;"><span data-custom-class="body_text">personal information you disclose to us</span></span></a><span data-custom-class="body_text">.</span></div><div style="line-height: 1.5;"><br></div><div style="line-height: 1.5;"><span style="font-size: 15px;"><span data-custom-class="body_text"><strong>Do we process any sensitive personal information? </strong>Some of the information may be considered "special" or "sensitive" in certain jurisdictions, for example your racial or ethnic origins, sexual orientation, and religious beliefs. We do not process sensitive personal information.</span></span></div><div style="line-height: 1.5;"><br></div><div style="line-height: 1.5;"><span style="font-size: 15px;"><span data-custom-class="body_text"><strong>Do we collect any information from third parties?</strong> We do not collect any information from third parties.</span></span></div><div style="line-height: 1.5;"><br></div><div style="line-height: 1.5;"><span style="font-size: 15px;"><span data-custom-class="body_text"><strong>How do we process your information?</strong> We process your information to provide, improve, and administer our Services, communicate with you, for security and fraud prevention, and to comply with law. We may also process your information for other purposes with your consent. We process your information only when we have a valid legal reason to do so. Learn more about </span></span><a data-custom-class="link" href="#infouse"><span style="color: rgb(0, 58, 250); font-size: 15px;"><span data-custom-class="body_text">how we process your information</span></span></a><span data-custom-class="body_text">.</span></div><div style="line-height: 1.5;"><br></div><div style="line-height: 1.5;"><span style="font-size: 15px;"><span data-custom-class="body_text"><strong>In what situations and with which parties do we share personal information?</strong> We may share information in specific situations and with specific third parties. Learn more about </span></span><a data-custom-class="link" href="#whoshare"><span style="color: rgb(0, 58, 250); font-size: 15px;"><span data-custom-class="body_text">when and with whom we share your personal information</span></span></a><span style="font-size: 15px;"><span data-custom-class="body_text">.</span></span></div><div style="line-height: 1.5;"><br></div><div style="line-height: 1.5;"><span style="font-size: 15px;"><span data-custom-class="body_text"><strong>How do we keep your information safe?</strong> We have adequate organizational and technical processes and procedures in place to protect your personal information. However, no electronic transmission over the internet or information storage technology can be guaranteed to be 100% secure, so we cannot promise or guarantee that hackers, cybercriminals, or other unauthorized third parties will not be able to defeat our security and improperly collect, access, steal, or modify your information. Learn more about </span></span><a data-custom-class="link" href="#infosafe"><span style="color: rgb(0, 58, 250); font-size: 15px;"><span data-custom-class="body_text">how we keep your information safe</span></span></a><span data-custom-class="body_text">.</span></div><div style="line-height: 1.5;"><br></div><div style="line-height: 1.5;"><span style="font-size: 15px;"><span data-custom-class="body_text"><strong>What are your rights?</strong> Depending on where you are located geographically, the applicable privacy law may mean you have certain rights regarding your personal information. Learn more about </span></span><a data-custom-class="link" href="#privacyrights"><span style="color: rgb(0, 58, 250); font-size: 15px;"><span data-custom-class="body_text">your privacy rights</span></span></a><span data-custom-class="body_text">.</span></div><div style="line-height: 1.5;"><br></div><div style="line-height: 1.5;"><span style="font-size: 15px;"><span data-custom-class="body_text"><strong>How do you exercise your rights?</strong> The easiest way to exercise your rights is by submitting a </span></span><a data-custom-class="link" href="https://app.termly.io/dsar/830853a6-ef0c-4574-af45-fcb5e787fa37" rel="noopener noreferrer" target="_blank"><span style="color: rgb(0, 58, 250); font-size: 15px;"><span data-custom-class="body_text">data subject access request</span></span></a><span style="font-size: 15px;"><span data-custom-class="body_text">, or by contacting us. We will consider and act upon any request in accordance with applicable data protection laws.</span></span></div><div style="line-height: 1.5;"><br></div><div style="line-height: 1.5;"><span style="font-size: 15px;"><span data-custom-class="body_text">Want to learn more about what we do with any information we collect? </span></span><a data-custom-class="link" href="#toc"><span style="color: rgb(0, 58, 250); font-size: 15px;"><span data-custom-class="body_text">Review the Privacy Notice in full</span></span></a><span style="font-size: 15px;"><span data-custom-class="body_text">.</span></span></div><div style="line-height: 1.5;"><br></div><div style="line-height: 1.5;"><br></div><div id="toc" style="line-height: 1.5;"><span style="font-size: 15px;"><span style="color: rgb(127, 127, 127);"><span style="color: rgb(0, 0, 0);"><strong><span data-custom-class="heading_1"><h2>TABLE OF CONTENTS</h2></span></strong></span></span></span></div><div style="line-height: 1.5;"><span style="font-size: 15px;"><a data-custom-class="link" href="#infocollect"><span style="color: rgb(0, 58, 250);">1. WHAT INFORMATION DO WE COLLECT?</span></a></span></div><div style="line-height: 1.5;"><span style="font-size: 15px;"><a data-custom-class="link" href="#infouse"><span style="color: rgb(0, 58, 250);">2. HOW DO WE PROCESS YOUR INFORMATION?</span></a></span></div><div style="line-height: 1.5;"><span style="font-size: 15px;"><a data-custom-class="link" href="#legalbases"><span style="color: rgb(0, 58, 250);">3. WHAT LEGAL BASES DO WE RELY ON TO PROCESS YOUR PERSONAL INFORMATION?</span></a></span></div><div style="line-height: 1.5;"><span style="font-size: 15px;"><span style="color: rgb(0, 58, 250);"><a data-custom-class="link" href="#whoshare">4. WHEN AND WITH WHOM DO WE SHARE YOUR PERSONAL INFORMATION?</a></span></span></div><div style="line-height: 1.5;"><span style="font-size: 15px;"><a data-custom-class="link" href="#cookies"><span style="color: rgb(0, 58, 250);">5. DO WE USE COOKIES AND OTHER TRACKING TECHNOLOGIES?</span></a></span></div><div style="line-height: 1.5;"><a data-custom-class="link" href="#ai"><span style="color: rgb(0, 58, 250);">6. DO WE OFFER ARTIFICIAL INTELLIGENCE-BASED PRODUCTS?</span></a></div><div style="line-height: 1.5;"><span style="font-size: 15px;"><a data-custom-class="link" href="#sociallogins"><span style="color: rgb(0, 58, 250);">7. HOW DO WE HANDLE YOUR SOCIAL LOGINS?</span></a></span></div><div style="line-height: 1.5;"><span style="font-size: 15px;"><a data-custom-class="link" href="#inforetain"><span style="color: rgb(0, 58, 250);">8. HOW LONG DO WE KEEP YOUR INFORMATION?</span></a></span></div><div style="line-height: 1.5;"><span style="font-size: 15px;"><a data-custom-class="link" href="#infosafe"><span style="color: rgb(0, 58, 250);">9. HOW DO WE KEEP YOUR INFORMATION SAFE?</span></a></span></div><div style="line-height: 1.5;"><span style="font-size: 15px;"><a data-custom-class="link" href="#infominors"><span style="color: rgb(0, 58, 250);">10. DO WE COLLECT INFORMATION FROM MINORS?</span></a></span></div><div style="line-height: 1.5;"><span style="font-size: 15px;"><span style="color: rgb(0, 58, 250);"><a data-custom-class="link" href="#privacyrights">11. WHAT ARE YOUR PRIVACY RIGHTS?</a></span></span></div><div style="line-height: 1.5;"><span style="font-size: 15px;"><a data-custom-class="link" href="#DNT"><span style="color: rgb(0, 58, 250);">12. CONTROLS FOR DO-NOT-TRACK FEATURES</span></a></span></div><div style="line-height: 1.5;"><span style="font-size: 15px;"><a data-custom-class="link" href="#uslaws"><span style="color: rgb(0, 58, 250);">13. DO UNITED STATES RESIDENTS HAVE SPECIFIC PRIVACY RIGHTS?</span></a></span></div><div style="line-height: 1.5;"><span style="font-size: 15px;"><a data-custom-class="link" href="#policyupdates"><span style="color: rgb(0, 58, 250);">14. DO WE MAKE UPDATES TO THIS NOTICE?</span></a></span></div><div style="line-height: 1.5;"><a data-custom-class="link" href="#contact"><span style="color: rgb(0, 58, 250); font-size: 15px;">15. HOW CAN YOU CONTACT US ABOUT THIS NOTICE?</span></a></div><div style="line-height: 1.5;"><a data-custom-class="link" href="#request"><span style="color: rgb(0, 58, 250);">16. HOW CAN YOU REVIEW, UPDATE, OR DELETE THE DATA WE COLLECT FROM YOU?</span></a></div></div>
-`
-
 export default function PrivacyPage() {
-  const customStyles = `
-    .privacy-content h1, .privacy-content h2, .privacy-content h3 {
-      margin-top: 2rem;
-      margin-bottom: 1rem;
-    }
-    .privacy-content p, .privacy-content li {
-      margin-bottom: 0.75rem;
-    }
-    .privacy-content ul {
-      list-style-type: disc;
-      padding-left: 1.5rem;
-      margin-bottom: 1rem;
-    }
-    .privacy-content table {
-      width: 100%;
-      border-collapse: collapse;
-      margin: 1.5rem 0;
-      border: 1px solid #30363d;
-    }
-    .privacy-content th, .privacy-content td {
-      border: 1px solid #30363d;
-      padding: 0.75rem;
-      text-align: left;
-    }
-    .privacy-content th {
-      background: #161b22;
-      color: #e6edf3;
-    }
-    .privacy-content a {
-      color: #2dd4bf !important;
-      text-decoration: underline;
-    }
-  `;
-
   return (
     <main className="min-h-screen bg-[#0d1117]">
       <div className="border-b border-[#30363d] px-6 py-4">
-        <a href="/" className="text-[#2dd4bf] text-sm hover:underline">← Back to Phish-Slayer</a>
+        <a href="/" className="text-[#2dd4bf] text-sm hover:underline">
+          ← Back to Phish-Slayer
+        </a>
       </div>
       <div className="max-w-4xl mx-auto px-6 py-12">
-        <div 
-          className="privacy-content Termly-Content"
-          dangerouslySetInnerHTML={{ __html: PRIVACY_POLICY_HTML }} 
-        />
-      </div>
+        <h1 className="text-3xl font-bold text-[#e6edf3] mb-2">Privacy Policy</h1>
+        <p className="text-[#8b949e] text-sm mb-10">Last updated: March 19, 2026</p>
 
-      <style dangerouslySetInnerHTML={{ __html: customStyles }} />
+        <div className="space-y-8">
+          {[
+            {
+              title: '1. Who We Are',
+              content: 'Phish-Slayer ("we", "us", "our") is an enterprise cybersecurity SaaS platform operated by MinionCore, based in Bahawalpur, Punjab, Pakistan. Contact: support@phishslayer.tech'
+            },
+            {
+              title: '2. What Information We Collect',
+              content: 'We collect: (a) Account information — email address, name, job title when you register. (b) Endpoint telemetry — IP addresses, process names, hostnames, and network connection data collected by the EDR agent you install on systems you own. (c) Payment information — handled entirely by our payment processor; we never store card numbers. (d) Usage data — scan targets, scan results, and threat intelligence data you submit.'
+            },
+            {
+              title: '3. How We Use Your Information',
+              content: 'We use your data to: provide and improve our threat intelligence services; authenticate your account; send security alerts and product updates with your consent; comply with legal obligations. We never sell your personal data to third parties.'
+            },
+            {
+              title: '4. Data Storage & Security',
+              content: 'All data is stored in Supabase (PostgreSQL) hosted on Microsoft Azure infrastructure. Data is encrypted at rest and in transit using TLS 1.2+. Row Level Security (RLS) policies ensure users can only access their own data. We implement HTTP security headers, input sanitization, and rate limiting across all endpoints.'
+            },
+            {
+              title: '5. EDR Agent Data',
+              content: 'The Phish-Slayer EDR agent collects: running process names and PIDs, outbound network connections (remote IP and port), file system change events in monitored directories, and hostname and operating system information. This data is transmitted encrypted to our servers and used solely for threat detection. You control which endpoints run the agent.'
+            },
+            {
+              title: '6. Cookies & Tracking',
+              content: 'We use essential cookies for authentication (Supabase session tokens). We use Termly for consent management. You can manage your cookie preferences at any time using the Consent Preferences link in our footer. We do not use advertising cookies or sell tracking data.'
+            },
+            {
+              title: '7. Data Retention',
+              content: 'We retain your account data for as long as your account is active. Scan results and incident data are retained for the duration of your subscription. You may request deletion of all your data at any time by contacting support@phishslayer.tech.'
+            },
+            {
+              title: '8. Your Rights (GDPR / CCPA)',
+              content: 'Depending on your location, you have the right to: access your personal data; correct inaccurate data; request deletion ("right to be forgotten"); data portability; withdraw consent at any time. To exercise these rights, submit a request at: https://app.termly.io/dsar/830853a6-ef0c-4574-af45-fcb5e787fa37 or email support@phishslayer.tech.'
+            },
+            {
+              title: '9. Third-Party Services',
+              content: 'We use: Supabase (database and auth), Microsoft Azure (hosting), Google Gemini AI (threat analysis), VirusTotal (threat intelligence), Discord (alert webhooks), Termly (consent management). Each provider operates under their own privacy policy.'
+            },
+            {
+              title: '10. Children\'s Privacy',
+              content: 'Our services are not directed at children under 18. We do not knowingly collect data from minors. If you believe a minor has provided us data, contact support@phishslayer.tech immediately.'
+            },
+            {
+              title: '11. Changes to This Policy',
+              content: 'We may update this Privacy Policy periodically. We will notify registered users of material changes via email. Continued use of the service after changes constitutes acceptance.'
+            },
+            {
+              title: '12. Contact Us',
+              content: 'Phish-Slayer / MinionCore — Bahawalpur, Punjab, Pakistan. Email: support@phishslayer.tech'
+            },
+          ].map((section) => (
+            <div key={section.title} className="bg-[#161b22] border border-[#30363d] rounded-xl p-6">
+              <h2 className="text-[#e6edf3] font-semibold text-base mb-3">{section.title}</h2>
+              <p className="text-[#8b949e] text-sm leading-relaxed">{section.content}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-10 pt-8 border-t border-[#30363d]">
+          <a
+            href="https://app.termly.io/dsar/830853a6-ef0c-4574-af45-fcb5e787fa37"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[#2dd4bf] text-sm hover:underline"
+          >
+            Submit a Data Subject Access Request →
+          </a>
+        </div>
+      </div>
     </main>
   )
 }

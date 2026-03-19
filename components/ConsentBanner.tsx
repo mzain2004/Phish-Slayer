@@ -20,8 +20,21 @@ export default function ConsentBanner() {
   }
 
   const handleManage = () => {
+    // Try direct element click first
     const el = document.querySelector('.termly-display-preferences') as HTMLElement
-    if (el) el.click()
+    if (el) {
+      el.click()
+      dismiss('manage')
+      return
+    }
+    // Fallback: use Termly's global API if available
+    if (typeof (window as any).displayPreferenceModal === 'function') {
+      ;(window as any).displayPreferenceModal()
+      dismiss('manage')
+      return
+    }
+    // Last resort: open Termly preferences URL directly
+    window.open('https://app.termly.io/notify/fa073781-55e5-45b6-a6ef-29405a9723b7', '_blank')
     dismiss('manage')
   }
 

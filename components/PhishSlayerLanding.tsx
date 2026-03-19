@@ -886,7 +886,7 @@ const PhishSlayerLanding: React.FC<Props> = ({ isAuthenticated = false }) => {
                 links: [
                   { l: "Privacy Policy", h: "/legal/privacy" },
                   { l: "Terms of Service", h: "/legal/terms" },
-                  { l: "Consent Preferences", h: "#", className: "termly-display-preferences" },
+                  { l: "Consent Preferences", h: "#termly" },
                 ],
               },
             ].map((col, i) => (
@@ -895,16 +895,35 @@ const PhishSlayerLanding: React.FC<Props> = ({ isAuthenticated = false }) => {
                   {col.title}
                 </h4>
                 <ul className="space-y-2.5">
-                  {col.links.map((lnk, j) => (
-                    <li key={j}>
-                      <a
-                        href={lnk.h}
-                        className={`text-sm hover:text-white transition-colors ${"className" in lnk ? lnk.className : ""}`}
-                      >
-                        {lnk.l}
-                      </a>
-                    </li>
-                  ))}
+                  {col.links.map((lnk, j) => {
+                    const isTermly = lnk.h === "#termly";
+                    return (
+                      <li key={j}>
+                        {isTermly ? (
+                          <button
+                            onClick={() => {
+                              const el = document.querySelector('.termly-display-preferences') as HTMLElement
+                              if (el) { el.click(); return; }
+                              if (typeof (window as any).displayPreferenceModal === 'function') {
+                                ;(window as any).displayPreferenceModal(); return;
+                              }
+                              window.open('https://app.termly.io/notify/fa073781-55e5-45b6-a6ef-29405a9723b7', '_blank')
+                            }}
+                            className="text-[#8b949e] hover:text-[#2dd4bf] text-sm transition-colors cursor-pointer bg-transparent border-none p-0"
+                          >
+                            {lnk.l}
+                          </button>
+                        ) : (
+                          <a
+                            href={lnk.h}
+                            className={`text-sm hover:text-white transition-colors ${"className" in lnk ? (lnk as any).className : ""}`}
+                          >
+                            {lnk.l}
+                          </a>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             ))}
