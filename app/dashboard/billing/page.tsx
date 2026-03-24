@@ -7,26 +7,39 @@ import {
   FileText,
   Download,
   Loader2,
+  ExternalLink,
+  Shield,
 } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import WaitlistModal from "@/components/ui/WaitlistModal";
+
+const TIER_DISPLAY: Record<string, { name: string; tagline: string; amount: string }> = {
+  recon: {
+    name: "Recon",
+    tagline: "For individuals exploring threat intelligence",
+    amount: "$0",
+  },
+  free: {
+    name: "Recon",
+    tagline: "For individuals exploring threat intelligence",
+    amount: "$0",
+  },
+  soc_pro: {
+    name: "SOC Pro",
+    tagline: "For SOC professionals managing small fleets",
+    amount: "$49",
+  },
+  command_control: {
+    name: "Command & Control",
+    tagline: "For global SOC operations and MSSPs",
+    amount: "$299",
+  },
+};
 
 export default function BillingPage() {
-  const [activePlan, setActivePlan] = useState("free");
+  const [activePlan, setActivePlan] = useState("recon");
+  const [billingCustomerId, setBillingCustomerId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [manageLoading, setManageLoading] = useState(false);
-
-  const [waitlistOpen, setWaitlistOpen] = useState(false);
-  const [waitlistTier, setWaitlistTier] = useState<'soc_pro' | 'command_control'>('soc_pro');
-  const [waitlistTierName, setWaitlistTierName] = useState('');
-
-  const handleManagePayment = async () => {
-    // legacy Stripe portal removed
-    toast.info("Payment management coming soon", {
-      description: "We are moving to a new billing provider. Contact support@phishslayer.tech for inquiries."
-    });
-  };
 
   useEffect(() => {
     async function loadData() {
@@ -35,11 +48,14 @@ export default function BillingPage() {
       if (userData?.user) {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("subscription_tier")
+          .select("subscription_tier, billing_customer_id")
           .eq("id", userData.user.id)
           .single();
         if (profile?.subscription_tier) {
           setActivePlan(profile.subscription_tier.toLowerCase());
+        }
+        if (profile?.billing_customer_id) {
+          setBillingCustomerId(profile.billing_customer_id);
         }
       }
       setLoading(false);
@@ -47,38 +63,22 @@ export default function BillingPage() {
     loadData();
   }, []);
 
-  const getPlanDetails = () => {
-    if (activePlan === "enterprise") {
-      return {
-        name: "Enterprise",
-        tagline: "For SOC teams managing an organization",
-        amount: "$299",
-        scans: { used: "Unlimited", total: "Unlimited", percent: 100 },
-        api: { used: "Unlimited", total: "Unlimited", percent: 100 },
-        team: { used: 1, total: "Unlimited", percent: 100 },
-      };
-    } else if (activePlan === "pro") {
-      return {
-        name: "Pro",
-        tagline: "For SOC analysts who need deeper analysis",
-        amount: "$99",
-        scans: { used: "Unlimited", total: "Unlimited", percent: 100 },
-        api: { used: "1,240", total: "5,000", percent: 25 },
-        team: { used: 1, total: "5", percent: 20 },
-      };
+  const plan = TIER_DISPLAY[activePlan] || TIER_DISPLAY.recon;
+  const isPaid = activePlan !== "recon" && activePlan !== "free";
+
+  const handleManageSubscription = () => {
+    // Paddle customer portal — users can manage from their Paddle receipt/email
+    // Or direct them to Paddle's portal if billing_customer_id exists
+    if (billingCustomerId) {
+      toast.info("Opening billing portal...", {
+        description: "Check your email for a link from Paddle to manage your subscription.",
+      });
     } else {
-      return {
-        name: "Community",
-        tagline: "For individuals exploring threat intelligence",
-        amount: "$0",
-        scans: { used: 3, total: 10, percent: 30 },
-        api: { used: 0, total: 0, percent: 0 },
-        team: { used: 1, total: 1, percent: 100 },
-      };
+      toast.info("No active subscription", {
+        description: "Visit the pricing page to subscribe to a plan.",
+      });
     }
   };
-
-  const plan = getPlanDetails();
 
   if (loading) {
     return (
@@ -102,13 +102,14 @@ export default function BillingPage() {
 
       {/* Plan Card */}
       <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-6 relative overflow-hidden">
-        {activePlan === "enterprise" && (
-           <div className="h-px w-full bg-gradient-to-r from-teal-500/60 via-teal-500/20 to-transparent mb-6 -mt-6 -mx-6 px-0 rounded-t-xl" />
+        {isPaid && (
+          <div className="h-px w-full bg-gradient-to-r from-teal-500/60 via-teal-500/20 to-transparent mb-6 -mt-6 -mx-6 px-0 rounded-t-xl" />
         )}
-        
+
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
             <div className="flex items-center gap-3 mb-1">
+              <Shield className="w-5 h-5 text-teal-400" />
               <h2 className="text-[#e6edf3] text-xl font-semibold">{plan.name} Plan</h2>
               <span className="bg-teal-500/10 text-teal-400 border border-teal-500/20 text-xs px-2.5 py-0.5 rounded-full font-medium">
                 ACTIVE
@@ -117,35 +118,35 @@ export default function BillingPage() {
             <p className="text-[#8b949e] text-sm">{plan.tagline}</p>
           </div>
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => {
-                setWaitlistTier('soc_pro');
-                setWaitlistTierName('SOC Pro');
-                setWaitlistOpen(true);
-              }}
-              className="px-4 py-2 bg-teal-500 hover:bg-teal-400 text-white text-sm font-medium rounded-lg transition-colors"
-            >
-              Join Waitlist
-            </button>
-            <button
-              onClick={handleManagePayment}
-              className="flex items-center gap-2 px-4 py-2 bg-[#1c2128] border border-[#30363d] text-[#e6edf3] hover:bg-[#21262d] text-sm font-medium rounded-lg transition-colors"
-            >
-              <CreditCard className="w-4 h-4" />
-              Manage Payment
-            </button>
+            {isPaid ? (
+              <button
+                onClick={handleManageSubscription}
+                className="flex items-center gap-2 px-4 py-2 bg-[#1c2128] border border-[#30363d] text-[#e6edf3] hover:bg-[#21262d] text-sm font-medium rounded-lg transition-colors"
+              >
+                <CreditCard className="w-4 h-4" />
+                Manage Subscription
+              </button>
+            ) : (
+              <Link
+                href="/pricing"
+                className="flex items-center gap-2 px-4 py-2 bg-teal-500 hover:bg-teal-400 text-white text-sm font-medium rounded-lg transition-colors"
+              >
+                <ExternalLink className="w-4 h-4" />
+                Upgrade Plan
+              </Link>
+            )}
           </div>
         </div>
 
         <div className="mt-8 grid grid-cols-1 md:grid-cols-3 border-t border-[#30363d] pt-6 gap-6">
           <div>
-            <p className="text-[#6e7681] text-xs uppercase tracking-wider mb-1">Billing Period</p>
-            <p className="text-[#e6edf3] text-sm font-semibold">Monthly</p>
+            <p className="text-[#6e7681] text-xs uppercase tracking-wider mb-1">Current Tier</p>
+            <p className="text-[#e6edf3] text-sm font-semibold">{plan.name}</p>
           </div>
           <div className="md:border-l border-[#30363d] md:pl-6">
-            <p className="text-[#6e7681] text-xs uppercase tracking-wider mb-1">Next Payment</p>
+            <p className="text-[#6e7681] text-xs uppercase tracking-wider mb-1">Billing</p>
             <p className="text-[#e6edf3] text-sm font-semibold">
-              {activePlan === "free" ? "N/A" : "Nov 24, 2026"}
+              {isPaid ? "Monthly via Paddle" : "Free"}
             </p>
           </div>
           <div className="md:border-l border-[#30363d] md:pl-6">
@@ -157,43 +158,49 @@ export default function BillingPage() {
 
       {/* Usage Section */}
       <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-6">
-        <h3 className="text-[#e6edf3] text-sm font-semibold mb-6">Usage This Month</h3>
+        <h3 className="text-[#e6edf3] text-sm font-semibold mb-6">Plan Limits</h3>
         <div className="space-y-6">
           <div>
             <div className="flex justify-between text-xs font-medium mb-2">
-              <span className="text-[#8b949e]">Monthly Scans</span>
-              <span className="text-[#e6edf3]">{plan.scans.used} / {plan.scans.total}</span>
+              <span className="text-[#8b949e]">Daily Scans</span>
+              <span className="text-[#e6edf3]">
+                {activePlan === "command_control" ? "Unlimited" : activePlan === "soc_pro" ? "500/day" : "10/day"}
+              </span>
             </div>
             <div className="bg-[#21262d] rounded-full h-1.5 overflow-hidden">
               <div
                 className="bg-gradient-to-r from-teal-500 to-teal-400 h-full rounded-full"
-                style={{ width: `${plan.scans.percent}%` }}
+                style={{ width: isPaid ? "100%" : "30%" }}
               />
             </div>
           </div>
 
           <div>
             <div className="flex justify-between text-xs font-medium mb-2">
-              <span className="text-[#8b949e]">API Requests</span>
-              <span className="text-[#e6edf3]">{plan.api.used} / {plan.api.total}</span>
+              <span className="text-[#8b949e]">Fleet Agent Slots</span>
+              <span className="text-[#e6edf3]">
+                {activePlan === "command_control" ? "Unlimited" : activePlan === "soc_pro" ? "10" : "1"}
+              </span>
             </div>
             <div className="bg-[#21262d] rounded-full h-1.5 overflow-hidden">
               <div
                 className="bg-violet-500 h-full rounded-full"
-                style={{ width: `${plan.api.percent}%` }}
+                style={{ width: isPaid ? "100%" : "10%" }}
               />
             </div>
           </div>
 
           <div>
             <div className="flex justify-between text-xs font-medium mb-2">
-              <span className="text-[#8b949e]">Team Members</span>
-              <span className="text-[#e6edf3]">{plan.team.used} / {plan.team.total}</span>
+              <span className="text-[#8b949e]">API Access</span>
+              <span className="text-[#e6edf3]">
+                {activePlan === "command_control" ? "Unlimited" : activePlan === "soc_pro" ? "1,000/day" : "Locked"}
+              </span>
             </div>
             <div className="bg-[#21262d] rounded-full h-1.5 overflow-hidden">
               <div
                 className="bg-[#3fb950] h-full rounded-full"
-                style={{ width: `${plan.team.percent}%` }}
+                style={{ width: isPaid ? "100%" : "0%" }}
               />
             </div>
           </div>
@@ -221,28 +228,16 @@ export default function BillingPage() {
               </tr>
             </thead>
             <tbody>
-              {activePlan === "free" ? (
+              {!isPaid ? (
                 <tr>
                   <td colSpan={4} className="px-5 py-8 text-center text-[#6e7681] text-sm">
-                    No billing history available on the Community plan.
+                    No billing history available on the Recon plan.
                   </td>
                 </tr>
               ) : (
-                <tr className="border-b border-[#21262d] hover:bg-[#1c2128] transition-colors group">
-                  <td className="px-5 py-4 text-[#e6edf3]">Oct 24, 2026</td>
-                  <td className="px-5 py-4 text-[#e6edf3] font-mono">{plan.amount}.00</td>
-                  <td className="px-5 py-4">
-                    <span className="bg-[#3fb950]/10 text-[#3fb950] border border-[#3fb950]/20 text-[10px] font-bold uppercase px-2 py-0.5 rounded-md">
-                      PAID
-                    </span>
-                  </td>
-                  <td className="px-5 py-4 text-right">
-                    <button 
-                      onClick={() => toast.info("Invoice download coming soon")}
-                      className="text-[#8b949e] hover:text-[#e6edf3] transition-colors"
-                    >
-                      <Download className="w-4 h-4" />
-                    </button>
+                <tr>
+                  <td colSpan={4} className="px-5 py-8 text-center text-[#6e7681] text-sm">
+                    Invoice history is managed by Paddle. Check your email for receipts.
                   </td>
                 </tr>
               )}
@@ -250,13 +245,6 @@ export default function BillingPage() {
           </table>
         </div>
       </div>
-
-      <WaitlistModal
-        isOpen={waitlistOpen}
-        onClose={() => setWaitlistOpen(false)}
-        tier={waitlistTier}
-        tierName={waitlistTierName}
-      />
     </div>
   );
 }
