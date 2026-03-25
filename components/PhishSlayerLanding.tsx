@@ -2,6 +2,7 @@
 
 import { Header } from "./landing/Header";
 import { HeroSection } from "./landing/HeroSection";
+import { CredibilityBar } from "./landing/CredibilityBar";
 import { ThreatTicker } from "./landing/ThreatTicker";
 import { ProblemStatement } from "./landing/ProblemStatement";
 import { GatePipeline } from "./landing/GatePipeline";
@@ -17,11 +18,12 @@ import { Footer } from "./landing/Footer";
 
 export default function PhishSlayerLanding({ isAuthenticated = false }: { isAuthenticated?: boolean }) {
   return (
-    <div className="bg-[#050507] text-[#E6EDF3] font-sans overflow-x-hidden selection:bg-teal-400/30 antialiased">
+    <div className="bg-[#0D1117] text-[#E6EDF3] overflow-x-hidden selection:bg-teal-500/30">
       <Header isAuthenticated={isAuthenticated} />
       
       <main>
         <HeroSection />
+        <CredibilityBar />
         <ThreatTicker />
         <ProblemStatement />
         <GatePipeline />

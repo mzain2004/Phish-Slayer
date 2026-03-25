@@ -3,15 +3,17 @@
 import { motion } from "framer-motion";
 import { ArrowRight, Database, Search, Bot } from "lucide-react";
 
+const springConfig = { type: "spring" as const, stiffness: 60, damping: 25, bounce: 0.1 };
+
 export function GatePipeline() {
   const containerVariants = {
     hidden: {},
-    visible: { transition: { staggerChildren: 0.2 } },
+    visible: { transition: { staggerChildren: 0.25 } },
   };
 
   const itemVariants = {
     hidden: { opacity: 0, x: -40 },
-    visible: { opacity: 1, x: 0, transition: { duration: 0.6, ease: "easeOut" as const } },
+    visible: { opacity: 1, x: 0, transition: springConfig },
   };
 
   const gates = [
@@ -19,61 +21,64 @@ export function GatePipeline() {
       step: 1,
       title: "Intel Vault",
       desc: "Instant local lookup. Zero API calls.",
-      color: "border-[#3FB950]",
-      bg: "bg-[#3FB950]/10",
-      icon: <Database className="w-8 h-8 text-[#3FB950]" />,
+      color: "#3FB950",
+      icon: <Database className="w-8 h-8 text-[#3FB950]" strokeWidth={1.5} />,
     },
     {
       step: 2,
       title: "95-Engine Scanner",
       desc: "VirusTotal consensus across 95 engines.",
-      color: "border-[#E3B341]",
-      bg: "bg-[#E3B341]/10",
-      icon: <Search className="w-8 h-8 text-[#E3B341]" />,
+      color: "#E3B341",
+      icon: <Search className="w-8 h-8 text-[#E3B341]" strokeWidth={1.5} />,
     },
     {
       step: 3,
       title: "Gemini AI",
       desc: "Plain English verdict & remediation.",
-      color: "border-[#2DD4BF]",
-      bg: "bg-[#2DD4BF]/10",
-      icon: <Bot className="w-8 h-8 text-[#2DD4BF]" />,
+      color: "#2DD4BF",
+      icon: <Bot className="w-8 h-8 text-[#2DD4BF]" strokeWidth={1.5} />,
     },
   ];
 
   return (
-    <section className="bg-[#0D1117] text-[#E6EDF3] py-32 border-b border-[#30363D] overflow-hidden">
+    <section className="bg-[#0A0E13] py-24 border-b border-[#1C2128] overflow-hidden">
       <div className="max-w-6xl mx-auto px-6">
         <div className="text-center mb-20">
-          <h2 className="text-3xl md:text-5xl font-black tracking-tight mb-4">
+          <span className="font-mono text-[11px] tracking-[0.15em] text-[#2DD4BF] uppercase block mb-4">How It Works</span>
+          <h2 className="text-3xl md:text-5xl font-bold text-[#E6EDF3] tracking-[-0.01em]">
             One Scan. Three Layers. Under 30 Seconds.
           </h2>
         </div>
 
-        {/* Pipeline Visual */}
         <motion.div
           variants={containerVariants}
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: true, margin: "-100px" }}
+          viewport={{ once: true, margin: "-120px" }}
           className="flex flex-col md:flex-row items-center justify-center gap-4 relative"
         >
           {gates.map((g, i) => (
             <div key={i} className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto relative z-10">
               <motion.div
                 variants={itemVariants}
-                className={`bg-[#161B22] border ${g.color} p-8 rounded-[12px] w-full md:w-72 shadow-xl shrink-0 flex flex-col items-center text-center relative overflow-hidden`}
+                className="bg-[#161B22] border border-[#30363D] p-8 rounded-[8px] w-full md:w-72 shrink-0 flex flex-col items-center text-center relative overflow-hidden hover:border-[#2DD4BF] hover:shadow-[0_0_0_1px_rgba(45,212,191,0.1),0_8px_32px_rgba(0,0,0,0.4)] hover:-translate-y-[2px] transition-all duration-200"
               >
-                {/* Glow ring under icon */}
-                <div className={`absolute top-8 left-1/2 -translate-x-1/2 w-16 h-16 rounded-full blur-xl ${g.bg} pointer-events-none`} />
-                <div className={`mb-6 p-4 rounded-full ${g.bg} relative z-10`}>
+                {/* Top colored bar */}
+                <div className="absolute top-0 left-0 right-0 h-[3px]" style={{ backgroundColor: g.color }} />
+                
+                {/* Gate number watermark */}
+                <div className="absolute top-4 right-4 font-mono text-[48px] font-bold text-white/[0.04] leading-none select-none">
+                  {g.step}
+                </div>
+
+                <div className="mb-6 p-4 rounded-[8px]" style={{ backgroundColor: `${g.color}15` }}>
                   {g.icon}
                 </div>
-                <div className="text-xs font-black uppercase tracking-wider text-[#8B949E] mb-2">
+                <div className="font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[#8B949E] mb-2">
                   Gate {g.step}
                 </div>
-                <h3 className="text-xl font-bold text-[#E6EDF3] mb-3">{g.title}</h3>
-                <p className="text-[#8B949E] text-sm leading-relaxed">{g.desc}</p>
+                <h3 className="text-xl font-bold text-[#E6EDF3] mb-3 tracking-tight">{g.title}</h3>
+                <p className="text-[#8B949E] text-sm leading-[1.7]">{g.desc}</p>
               </motion.div>
               
               {i < gates.length - 1 && (
@@ -81,12 +86,12 @@ export function GatePipeline() {
                   variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }}
                   className="hidden md:flex flex-col items-center shrink-0 w-12"
                 >
-                  <ArrowRight className="w-8 h-8 text-[#30363D]" />
+                  <ArrowRight className="w-8 h-8 text-[#30363D]" strokeWidth={1.5} />
                 </motion.div>
               )}
               {i < gates.length - 1 && (
                 <div className="md:hidden flex h-12 items-center justify-center shrink-0 w-full">
-                  <ArrowRight className="w-8 h-8 text-[#30363D] rotate-90" />
+                  <ArrowRight className="w-8 h-8 text-[#30363D] rotate-90" strokeWidth={1.5} />
                 </div>
               )}
             </div>
@@ -95,13 +100,13 @@ export function GatePipeline() {
 
         {/* Output Example Card */}
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 0, y: 80 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ delay: 1, duration: 0.8 }}
-          className="mt-20 max-w-3xl mx-auto bg-[#1C2128] border border-[#30363D] rounded-[12px] p-6 font-mono text-sm relative"
+          viewport={{ once: true, margin: "-120px" }}
+          transition={{ ...springConfig, delay: 0.5 }}
+          className="mt-20 max-w-3xl mx-auto bg-[#161B22] border border-[#30363D] rounded-[8px] p-6 font-mono text-sm relative"
         >
-          <div className="absolute -top-3 left-6 px-3 bg-[#0D1117] border border-[#30363D] text-[#8B949E] text-xs font-bold rounded-sm uppercase tracking-wider">
+          <div className="absolute -top-3 left-6 px-3 bg-[#0A0E13] border border-[#30363D] text-[#8B949E] font-mono text-[10px] font-bold rounded-[4px] uppercase tracking-[0.12em]">
             Pipeline Output
           </div>
           <div className="flex items-center justify-between mb-4 border-b border-[#30363D] pb-4">

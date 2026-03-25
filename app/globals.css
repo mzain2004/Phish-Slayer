@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -24,6 +26,17 @@
     --input: 217 33% 17%;
     --ring: 172 66% 50%;
     --radius: 0.5rem;
+  }
+
+  html {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  code, pre, .font-mono {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
   }
 }
 
@@ -59,3 +72,9 @@
 .animate-beam-3 { animation: beam-move 7s ease-in-out infinite 2s; }
 .animate-beam-4 { animation: beam-move 9s ease-in-out infinite 0.5s; }
 .animate-beam-5 { animation: beam-move 6.5s ease-in-out infinite 3s; }
+
+/* Pulse animation for status dots */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}

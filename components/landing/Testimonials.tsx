@@ -3,6 +3,8 @@
 import { motion } from "framer-motion";
 import { Star } from "lucide-react";
 
+const springConfig = { type: "spring" as const, stiffness: 60, damping: 25, bounce: 0.1 };
+
 export function Testimonials() {
   const testimonials = [
     {
@@ -26,47 +28,57 @@ export function Testimonials() {
   ];
 
   return (
-    <section className="bg-[#0D1117] py-32 border-b border-[#30363D]">
+    <section className="bg-[#0D1117] py-24 border-b border-[#1C2128]">
       <div className="max-w-6xl mx-auto px-6">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-5xl font-black text-[#E6EDF3] tracking-tight">
+        <motion.div
+          initial={{ opacity: 0, y: 80 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-120px" }}
+          transition={springConfig}
+          className="text-center mb-16"
+        >
+          <span className="font-mono text-[11px] tracking-[0.15em] text-[#2DD4BF] uppercase block mb-4">Testimonials</span>
+          <h2 className="text-3xl md:text-5xl font-bold text-[#E6EDF3] tracking-[-0.01em]">
             What Security Professionals Are Saying
           </h2>
-          <p className="text-[#8B949E] mt-4">(Early Feedback Cohort)</p>
-        </div>
+          <p className="text-[#8B949E] mt-4 font-mono text-[12px] tracking-[0.1em] uppercase">(Early Feedback Cohort)</p>
+        </motion.div>
 
-        <div className="grid md:grid-cols-3 gap-8">
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-120px" }}
+          variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.25 } } }}
+          className="grid md:grid-cols-3 gap-8"
+        >
           {testimonials.map((t, i) => (
             <motion.div
               key={i}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-100px" }}
-              transition={{ delay: i * 0.15, duration: 0.6 }}
-              className="bg-[#161B22] border border-[#30363D] rounded-[12px] p-8 flex flex-col"
+              variants={{ hidden: { opacity: 0, y: 80 }, visible: { opacity: 1, y: 0, transition: springConfig } }}
+              className="bg-[#161B22] border border-[#30363D] rounded-[8px] p-8 flex flex-col hover:border-[#2DD4BF] hover:shadow-[0_0_0_1px_rgba(45,212,191,0.1),0_8px_32px_rgba(0,0,0,0.4)] hover:-translate-y-[2px] transition-all duration-200"
             >
               <div className="flex gap-1 mb-6">
                 {[...Array(5)].map((_, j) => (
-                  <Star key={j} className="w-5 h-5 text-[#E3B341] fill-[#E3B341]" />
+                  <Star key={j} className="w-5 h-5 text-[#E3B341] fill-[#E3B341]" strokeWidth={1.5} />
                 ))}
               </div>
               
-              <p className="text-[#E6EDF3] leading-relaxed mb-8 flex-1">
+              <p className="text-[#E6EDF3] leading-[1.7] mb-8 flex-1 text-[16px]">
                 &quot;{t.quote}&quot;
               </p>
               
               <div className="flex items-center gap-4 pt-6 border-t border-[#30363D]">
-                <div className="w-12 h-12 bg-[#2DD4BF]/10 border border-[#2DD4BF]/30 rounded-full flex items-center justify-center text-[#2DD4BF] font-black text-lg shadow-[0_0_15px_rgba(45,212,191,0.1)]">
+                <div className="w-12 h-12 bg-[#2DD4BF]/10 border border-[#2DD4BF]/30 rounded-full flex items-center justify-center text-[#2DD4BF] font-bold text-lg">
                   {t.initial}
                 </div>
                 <div>
                   <h4 className="text-[#E6EDF3] font-bold">{t.name}</h4>
-                  <p className="text-[#8B949E] text-xs uppercase tracking-wider">{t.role}</p>
+                  <p className="text-[#8B949E] font-mono text-[10px] uppercase tracking-[0.12em]">{t.role}</p>
                 </div>
               </div>
             </motion.div>
           ))}
-        </div>
+        </motion.div>
       </div>
     </section>
   );

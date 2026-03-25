@@ -19,10 +19,7 @@ export function HeroSection() {
   const prefersReducedMotion = useReducedMotion();
 
   return (
-    <section className="relative min-h-screen flex items-center pt-24 pb-16 overflow-hidden bg-[#050507] antialiased">
-      {/* Ambient teal radial glow */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] bg-[#0D9488]/[0.07] rounded-full blur-[120px] pointer-events-none" />
-
+    <section className="relative min-h-screen flex items-center pt-24 pb-16 overflow-hidden bg-[#0D1117]">
       <ParticleNetwork disabled={!!prefersReducedMotion} />
       
       <div className="relative z-10 max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-12 lg:gap-16 items-center w-full">
@@ -38,52 +35,63 @@ export function HeroSection() {
           className="max-w-2xl"
         >
           {/* Badge */}
-          <motion.div variants={fadeInUp} className="mb-6 inline-flex">
-            <div className="flex items-center gap-2 bg-slate-900/40 backdrop-blur-2xl border border-white/5 text-teal-400 text-xs font-bold px-4 py-1.5 rounded-full uppercase tracking-wider">
-              <span className="w-2 h-2 rounded-full bg-teal-400 animate-pulse" />
-              New — Adaptive AI Defense Engine in Development
+          <motion.div variants={fadeInUp} className="mb-8 inline-flex">
+            <div className="inline-flex items-center gap-2 bg-[#2DD4BF]/[0.08] border border-[#2DD4BF]/25 rounded-[4px] px-3.5 py-1.5 font-mono text-[11px] tracking-[0.1em] text-[#2DD4BF] uppercase">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#2DD4BF] animate-pulse" />
+              ADAPTIVE AI DEFENSE — IN DEVELOPMENT
             </div>
           </motion.div>
 
-          {/* Headlines */}
-          <motion.h1 variants={fadeInUp} className="text-4xl sm:text-5xl lg:text-6xl font-black text-white leading-[1.1] mb-6 tracking-tight antialiased">
-            The Threat Intelligence Platform Built for Every Security Team
+          {/* H1 — Price Contrast Headline */}
+          <motion.h1 variants={fadeInUp} className="mb-6">
+            <span className="block text-[40px] lg:text-[72px] font-extrabold text-[#E6EDF3] leading-[1.1] tracking-[-0.02em]">
+              Enterprise Threat Intelligence.
+            </span>
+            <span className="block text-[40px] lg:text-[72px] font-extrabold text-[#2DD4BF] leading-[1.1] tracking-[-0.02em]">
+              At $49/Month.
+            </span>
+            <span className="block text-[24px] lg:text-[40px] font-extrabold text-[#8B949E] leading-[1.1] tracking-[-0.02em] mt-2">
+              Not $25,000/Year.
+            </span>
           </motion.h1>
 
-          <motion.p variants={fadeInUp} className="text-lg text-slate-400 mb-8 leading-relaxed antialiased">
-            AI-powered URL and IP scanning. Real-time EDR agent fleet monitoring. Enterprise-grade threat intelligence at <span className="text-white font-bold">$49/month</span> — not $25,000/year.
+          {/* Subtext */}
+          <motion.p variants={fadeInUp} className="text-[16px] text-[#8B949E] mb-8 leading-[1.7]">
+            AI-powered scanning. Real-time EDR. Under 30 seconds. Free tier available.
           </motion.p>
 
           {/* Buttons */}
           <motion.div variants={fadeInUp} className="flex flex-col sm:flex-row gap-4 mb-10">
             <Link
               href="/auth/signup"
-              className="inline-flex justify-center items-center gap-2 bg-[#2DD4BF] hover:bg-[#2DD4BF]/90 text-slate-950 font-bold px-8 py-3.5 rounded-lg transition-all"
+              className="inline-flex justify-center items-center gap-2 bg-[#2DD4BF] hover:bg-[#14B8A6] text-[#0D1117] font-bold text-[15px] px-8 py-3.5 rounded-[6px] tracking-[0.01em] transition-all hover:-translate-y-[1px] hover:shadow-[0_8px_25px_rgba(45,212,191,0.3)]"
             >
               Start Free — No Card Required <ArrowRight className="w-4 h-4" strokeWidth={1.5} />
             </Link>
             <Link
-              href="/#how-it-works"
-              className="inline-flex justify-center items-center gap-2 bg-transparent border border-white/10 hover:border-teal-500/30 hover:bg-white/[0.02] text-white font-bold px-8 py-3.5 rounded-lg transition-all"
+              href="/#features"
+              className="inline-flex justify-center items-center gap-2 bg-transparent border border-[#30363D] hover:border-[#2DD4BF] text-[#E6EDF3] hover:text-[#2DD4BF] font-bold text-[15px] px-8 py-3.5 rounded-[6px] transition-all"
             >
               See How It Works <PlayCircle className="w-4 h-4" strokeWidth={1.5} />
             </Link>
           </motion.div>
 
-          {/* Social Proof */}
-          <motion.div variants={fadeInUp} className="flex items-center gap-3 text-sm font-medium text-slate-400 antialiased">
-            <div className="flex -space-x-2">
-              {[...Array(4)].map((_, i) => (
-                <div key={i} className="w-8 h-8 rounded-full border-2 border-[#050507] bg-slate-800 flex items-center justify-center text-[10px] text-teal-400 font-mono">
-                  OP
-                </div>
-              ))}
-            </div>
-            <span>Trusted by security analysts in 10+ countries</span>
+          {/* Stats Row */}
+          <motion.div variants={fadeInUp} className="flex items-center gap-0">
+            {[
+              { value: "30 sec", label: "verdict time" },
+              { value: "95", label: "scan engines" },
+              { value: "$0", label: "to start" },
+            ].map((stat, i) => (
+              <div key={i} className={`flex flex-col items-center px-6 ${i > 0 ? 'border-l border-[#30363D]' : ''}`}>
+                <span className="text-[28px] font-bold text-[#E6EDF3] tracking-tight">{stat.value}</span>
+                <span className="text-[12px] font-mono text-[#8B949E] uppercase tracking-[0.15em]">{stat.label}</span>
+              </div>
+            ))}
           </motion.div>
         </motion.div>
 
-        {/* Right 3D Visual — The Shield */}
+        {/* Right 3D Visual */}
         <motion.div
           initial={{ opacity: 0, y: 80 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -91,7 +99,6 @@ export function HeroSection() {
           transition={{ ...springConfig, delay: 0.4 }}
           className="hidden lg:flex justify-center items-center relative"
         >
-          <div className="absolute inset-0 bg-[#0D9488]/[0.06] rounded-full blur-[100px] pointer-events-none" />
           <div className="relative z-10 w-full h-[500px]">
             {!prefersReducedMotion && (
               <Suspense fallback={<div className="w-full h-full" />}>

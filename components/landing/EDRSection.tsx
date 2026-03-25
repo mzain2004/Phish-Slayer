@@ -5,6 +5,8 @@ import { motion, useInView } from "framer-motion";
 import { CheckCircle2, ArrowRight } from "lucide-react";
 import Link from "next/link";
 
+const springConfig = { type: "spring" as const, stiffness: 60, damping: 25, bounce: 0.1 };
+
 const TERMINAL_LINES = [
   { text: "[AGENT-01] process_event: chrome.exe → 142.250.x.x:443", delay: 1000 },
   { text: "[AGENT-02] connection: suspicious port 4444 detected", delay: 2500, highlight: true },
@@ -15,12 +17,11 @@ const TERMINAL_LINES = [
 
 export function EDRSection() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const isInView = useInView(containerRef, { once: true, margin: "-100px" });
+  const isInView = useInView(containerRef, { once: true, margin: "-120px" });
   const [lines, setLines] = useState<typeof TERMINAL_LINES>([]);
 
   useEffect(() => {
     if (!isInView) return;
-    
     const timeouts: NodeJS.Timeout[] = [];
     TERMINAL_LINES.forEach((line) => {
       const t = setTimeout(() => {
@@ -28,21 +29,20 @@ export function EDRSection() {
       }, line.delay);
       timeouts.push(t);
     });
-
     return () => timeouts.forEach(clearTimeout);
   }, [isInView]);
 
   return (
-    <section className="bg-[#0D1117] py-32 border-b border-[#30363D] overflow-hidden">
+    <section className="bg-[#0A0E13] py-24 border-b border-[#1C2128] overflow-hidden">
       <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-16 items-center">
-        {/* Left: Content */}
         <motion.div
-          initial={{ opacity: 0, x: -40 }}
-          whileInView={{ opacity: 1, x: 0 }}
-          viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 0.6 }}
+          initial={{ opacity: 0, y: 80 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-120px" }}
+          transition={springConfig}
         >
-          <h2 className="text-3xl md:text-5xl font-black text-[#E6EDF3] tracking-tight mb-8 leading-[1.1]">
+          <span className="font-mono text-[11px] tracking-[0.15em] text-[#2DD4BF] uppercase block mb-4">Endpoint Detection</span>
+          <h2 className="text-3xl md:text-5xl font-bold text-[#E6EDF3] tracking-[-0.01em] mb-8 leading-[1.1]">
             Deploy an EDR Agent. See Everything. In Real Time.
           </h2>
           
@@ -60,9 +60,9 @@ export function EDRSection() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: 0.2 + i * 0.1 }}
-                className="flex items-start gap-3 text-[#8B949E] text-lg"
+                className="flex items-start gap-3 text-[#8B949E] text-[16px] leading-[1.7]"
               >
-                <CheckCircle2 className="w-6 h-6 text-[#2DD4BF] shrink-0 mt-0.5" />
+                <CheckCircle2 className="w-6 h-6 text-[#2DD4BF] shrink-0 mt-0.5" strokeWidth={1.5} />
                 {feature}
               </motion.li>
             ))}
@@ -70,29 +70,26 @@ export function EDRSection() {
 
           <Link
             href="/auth/signup"
-            className="inline-flex justify-center items-center gap-2 bg-[#2DD4BF] hover:bg-[#2DD4BF]/90 text-[#0D1117] font-bold px-8 py-3.5 rounded-[8px] transition-all shadow-[0_0_20px_rgba(45,212,191,0.15)] hover:shadow-[0_0_20px_rgba(45,212,191,0.3)]"
+            className="inline-flex justify-center items-center gap-2 bg-[#2DD4BF] hover:bg-[#14B8A6] text-[#0D1117] font-bold text-[15px] px-8 py-3.5 rounded-[6px] transition-all hover:-translate-y-[1px] hover:shadow-[0_8px_25px_rgba(45,212,191,0.3)]"
           >
-            Deploy Your First Agent Free <ArrowRight className="w-4 h-4" />
+            Deploy Your First Agent Free <ArrowRight className="w-4 h-4" strokeWidth={1.5} />
           </Link>
         </motion.div>
 
-        {/* Right: Terminal Visual */}
         <motion.div
           ref={containerRef}
-          initial={{ opacity: 0, x: 40 }}
-          whileInView={{ opacity: 1, x: 0 }}
-          viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 0.6, delay: 0.2 }}
+          initial={{ opacity: 0, y: 80 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-120px" }}
+          transition={{ ...springConfig, delay: 0.2 }}
           className="relative"
         >
-          <div className="absolute inset-0 bg-[#2DD4BF]/10 blur-3xl rounded-full translate-y-10" />
-          
-          <div className="bg-[#161B22] border border-[#30363D] rounded-[12px] shadow-2xl overflow-hidden relative z-10">
+          <div className="bg-[#161B22] border border-[#30363D] rounded-[8px] shadow-2xl overflow-hidden relative z-10">
             <div className="h-10 bg-[#0D1117] border-b border-[#30363D] flex items-center px-4 gap-2">
               <div className="w-3 h-3 rounded-full bg-[#30363D]" />
               <div className="w-3 h-3 rounded-full bg-[#30363D]" />
               <div className="w-3 h-3 rounded-full bg-[#30363D]" />
-              <div className="ml-4 text-[10px] text-[#8B949E] font-mono tracking-widest uppercase">Fleet Monitor</div>
+              <div className="ml-4 font-mono text-[10px] text-[#8B949E] tracking-widest uppercase">Fleet Monitor</div>
             </div>
             
             <div className="p-6 h-[320px] font-mono text-sm bg-[#0D1117] overflow-y-auto">
