@@ -233,7 +233,7 @@ export default function DashboardOverviewPage() {
                 ))}
               </div>
             )}
-          </div>v>
+          </div>
         </div>
       </div>
     </div>
