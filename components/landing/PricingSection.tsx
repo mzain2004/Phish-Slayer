@@ -12,33 +12,45 @@ export function PricingSection() {
   const router = useRouter();
 
   const handleAction = async (planName: string) => {
+    // TODO: Use correct price IDs based on isAnnual
+    // - Monthly SOC Pro: PADDLE_SOC_PRO_PRICE_ID
+    // - Annual SOC Pro: PADDLE_SOC_PRO_ANNUAL_PRICE_ID
+    // - Monthly C&C: PADDLE_CC_PRICE_ID  
+    // - Annual C&C: PADDLE_CC_ANNUAL_PRICE_ID
     if (planName === "Enterprise Edge") {
       router.push("/contact");
     } else {
-      router.push(`/auth/signup?plan=${planName.toLowerCase()}`);
+      router.push(`/auth/signup?plan=${planName.toLowerCase()}${isAnnual ? '&interval=year' : ''}`);
     }
   };
 
   const tiers = [
     {
       name: "Community",
-      price: isAnnual ? "0" : "0",
+      monthlyPrice: "0",
+      annualPrice: "0",
       description: "For individuals and small labs.",
       features: ["10 AI Scans / Day", "Community Threat Feed", "Public Sandbox Matches", "Standard Speed Detection"],
       cta: "Join Free",
       popular: false
     },
     {
-      name: "Fleet Command",
-      price: isAnnual ? "39" : "49",
+      name: "SOC Pro",
+      monthlyPrice: "49",
+      annualPrice: "470",
+      savings: "Save $118 — 2 months free",
+      strikethrough: "$588",
       description: "For proactive security teams.",
       features: ["Unlimited AI Scans", "Real-Time EDR Agent (up to 50 nodes)", "Zero-Day Threat Signatures", "Discord/Slack Webhooks", "API Access (100 req/min)"],
       cta: "Start 14-Day Trial",
       popular: true
     },
     {
-      name: "Enterprise Edge",
-      price: "Custom",
+      name: "Command & Control",
+      monthlyPrice: "299",
+      annualPrice: "2870",
+      savings: "Save $718 — 2 months free",
+      strikethrough: "$3,588",
       description: "For critical infrastructure.",
       features: ["Unlimited EDR Nodes", "Dedicated Account Intel", "Custom YARA Rulesets", "Auto-Remediation Actions", "24/7 Priority Support"],
       cta: "Contact Sales",
@@ -52,7 +64,7 @@ export function PricingSection() {
         <motion.div
           initial={{ opacity: 0, y: 80 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-120px" }}
+          viewport={{ once: false, margin: "-80px" }}
           transition={springConfig}
           className="text-center mb-16"
         >
@@ -64,24 +76,69 @@ export function PricingSection() {
             Enterprise-grade endpoint security shouldn&apos;t require a VC funding round.
           </p>
 
-          <div className="flex items-center justify-center gap-3">
-            <span className={`text-sm font-bold ${!isAnnual ? 'text-[#E6EDF3]' : 'text-[#8B949E]'}`}>Monthly</span>
-            <button 
-              onClick={() => setIsAnnual(!isAnnual)}
-              className="relative inline-flex h-6 w-12 items-center rounded-full bg-[#161B22] border border-[#30363D] transition-colors focus:outline-none"
-            >
-              <span className={`inline-block h-4 w-4 transform rounded-full transition-transform duration-200 ${isAnnual ? 'translate-x-7 bg-[#2DD4BF]' : 'translate-x-1 bg-[#8B949E]'}`} />
-            </button>
-            <span className={`text-sm font-bold flex items-center gap-2 ${isAnnual ? 'text-[#E6EDF3]' : 'text-[#8B949E]'}`}>
-              Annually <span className="font-mono text-[10px] bg-[#2DD4BF]/10 text-[#2DD4BF] px-2 py-0.5 rounded-[4px] border border-[#2DD4BF]/20 tracking-[0.05em]">SAVE 20%</span>
-            </span>
+          {/* New Toggle Styling */}
+          <div className="flex justify-center mb-10">
+            <div style={{
+              display: 'inline-flex',
+              background: '#161B22',
+              border: '1px solid #30363D',
+              borderRadius: '8px',
+              padding: '4px',
+              gap: '4px',
+            }}>
+              <button 
+                onClick={() => setIsAnnual(false)}
+                style={{
+                  padding: '8px 20px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  background: !isAnnual ? '#2DD4BF' : 'transparent',
+                  color: !isAnnual ? '#0D1117' : '#8B949E',
+                  fontWeight: !isAnnual ? 700 : 400,
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  transition: 'all 0.2s',
+                }}
+              >
+                Monthly
+              </button>
+              <button 
+                onClick={() => setIsAnnual(true)}
+                style={{
+                  padding: '8px 20px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  background: isAnnual ? '#2DD4BF' : 'transparent',
+                  color: isAnnual ? '#0D1117' : '#8B949E',
+                  fontWeight: isAnnual ? 700 : 400,
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  transition: 'all 0.2s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                Annual
+                <span style={{
+                  background: isAnnual ? 'rgba(0,0,0,0.2)' : '#3FB950',
+                  color: isAnnual ? '#0D1117' : '#FFFFFF',
+                  fontSize: '10px',
+                  fontWeight: 700,
+                  padding: '2px 6px',
+                  borderRadius: '4px',
+                }}>
+                  -20%
+                </span>
+              </button>
+            </div>
           </div>
         </motion.div>
 
         <motion.div 
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: true, margin: "-120px" }}
+          viewport={{ once: false, margin: "-80px" }}
           variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.25 } } }}
           className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto"
         >
@@ -107,13 +164,29 @@ export function PricingSection() {
               </div>
 
               <div className="mb-8">
-                {tier.price === 'Custom' ? (
+                {tier.name === 'Enterprise Edge' ? (
                   <span className="text-[56px] font-extrabold text-[#E6EDF3] tracking-[-0.03em] leading-none">Custom</span>
                 ) : (
-                  <>
-                    <span className="text-[56px] font-extrabold text-[#E6EDF3] tracking-[-0.03em] leading-none">${tier.price}</span>
-                    <span className="text-[16px] text-[#8B949E] font-normal">/mo</span>
-                  </>
+                  <div className="flex flex-col">
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-[56px] font-extrabold text-[#E6EDF3] tracking-[-0.03em] leading-none">
+                        ${isAnnual ? tier.annualPrice : tier.monthlyPrice}
+                      </span>
+                      <span className="text-[16px] text-[#8B949E] font-normal">
+                        / {isAnnual ? 'year' : 'month'}
+                      </span>
+                    </div>
+                    {isAnnual && tier.name !== 'Community' && (
+                      <div className="mt-2 flex flex-col gap-1">
+                        <span className="text-[#3FB950] text-[13px] font-bold">
+                          {tier.savings}
+                        </span>
+                        <span className="text-[#8B949E] text-sm line-through decoration-slate-500">
+                          {tier.strikethrough}/yr
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
 

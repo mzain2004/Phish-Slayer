@@ -33,7 +33,7 @@ export function Testimonials() {
         <motion.div
           initial={{ opacity: 0, y: 80 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-120px" }}
+          viewport={{ once: false, margin: "-80px" }}
           transition={springConfig}
           className="text-center mb-16"
         >
@@ -47,7 +47,7 @@ export function Testimonials() {
         <motion.div
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: true, margin: "-120px" }}
+          viewport={{ once: false, margin: "-80px" }}
           variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.25 } } }}
           className="grid md:grid-cols-3 gap-8"
         >

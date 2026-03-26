@@ -54,7 +54,7 @@ export function GatePipeline() {
           variants={containerVariants}
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: true, margin: "-120px" }}
+          viewport={{ once: false, margin: "-80px" }}
           className="flex flex-col md:flex-row items-center justify-center gap-4 relative"
         >
           {gates.map((g, i) => (
@@ -102,7 +102,7 @@ export function GatePipeline() {
         <motion.div
           initial={{ opacity: 0, y: 80 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-120px" }}
+          viewport={{ once: false, margin: "-80px" }}
           transition={{ ...springConfig, delay: 0.5 }}
           className="mt-20 max-w-3xl mx-auto bg-[#161B22] border border-[#30363D] rounded-[8px] p-6 font-mono text-sm relative"
         >

@@ -1,12 +1,10 @@
 "use client";
 
-import { lazy, Suspense } from "react";
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
 import { ArrowRight, PlayCircle } from "lucide-react";
 import { ParticleNetwork } from "@/components/ui/particle-network";
-
-const HeroShield3D = lazy(() => import("@/components/ui/hero-shield-3d"));
+import ShieldIcon from "@/components/ui/shield-icon";
 
 const springConfig = { type: "spring" as const, stiffness: 60, damping: 25, bounce: 0.1 };
 
@@ -22,17 +20,27 @@ export function HeroSection() {
     <section className="relative min-h-screen flex items-center pt-24 pb-16 overflow-hidden bg-[#0D1117]">
       <ParticleNetwork disabled={!!prefersReducedMotion} />
       
-      <div className="relative z-10 max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-12 lg:gap-16 items-center w-full">
-        {/* Left Content */}
+      <div className="relative z-10 max-w-7xl mx-auto px-6 flex flex-col items-center w-full text-center">
+        {/* Shield Icon Replacement */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          viewport={{ once: false, margin: "-80px" }}
+          transition={{ ...springConfig, delay: 0.1 }}
+        >
+          <ShieldIcon />
+        </motion.div>
+
+        {/* Content */}
         <motion.div
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: true, margin: "-120px" }}
+          viewport={{ once: false, margin: "-80px" }}
           variants={{
             hidden: {},
             visible: { transition: { staggerChildren: 0.25 } }
           }}
-          className="max-w-2xl"
+          className="max-w-4xl mx-auto"
         >
           {/* Badge */}
           <motion.div variants={fadeInUp} className="mb-8 inline-flex">
@@ -56,12 +64,12 @@ export function HeroSection() {
           </motion.h1>
 
           {/* Subtext */}
-          <motion.p variants={fadeInUp} className="text-[16px] text-[#8B949E] mb-8 leading-[1.7]">
+          <motion.p variants={fadeInUp} className="text-[16px] text-[#8B949E] mb-8 leading-[1.7] max-w-2xl mx-auto">
             AI-powered scanning. Real-time EDR. Under 30 seconds. Free tier available.
           </motion.p>
 
           {/* Buttons */}
-          <motion.div variants={fadeInUp} className="flex flex-col sm:flex-row gap-4 mb-10">
+          <motion.div variants={fadeInUp} className="flex flex-col sm:flex-row justify-center gap-4 mb-10">
             <Link
               href="/auth/signup"
               className="inline-flex justify-center items-center gap-2 bg-[#2DD4BF] hover:bg-[#14B8A6] text-[#0D1117] font-bold text-[15px] px-8 py-3.5 rounded-[6px] tracking-[0.01em] transition-all hover:-translate-y-[1px] hover:shadow-[0_8px_25px_rgba(45,212,191,0.3)]"
@@ -77,7 +85,7 @@ export function HeroSection() {
           </motion.div>
 
           {/* Stats Row */}
-          <motion.div variants={fadeInUp} className="flex items-center gap-0">
+          <motion.div variants={fadeInUp} className="flex items-center justify-center gap-0">
             {[
               { value: "30 sec", label: "verdict time" },
               { value: "95", label: "scan engines" },
@@ -89,23 +97,6 @@ export function HeroSection() {
               </div>
             ))}
           </motion.div>
-        </motion.div>
-
-        {/* Right 3D Visual */}
-        <motion.div
-          initial={{ opacity: 0, y: 80 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-120px" }}
-          transition={{ ...springConfig, delay: 0.4 }}
-          className="hidden lg:flex justify-center items-center relative"
-        >
-          <div className="relative z-10 w-full h-[500px]">
-            {!prefersReducedMotion && (
-              <Suspense fallback={<div className="w-full h-full" />}>
-                <HeroShield3D />
-              </Suspense>
-            )}
-          </div>
         </motion.div>
       </div>
     </section>

@@ -8,28 +8,52 @@ import Link from "next/link";
 const springConfig = { type: "spring" as const, stiffness: 60, damping: 25, bounce: 0.1 };
 
 const TERMINAL_LINES = [
-  { text: "[AGENT-01] process_event: chrome.exe → 142.250.x.x:443", delay: 1000 },
-  { text: "[AGENT-02] connection: suspicious port 4444 detected", delay: 2500, highlight: true },
-  { text: "[AGENT-01] file_mod: C:\\Windows\\System32\\drivers\\etc\\hosts", delay: 4000 },
-  { text: "[AGENT-02] action: BLOCKED outbound connection", delay: 5500, highlight: true },
-  { text: "[AGENT-03] heartbeat: online | latency 12ms", delay: 7000 },
+  { text: "[AGENT-01] process_event: chrome.exe → 142.250.x.x:443", color: "#2DD4BF" },
+  { text: "[AGENT-02] connection: suspicious port 4444 detected", color: "#F85149" },
+  { text: "[AGENT-01] file_mod: C:\\Windows\\System32\\drivers\\etc\\hosts", color: "#2DD4BF" },
+  { text: "[AGENT-02] action: BLOCKED outbound connection", color: "#F85149" },
+  { text: "[AGENT-03] heartbeat: online | latency 12ms", color: "#2DD4BF" },
 ];
 
 export function EDRSection() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const isInView = useInView(containerRef, { once: true, margin: "-120px" });
-  const [lines, setLines] = useState<typeof TERMINAL_LINES>([]);
+  const isInView = useInView(containerRef, { once: false, margin: "-80px" });
+  const [visibleLines, setVisibleLines] = useState<number>(0);
+  const [typedChars, setTypedChars] = useState<string[]>(TERMINAL_LINES.map(() => ""));
 
   useEffect(() => {
-    if (!isInView) return;
-    const timeouts: NodeJS.Timeout[] = [];
-    TERMINAL_LINES.forEach((line) => {
-      const t = setTimeout(() => {
-        setLines(prev => [...prev, line]);
-      }, line.delay);
-      timeouts.push(t);
-    });
-    return () => timeouts.forEach(clearTimeout);
+    if (!isInView) {
+      setVisibleLines(0);
+      setTypedChars(TERMINAL_LINES.map(() => ""));
+      return;
+    }
+
+    let currentLine = 0;
+    let currentChar = 0;
+    let timeoutId: NodeJS.Timeout;
+
+    const typeNextChar = () => {
+      if (currentLine >= TERMINAL_LINES.length) return;
+
+      const fullText = TERMINAL_LINES[currentLine].text;
+      if (currentChar < fullText.length) {
+        setTypedChars(prev => {
+          const next = [...prev];
+          next[currentLine] = fullText.slice(0, currentChar + 1);
+          return next;
+        });
+        currentChar++;
+        timeoutId = setTimeout(typeNextChar, 20);
+      } else {
+        setVisibleLines(prev => prev + 1);
+        currentLine++;
+        currentChar = 0;
+        timeoutId = setTimeout(typeNextChar, 500);
+      }
+    };
+
+    timeoutId = setTimeout(typeNextChar, 500);
+    return () => clearTimeout(timeoutId);
   }, [isInView]);
 
   return (
@@ -38,7 +62,7 @@ export function EDRSection() {
         <motion.div
           initial={{ opacity: 0, y: 80 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-120px" }}
+          viewport={{ once: false, margin: "-80px" }}
           transition={springConfig}
         >
           <span className="font-mono text-[11px] tracking-[0.15em] text-[#2DD4BF] uppercase block mb-4">Endpoint Detection</span>
@@ -58,7 +82,7 @@ export function EDRSection() {
                 key={i} 
                 initial={{ opacity: 0, y: 10 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
+                viewport={{ once: false }}
                 transition={{ delay: 0.2 + i * 0.1 }}
                 className="flex items-start gap-3 text-[#8B949E] text-[16px] leading-[1.7]"
               >
@@ -80,7 +104,7 @@ export function EDRSection() {
           ref={containerRef}
           initial={{ opacity: 0, y: 80 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-120px" }}
+          viewport={{ once: false, margin: "-80px" }}
           transition={{ ...springConfig, delay: 0.2 }}
           className="relative"
         >
@@ -93,17 +117,24 @@ export function EDRSection() {
             </div>
             
             <div className="p-6 h-[320px] font-mono text-sm bg-[#0D1117] overflow-y-auto">
-              {lines.map((line, i) => (
-                <motion.div 
+              {TERMINAL_LINES.map((line, i) => (
+                <div 
                   key={i} 
-                  initial={{ opacity: 0, x: -10 }} 
-                  animate={{ opacity: 1, x: 0 }} 
-                  className={`mb-3 ${line.highlight ? "text-[#F85149]" : "text-[#2DD4BF]"}`}
+                  style={{ 
+                    marginBottom: '12px',
+                    color: line.color,
+                    animation: 'fadeInLine 0.3s ease-out forwards',
+                    display: typedChars[i] ? 'block' : 'none'
+                  }}
                 >
-                  <span className="text-[#8B949E]">{(new Date()).toISOString().split('T')[1].slice(0, 12)} |</span> {line.text}
-                </motion.div>
+                  <span className="text-[#8B949E] opacity-50">
+                    {(new Date()).toISOString().split('T')[1].slice(0, 8)} |
+                  </span> {typedChars[i]}
+                  {i === visibleLines && (
+                    <span className="ml-1 w-2 h-4 bg-[#2DD4BF] inline-block align-middle animate-[blink_1s_infinite]" />
+                  )}
+                </div>
               ))}
-              <div className="animate-pulse w-2 h-4 bg-[#E6EDF3] mt-2 inline-block" />
             </div>
           </div>
         </motion.div>

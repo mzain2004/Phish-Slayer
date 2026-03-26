@@ -4,6 +4,8 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown } from "lucide-react";
 
+const springConfig = { type: "spring" as const, stiffness: 60, damping: 25, bounce: 0.1 };
+
 export function FAQ() {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
 
@@ -20,14 +22,26 @@ export function FAQ() {
   return (
     <section className="bg-[#0A0E13] py-24 border-b border-[#1C2128]">
       <div className="max-w-3xl mx-auto px-6">
-        <div className="text-center mb-16">
+        <motion.div
+          initial={{ opacity: 0, y: 80 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: false, margin: "-80px" }}
+          transition={springConfig}
+          className="text-center mb-16"
+        >
           <span className="font-mono text-[11px] tracking-[0.15em] text-[#2DD4BF] uppercase block mb-4">FAQ</span>
           <h2 className="text-3xl md:text-5xl font-bold text-[#E6EDF3] tracking-[-0.01em]">
             Questions We Get Asked
           </h2>
-        </div>
+        </motion.div>
 
-        <div className="space-y-4">
+        <motion.div
+          initial={{ opacity: 0, y: 40 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: false, margin: "-80px" }}
+          transition={{ ...springConfig, delay: 0.2 }}
+          className="space-y-4"
+        >
           {faqs.map((faq, i) => (
             <div 
               key={i} 
@@ -61,7 +75,7 @@ export function FAQ() {
               </AnimatePresence>
             </div>
           ))}
-        </div>
+        </motion.div>
       </div>
     </section>
   );

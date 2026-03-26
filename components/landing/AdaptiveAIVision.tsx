@@ -12,7 +12,7 @@ export function AdaptiveAIVision() {
           <motion.div 
             initial={{ opacity: 0, y: 80 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-120px" }}
+            viewport={{ once: false, margin: "-80px" }}
             transition={springConfig}
             className="inline-block bg-[#2DD4BF]/10 border border-[#2DD4BF]/30 text-[#2DD4BF] font-mono text-[10px] font-bold px-3 py-1.5 rounded-[4px] uppercase tracking-[0.12em] mb-6"
           >
@@ -21,7 +21,7 @@ export function AdaptiveAIVision() {
           <motion.h2 
             initial={{ opacity: 0, y: 80 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-120px" }}
+            viewport={{ once: false, margin: "-80px" }}
             transition={springConfig}
             className="text-3xl md:text-5xl font-bold tracking-[-0.01em]"
           >
@@ -32,7 +32,7 @@ export function AdaptiveAIVision() {
         <motion.div 
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: true, margin: "-120px" }}
+          viewport={{ once: false, margin: "-80px" }}
           variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.25 } } }}
           className="grid md:grid-cols-2 gap-8 md:gap-16 items-center relative mb-20"
         >
@@ -78,7 +78,7 @@ export function AdaptiveAIVision() {
         <motion.div 
           initial={{ opacity: 0, y: 80 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-120px" }}
+          viewport={{ once: false, margin: "-80px" }}
           transition={springConfig}
           className="max-w-xl mx-auto text-center"
         >
