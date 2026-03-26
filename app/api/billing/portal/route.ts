@@ -19,7 +19,7 @@ export async function GET() {
 
   if (profileError || !profile?.billing_customer_id) {
     return NextResponse.json(
-      { error: 'No billing profile found. Please subscribe first.' },
+      { error: 'No active billing profile found. Please complete a checkout first.' },
       { status: 404 }
     );
   }

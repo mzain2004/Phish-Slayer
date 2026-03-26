@@ -105,7 +105,7 @@ export default function DashboardOverviewPage() {
             </div>
             <button
               onClick={() => router.push("/dashboard/incidents")}
-              className="px-4 py-2 bg-teal-500 hover:bg-teal-400 text-white text-sm font-medium rounded-lg transition-colors shadow-lg shadow-teal-500/10"
+              className="px-4 py-2 bg-teal-500 hover:bg-teal-400 text-white text-sm font-medium rounded-full transition-all hover:-translate-y-0.5 hover:shadow-lg shadow-teal-500/10"
             >
               Intervene
             </button>
@@ -116,57 +116,57 @@ export default function DashboardOverviewPage() {
       <div className="p-8 space-y-8 max-w-7xl mx-auto w-full">
         {/* KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-5 hover:border-teal-500/50 shadow-[0_0_15px_rgba(45,212,191,0.05)] hover:shadow-[0_0_30px_rgba(45,212,191,0.15)] transition-all duration-500 group">
-            <div className="h-px w-full bg-gradient-to-r from-teal-500/80 via-teal-500/30 to-transparent mb-4 -mt-5 -mx-5 px-0 rounded-t-xl animate-pulse duration-1000" />
+          <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800 rounded-2xl p-5 hover:border-teal-500/50 shadow-[0_0_15px_rgba(45,212,191,0.05)] hover:shadow-[0_0_30px_rgba(45,212,191,0.15)] transition-all duration-500 group">
+            <div className="h-px w-full bg-gradient-to-r from-teal-500/80 via-teal-500/30 to-transparent mb-4 -mt-5 -mx-5 px-0 rounded-t-2xl animate-pulse duration-1000" />
             <div className="flex justify-between items-start">
               <div className="space-y-1">
                 <span className="text-[10px] uppercase tracking-widest text-[#6e7681] font-semibold">Total Scans</span>
                 <p className="text-3xl font-bold tracking-tight text-[#e6edf3]"><Metric value={totalScans} /></p>
                 <p className="text-[#8b949e] text-xs">All time scans</p>
               </div>
-              <div className="w-8 h-8 rounded-lg bg-teal-500/10 flex items-center justify-center border border-teal-500/20">
+              <div className="w-8 h-8 rounded-full bg-teal-500/10 flex items-center justify-center border border-teal-500/20">
                 <Activity className="w-4 h-4 text-teal-400" />
               </div>
             </div>
           </div>
 
-          <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-5 hover:border-red-500/50 shadow-[0_0_15px_rgba(248,81,73,0.05)] hover:shadow-[0_0_30px_rgba(248,81,73,0.15)] transition-all duration-500 group">
-            <div className="h-px w-full bg-gradient-to-r from-red-500/80 via-red-500/30 to-transparent mb-4 -mt-5 -mx-5 px-0 rounded-t-xl animate-pulse duration-1000" />
+          <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800 rounded-2xl p-5 hover:border-red-500/50 shadow-[0_0_15px_rgba(248,81,73,0.05)] hover:shadow-[0_0_30px_rgba(248,81,73,0.15)] transition-all duration-500 group">
+            <div className="h-px w-full bg-gradient-to-r from-red-500/80 via-red-500/30 to-transparent mb-4 -mt-5 -mx-5 px-0 rounded-t-2xl animate-pulse duration-1000" />
             <div className="flex justify-between items-start">
               <div className="space-y-1">
                 <span className="text-[10px] uppercase tracking-widest text-[#6e7681] font-semibold">Malicious</span>
                 <p className="text-3xl font-bold tracking-tight text-[#f85149]"><Metric value={maliciousScans} /></p>
                 <p className="text-[#8b949e] text-xs">Threats detected</p>
               </div>
-              <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center border border-red-500/20">
+              <div className="w-8 h-8 rounded-full bg-red-500/10 flex items-center justify-center border border-red-500/20">
                 <ShieldAlert className="w-4 h-4 text-red-500" />
               </div>
             </div>
           </div>
 
-          <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-5 hover:border-amber-500/50 shadow-[0_0_15px_rgba(227,179,65,0.05)] hover:shadow-[0_0_30px_rgba(227,179,65,0.15)] transition-all duration-500 group">
-            <div className="h-px w-full bg-gradient-to-r from-amber-500/80 via-amber-500/30 to-transparent mb-4 -mt-5 -mx-5 px-0 rounded-t-xl animate-pulse duration-1000" />
+          <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800 rounded-2xl p-5 hover:border-amber-500/50 shadow-[0_0_15px_rgba(227,179,65,0.05)] hover:shadow-[0_0_30px_rgba(227,179,65,0.15)] transition-all duration-500 group">
+            <div className="h-px w-full bg-gradient-to-r from-amber-500/80 via-amber-500/30 to-transparent mb-4 -mt-5 -mx-5 px-0 rounded-t-2xl animate-pulse duration-1000" />
             <div className="flex justify-between items-start">
               <div className="space-y-1">
                 <span className="text-[10px] uppercase tracking-widest text-[#6e7681] font-semibold">Active Incidents</span>
                 <p className="text-3xl font-bold tracking-tight text-[#e3b341]"><Metric value={activeIncidents} /></p>
                 <p className="text-[#8b949e] text-xs">{resolvedCount} resolved</p>
               </div>
-              <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center border border-amber-500/20">
+              <div className="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center border border-amber-500/20">
                 <AlertTriangle className="w-4 h-4 text-amber-500" />
               </div>
             </div>
           </div>
 
-          <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-5 hover:border-violet-500/50 shadow-[0_0_15px_rgba(167,139,250,0.05)] hover:shadow-[0_0_30px_rgba(167,139,250,0.15)] transition-all duration-500 group">
-            <div className="h-px w-full bg-gradient-to-r from-violet-500/80 via-violet-500/30 to-transparent mb-4 -mt-5 -mx-5 px-0 rounded-t-xl animate-pulse duration-1000" />
+          <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800 rounded-2xl p-5 hover:border-violet-500/50 shadow-[0_0_15px_rgba(167,139,250,0.05)] hover:shadow-[0_0_30px_rgba(167,139,250,0.15)] transition-all duration-500 group">
+            <div className="h-px w-full bg-gradient-to-r from-violet-500/80 via-violet-500/30 to-transparent mb-4 -mt-5 -mx-5 px-0 rounded-t-2xl animate-pulse duration-1000" />
             <div className="flex justify-between items-start">
               <div className="space-y-1">
                 <span className="text-[10px] uppercase tracking-widest text-[#6e7681] font-semibold">Intel Vault</span>
                 <p className="text-3xl font-bold tracking-tight text-[#a78bfa]"><Metric value={intelVaultSize} /></p>
                 <p className="text-[#8b949e] text-xs">Indicators stored</p>
               </div>
-              <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center border border-violet-500/20">
+              <div className="w-8 h-8 rounded-full bg-violet-500/10 flex items-center justify-center border border-violet-500/20">
                 <Database className="w-4 h-4 text-violet-400" />
               </div>
             </div>
@@ -175,20 +175,20 @@ export default function DashboardOverviewPage() {
 
         {/* Action Buttons Row */}
         <div className="flex items-center gap-3">
-          <button onClick={() => router.push("/dashboard/scans")} className="flex items-center gap-2 px-4 py-2 bg-teal-500 hover:bg-teal-400 text-white text-sm font-medium rounded-lg transition-colors">
+          <button onClick={() => router.push("/dashboard/scans")} className="flex items-center gap-2 px-4 py-2 bg-teal-500 hover:bg-teal-400 text-white text-sm font-medium rounded-full transition-all hover:-translate-y-0.5 hover:shadow-lg">
             <Plus className="w-4 h-4" /> New Scan
           </button>
-          <button onClick={() => router.push("/dashboard/incidents")} className="flex items-center gap-2 px-4 py-2 bg-[#1c2128] hover:bg-[#21262d] border border-[#30363d] text-[#e6edf3] text-sm font-medium rounded-lg transition-colors">
+          <button onClick={() => router.push("/dashboard/incidents")} className="flex items-center gap-2 px-4 py-2 bg-[#1c2128] hover:bg-[#21262d] border border-[#30363d] text-[#e6edf3] text-sm font-medium rounded-full transition-all hover:-translate-y-0.5 hover:shadow-lg">
             <AlertTriangle className="w-4 h-4 text-amber-400" /> View Incidents
           </button>
-          <button onClick={() => router.push("/dashboard/intel")} className="flex items-center gap-2 px-4 py-2 bg-[#1c2128] hover:bg-[#21262d] border border-[#30363d] text-[#e6edf3] text-sm font-medium rounded-lg transition-colors">
+          <button onClick={() => router.push("/dashboard/intel")} className="flex items-center gap-2 px-4 py-2 bg-[#1c2128] hover:bg-[#21262d] border border-[#30363d] text-[#e6edf3] text-sm font-medium rounded-full transition-all hover:-translate-y-0.5 hover:shadow-lg">
             <Database className="w-4 h-4 text-violet-400" /> Threat Intel
           </button>
         </div>
 
         {/* Charts Section */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 bg-[#161b22] border border-[#30363d] rounded-xl p-5">
+          <div className="lg:col-span-2 bg-slate-900/40 backdrop-blur-md border border-slate-800 rounded-2xl p-5">
             <h3 className="text-[#e6edf3] text-sm font-semibold mb-6 flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-teal-400" /> Threats by Category
             </h3>
@@ -207,9 +207,7 @@ export default function DashboardOverviewPage() {
                 </BarChart>
               </ResponsiveContainer>
             )}
-          </div>
-
-          <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-5 flex flex-col">
+          </div>          <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800 rounded-2xl p-5 flex flex-col">
             <h3 className="text-[#e6edf3] text-sm font-semibold mb-6">Recent Activity</h3>
             {!loaded ? (
               <div className="flex-1 flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-teal-400" /></div>
@@ -220,10 +218,10 @@ export default function DashboardOverviewPage() {
             ) : (
               <div className="space-y-3 flex-1 overflow-y-auto">
                 {recentScans.map((s, i) => (
-                  <div key={i} className="bg-[#1c2128] border border-[#21262d] rounded-lg px-4 py-3 hover:border-[#30363d] transition-all cursor-pointer" onClick={() => router.push("/dashboard/threats")}>
+                  <div key={i} className="bg-slate-900/40 backdrop-blur-sm border border-slate-800 rounded-xl px-4 py-3 hover:border-teal-500/50 transition-all cursor-pointer" onClick={() => router.push("/dashboard/threats")}>
                     <div className="flex items-center justify-between mb-2">
                       <span className="font-mono text-[11px] text-[#2dd4bf] truncate max-w-[140px]">{s.target}</span>
-                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-medium border uppercase ${s.verdict?.toLowerCase() === 'malicious' ? 'bg-[#f85149]/10 text-[#f85149] border-[#f85149]/20' : 'bg-[#3fb950]/10 text-[#3fb950] border-[#3fb950]/20'}`}>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium border uppercase ${s.verdict?.toLowerCase() === 'malicious' ? 'bg-[#f85149]/10 text-[#f85149] border-[#f85149]/20' : 'bg-[#3fb950]/10 text-[#3fb950] border-[#3fb950]/20'}`}>
                         {s.verdict || 'CLEAN'}
                       </span>
                     </div>
@@ -235,7 +233,7 @@ export default function DashboardOverviewPage() {
                 ))}
               </div>
             )}
-          </div>
+          </div>v>
         </div>
       </div>
     </div>

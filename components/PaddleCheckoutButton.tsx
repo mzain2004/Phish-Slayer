@@ -22,31 +22,44 @@ export default function PaddleCheckoutButton({
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    let active = true;
     const init = async () => {
       try {
+        const token = process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN;
+        if (!token) {
+          throw new Error('NEXT_PUBLIC_PADDLE_CLIENT_TOKEN is missing');
+        }
+
         const p = await initializePaddle({
           environment: (process.env.NEXT_PUBLIC_PADDLE_ENV as 'sandbox' | 'production') || 'sandbox',
-          token: process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN || '',
+          token: token,
         });
-        setPaddle(p);
+
+        if (active) {
+          setPaddle(p);
+          console.log('Paddle initialized successfully');
+        }
       } catch (error) {
-        console.error('Failed to initialize Paddle:', error);
+        console.error('CRITICAL: Failed to initialize Paddle:', error);
       }
     };
     init();
+    return () => { active = false; };
   }, []);
 
   const handleCheckout = () => {
     if (!paddle) {
       setLoading(true);
+      // Attempt one-time re-init if somehow missed
+      toast.info('Initializing payment system...');
       setTimeout(() => {
         if (!paddle) {
-          toast.error('Payment system is initializing. Please try again in 2 seconds.');
+          toast.error('Payment system failed to load. Please refresh the page or contact support.');
           setLoading(false);
         } else {
           openCheckout(paddle);
         }
-      }, 1000);
+      }, 2000);
       return;
     }
     openCheckout(paddle);
@@ -54,22 +67,27 @@ export default function PaddleCheckoutButton({
 
   const openCheckout = (p: Paddle) => {
     setLoading(true);
-    p.Checkout.open({
-      items: [{ priceId, quantity: 1 }],
-      settings: {
-        displayMode: 'overlay',
-        theme: 'dark',
-        locale: 'en',
-      },
-    });
-    
-    setTimeout(() => setLoading(false), 3000);
+    try {
+      p.Checkout.open({
+        items: [{ priceId, quantity: 1 }],
+        settings: {
+          displayMode: 'overlay',
+          theme: 'dark',
+          locale: 'en',
+        },
+      });
+    } catch (err) {
+      console.error('Paddle Checkout Open Error:', err);
+      toast.error('Failed to open checkout. Please try again.');
+    } finally {
+      setTimeout(() => setLoading(false), 3000);
+    }
   };
 
-  const baseStyles = "inline-flex justify-center items-center gap-2 font-bold text-[15px] px-10 py-4 rounded-full tracking-[0.01em] transition-all disabled:opacity-50";
+  const baseStyles = "inline-flex justify-center items-center gap-2 font-bold text-[15px] px-8 py-3 rounded-full tracking-[0.01em] transition-all duration-200 disabled:opacity-50";
   const variants = {
-    primary: "bg-[#2DD4BF] hover:bg-[#14B8A6] text-[#0D1117] hover:-translate-y-[1px] hover:shadow-[0_8px_25px_rgba(45,212,191,0.3)]",
-    outline: "bg-transparent border border-[#30363D] hover:border-[#2DD4BF] text-[#E6EDF3] hover:text-[#2DD4BF]"
+    primary: "bg-[#2DD4BF] hover:bg-[#14B8A6] text-[#0D1117] hover:-translate-y-0.5 hover:shadow-lg",
+    outline: "bg-transparent border border-[#30363D] hover:border-[#2DD4BF] text-[#E6EDF3] hover:text-[#2DD4BF] hover:-translate-y-0.5"
   };
 
   return (
@@ -78,7 +96,7 @@ export default function PaddleCheckoutButton({
       disabled={loading}
       className={`${baseStyles} ${variants[variant]} ${className}`}
     >
-      {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : children}
+      {loading && !paddle ? <Loader2 className="w-4 h-4 animate-spin" /> : children}
     </button>
   );
 }

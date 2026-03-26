@@ -81,6 +81,13 @@ export default function BillingPage() {
       const res = await fetch('/api/billing/portal');
       const data = await res.json();
       
+      if (res.status === 404) {
+        toast.error("No active billing profile found", {
+          description: "Please complete a checkout first to manage your subscription.",
+        });
+        return;
+      }
+
       if (data.url) {
         window.location.href = data.url;
       } else {
@@ -115,9 +122,9 @@ export default function BillingPage() {
       </div>
 
       {/* Plan Card */}
-      <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-6 relative overflow-hidden">
+      <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800 rounded-2xl p-6 relative overflow-hidden">
         {isPaid && (
-          <div className="h-px w-full bg-gradient-to-r from-teal-500/60 via-teal-500/20 to-transparent mb-6 -mt-6 -mx-6 px-0 rounded-t-xl" />
+          <div className="h-px w-full bg-gradient-to-r from-teal-500/60 via-teal-500/20 to-transparent mb-6 -mt-6 -mx-6 px-0 rounded-t-2xl" />
         )}
 
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -136,7 +143,7 @@ export default function BillingPage() {
               <button
                 disabled={isPortalLoading}
                 onClick={handleManageSubscription}
-                className="flex items-center gap-2 px-4 py-2 bg-[#1c2128] border border-[#30363d] text-[#e6edf3] hover:bg-[#21262d] text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-2 bg-[#1c2128] border border-[#30363d] text-[#e6edf3] hover:bg-[#21262d] text-sm font-medium rounded-full transition-all hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-50"
               >
                 {isPortalLoading ? <Loader2 className="w-4 h-4 animate-spin text-teal-400" /> : <CreditCard className="w-4 h-4" />}
                 Manage Subscription
@@ -144,7 +151,7 @@ export default function BillingPage() {
             ) : (
               <Link
                 href="/pricing"
-                className="flex items-center gap-2 px-4 py-2 bg-teal-500 hover:bg-teal-400 text-white text-sm font-medium rounded-lg transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-teal-500 hover:bg-teal-400 text-white text-sm font-medium rounded-full transition-all hover:-translate-y-0.5 hover:shadow-lg"
               >
                 <ExternalLink className="w-4 h-4" />
                 Upgrade Plan

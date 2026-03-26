@@ -39,20 +39,22 @@ export default function SidebarNav({ profile }: SidebarNavProps) {
     return (
       <Link
         href={href}
-        className={`flex items-center gap-3 px-3 py-2 mx-2 rounded-lg text-sm transition-all duration-150 ${
+        className={`flex items-center gap-3 px-3 py-2 mx-2 rounded-full text-sm transition-all duration-200 ${
           isActive
-            ? 'text-[#e6edf3] bg-[#1c2128] border border-[#30363d] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]'
-            : 'text-[#8b949e] hover:text-[#e6edf3] hover:bg-[#1c2128]'
+            ? 'text-teal-400 bg-teal-500/10 border border-teal-500/20 shadow-[0_0_15px_rgba(45,212,191,0.1)]'
+            : 'text-[#8b949e] hover:text-teal-400 hover:bg-teal-500/10'
         }`}
       >
         <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-teal-400' : ''}`} />
-        {label}
+        <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-100 whitespace-nowrap overflow-hidden">
+          {label}
+        </span>
       </Link>
     );
   };
 
   const SectionLabel = ({ label }: { label: string }) => (
-    <span className="px-3 py-2 text-[10px] font-semibold tracking-widest uppercase text-[#6e7681] block mt-4">
+    <span className="px-3 py-2 text-[10px] font-semibold tracking-widest uppercase text-[#6e7681] block mt-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-75 whitespace-nowrap overflow-hidden">
       {label}
     </span>
   );
@@ -71,13 +73,13 @@ export default function SidebarNav({ profile }: SidebarNavProps) {
   };
 
   return (
-    <aside className="w-64 fixed left-0 top-0 h-full bg-[#161b22] border-r border-[#30363d] flex flex-col z-50">
+    <aside className="w-20 hover:w-64 transition-[width] duration-300 ease-in-out group fixed left-0 top-0 h-full bg-[#161b22] border-r border-[#30363d] flex flex-col z-50 overflow-hidden">
       {/* Logo Section */}
-      <div className="flex items-center gap-3 px-5 py-4 border-b border-[#30363d]">
+      <div className="flex items-center gap-3 px-5 py-4 border-b border-[#30363d] overflow-hidden">
         <div className="w-7 h-7 bg-teal-500/20 rounded-lg flex items-center justify-center flex-shrink-0 border border-teal-500/30">
           <Shield className="w-3.5 h-3.5 text-teal-400" />
         </div>
-        <span className="text-[#e6edf3] font-semibold text-sm tracking-tight">
+        <span className="text-[#e6edf3] font-bold text-sm tracking-tight opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-100 whitespace-nowrap">
           Phish-Slayer
         </span>
       </div>
@@ -108,10 +110,10 @@ export default function SidebarNav({ profile }: SidebarNavProps) {
       </nav>
 
       {/* User Profile Area */}
-      <div className="bg-[#1c2128] border-t border-[#30363d] px-3 py-3">
+      <div className="bg-[#1c2128] border-t border-[#30363d] px-3 py-3 overflow-hidden">
         <Link 
           href="/dashboard/profile"
-          className="flex items-center gap-3 p-2 rounded-lg hover:bg-[#21262d] transition-colors"
+          className="flex items-center gap-3 p-2 rounded-full hover:bg-teal-500/10 transition-colors group/profile"
         >
           <div className="w-8 h-8 rounded-full bg-[#30363d] flex items-center justify-center overflow-hidden border border-[#30363d] flex-shrink-0">
             {profile?.avatar_url ? (
@@ -120,12 +122,12 @@ export default function SidebarNav({ profile }: SidebarNavProps) {
               <span className="text-xs font-bold text-teal-400">{getInitials()}</span>
             )}
           </div>
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-100">
             <p className="text-sm font-medium text-[#e6edf3] truncate">
               {profile?.display_name || profile?.email.split('@')[0] || 'User'}
             </p>
             {profile?.role && (
-              <span className={`text-[10px] font-medium tracking-wide uppercase px-1.5 py-0.5 rounded-md ${roleBadgeStyles[profile.role]}`}>
+              <span className={`text-[10px] font-medium tracking-wide uppercase px-1.5 py-0.5 rounded-full ${roleBadgeStyles[profile.role]}`}>
                 {profile.role.replace('_', ' ')}
               </span>
             )}

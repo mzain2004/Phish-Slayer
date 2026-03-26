@@ -84,7 +84,7 @@ export default function DashboardLayout({
     <div className="flex min-h-screen bg-[#0d1117]">
       <SidebarNav profile={profile} />
 
-      <main className="flex-1 ml-64 min-h-screen bg-[#0d1117] overflow-y-auto relative">
+      <main className="flex-1 ml-20 min-h-screen bg-[#0d1117] overflow-y-auto relative">
         <DashboardErrorBoundary>{children}</DashboardErrorBoundary>
       </main>
     </div>
