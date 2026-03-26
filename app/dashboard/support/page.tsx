@@ -160,6 +160,25 @@ export default function SupportPage() {
         return;
       }
 
+      // Send email via communication API
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        await fetch("/api/communications", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: `Support Ticket (${category})`,
+            userEmail: user?.email || "unknown@user.com",
+            name: user?.email || "Authenticated User",
+            message: `Priority: ${priority}\nSubject: ${subject}\n\n${message}${attachedFile ? `\n\n[Attachment: ${attachedFile.name}]` : ""}`,
+          }),
+        });
+      } catch (err) {
+        console.error("Failed to send notification email:", err);
+      }
+
       toast.success(
         `Ticket submitted! We'll respond within 24 hours.${
           attachedFile ? ` Attachment: ${attachedFile.name}` : ""

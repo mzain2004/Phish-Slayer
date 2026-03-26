@@ -56,6 +56,13 @@ EDR Agents (remote endpoints)
 ├── tailwind.config.ts
 ├── tsconfig.json
 │
+├── .env.example                 ← Dummy environment variables for reference
+│   # Required variables include:
+│   # - Supabase credentials
+│   # - Gemini / VirusTotal API keys
+│   # - Discord Webhook
+│   # - SMTP_USER, SMTP_APP_PASS, SUPPORT_EMAIL
+│
 ├── app/
 │   ├── layout.tsx               ← Root layout (Inter font, metadata)
 │   ├── page.tsx                 ← Landing page

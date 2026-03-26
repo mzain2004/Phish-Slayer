@@ -1,7 +1,44 @@
+import { useState } from "react";
 import Link from "next/link";
-import { Shield } from "lucide-react";
+import { toast } from "sonner";
+import { Shield, Loader2 } from "lucide-react";
 
 export function Footer() {
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSubscribe = async () => {
+    if (!email || !email.includes("@")) {
+      toast.error("Please enter a valid email address.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch("/api/communications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "Newsletter Subscription",
+          userEmail: email,
+          message: "User subscribed to the newsletter from the footer.",
+        }),
+      });
+
+      if (res.ok) {
+        toast.success("Subscribed successfully!");
+        setEmail("");
+      } else {
+        toast.error("Failed to subscribe. Please try again.");
+      }
+    } catch (err) {
+      console.error("Newsletter error:", err);
+      toast.error("An error occurred. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <footer className="bg-[#080C10] text-[#8B949E] py-16 border-t border-[#1C2128]">
       <div className="max-w-7xl mx-auto px-6">
@@ -16,10 +53,17 @@ export function Footer() {
             <div className="flex gap-2">
               <input
                 type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 placeholder="Enter email for updates"
                 className="bg-[#161B22] border border-[#30363D] rounded-[6px] px-3 py-2 text-sm text-[#E6EDF3] focus:outline-none focus:border-[#2DD4BF] flex-1 min-w-0 font-mono text-[12px] placeholder:text-[#8B949E]/50 transition-colors"
               />
-              <button className="bg-[#2DD4BF] text-[#0D1117] font-bold px-4 py-2 rounded-[6px] text-sm hover:bg-[#14B8A6] transition-colors">
+              <button 
+                onClick={handleSubscribe}
+                disabled={loading}
+                className="bg-[#2DD4BF] text-[#0D1117] font-bold px-4 py-2 rounded-[6px] text-sm hover:bg-[#14B8A6] transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {loading && <Loader2 className="w-4 h-4 animate-spin" />}
                 Subscribe
               </button>
             </div>

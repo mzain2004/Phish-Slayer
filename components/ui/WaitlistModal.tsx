@@ -24,10 +24,28 @@ export default function WaitlistModal({ isOpen, onClose, tier, tierName, onSucce
     setLoading(true)
     setError('')
     const result = await joinWaitlist(email, tier)
-    setLoading(false)
+    
     if (result.error) {
+      setLoading(false)
       setError(result.error)
     } else {
+      // Send email via communication API
+      try {
+        await fetch("/api/communications", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "Early Access / Waitlist",
+            userEmail: email,
+            name: `Waitlist User (Tier: ${tierName})`,
+            message: `User joined the waitlist for ${tierName}.`,
+          }),
+        });
+      } catch (err) {
+        console.error("Failed to send notification email:", err);
+      }
+      
+      setLoading(false)
       setSuccess(true)
       onSuccess?.(tier)
     }

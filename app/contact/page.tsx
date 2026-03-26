@@ -18,12 +18,37 @@ export default function ContactPage() {
     setStatus("idle");
 
     const formData = new FormData(e.currentTarget);
+    const data = {
+      firstName: formData.get("firstName"),
+      lastName: formData.get("lastName"),
+      email: formData.get("email"),
+      company: formData.get("company"),
+      type: formData.get("type"),
+      message: formData.get("message"),
+    };
+
     const res = await submitContact(formData);
 
     if (res.error) {
       setStatus("error");
       setErrorMsg(res.error);
     } else {
+      // Send email via communication API
+      try {
+        await fetch("/api/communications", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: `Contact Form (${data.type})`,
+            userEmail: data.email,
+            name: `${data.firstName} ${data.lastName}${data.company ? ` (${data.company})` : ""}`,
+            message: data.message,
+          }),
+        });
+      } catch (err) {
+        console.error("Failed to send notification email:", err);
+      }
+
       setStatus("success");
       (e.target as HTMLFormElement).reset();
     }
