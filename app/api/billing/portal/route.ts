@@ -29,11 +29,26 @@ export async function GET() {
       environment: (process.env.NEXT_PUBLIC_PADDLE_ENV as Environment) || Environment.sandbox,
     });
 
+    // 1. Fetch active/trialing subscriptions for this customer
+    const subscriptionCollection = paddle.subscriptions.list({
+      customerId: [profile.billing_customer_id],
+      status: ['active', 'trialing'],
+    });
+    
+    const subscriptions = await subscriptionCollection.next();
+    const subscriptionIds = subscriptions.map((s: any) => s.id);
+
+    if (subscriptionIds.length === 0) {
+      return NextResponse.json(
+        { error: 'No active subscription found to manage.' },
+        { status: 404 }
+      );
+    }
+
+    // 2. Create portal session with the specific subscription IDs
     const portalSession = await paddle.customerPortalSessions.create(
       profile.billing_customer_id,
-      {
-        returnUrl: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard/billing`,
-      }
+      subscriptionIds
     );
 
     return NextResponse.json({ url: portalSession.urls.general });
