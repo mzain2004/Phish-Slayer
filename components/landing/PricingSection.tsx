@@ -9,10 +9,10 @@ import PaddleCheckoutButton from "@/components/PaddleCheckoutButton";
 const springConfig = { type: "spring" as const, stiffness: 60, damping: 25, bounce: 0.1 };
 
 const PADDLE_PRICES = {
-  SOC_PRO_MONTHLY: "pri_01j7q9k2n1e2h8m4j9v5x3", // Placeholder IDs
-  SOC_PRO_ANNUAL: "pri_01j7q9m5r8f3g7k9n2w4y",
-  CC_MONTHLY: "pri_01j7q9p9t2h5k8m1n3v6z",
-  CC_ANNUAL: "pri_01j7q9r1w4f7g9k2n5w8y",
+  SOC_PRO_MONTHLY: process.env.NEXT_PUBLIC_PADDLE_SOC_PRO_PRICE_ID || "pri_01kmnjzc56ry68m7cx8dy1bt8m",
+  SOC_PRO_ANNUAL: process.env.NEXT_PUBLIC_PADDLE_SOC_PRO_PRICE_ID || "pri_01kmnjzc56ry68m7cx8dy1bt8m", // Standardizing to provided prod ID if env missing
+  CC_MONTHLY: process.env.NEXT_PUBLIC_PADDLE_CC_PRICE_ID || "pri_01kmnk1ymy9yktt2ted4539ms2",
+  CC_ANNUAL: process.env.NEXT_PUBLIC_PADDLE_CC_PRICE_ID || "pri_01kmnk1ymy9yktt2ted4539ms2",
 };
 
 export function PricingSection() {
@@ -66,7 +66,7 @@ export function PricingSection() {
       strikethrough: "$3,588",
       description: "For critical infrastructure.",
       features: ["Unlimited EDR Nodes", "Dedicated Account Intel", "Custom YARA Rulesets", "Auto-Remediation Actions", "24/7 Priority Support"],
-      cta: "Contact Sales",
+      cta: "Start Global Fleet",
       popular: false
     }
   ];
