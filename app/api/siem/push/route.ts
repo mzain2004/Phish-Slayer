@@ -5,6 +5,9 @@ import { buildSIEMPayload } from '@/lib/siem/stixFormatter';
 import { logAuditEvent } from '@/lib/audit/auditLogger';
 import { getServerRole } from '@/lib/rbac/serverRole';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 const bodySchema = z.object({
   scanId: z.string().min(1),
   webhookUrl: z.string().url().startsWith('https://', { message: 'Webhook must use HTTPS' }),

@@ -5,6 +5,9 @@ import { scanTarget } from '@/lib/scanners/threatScanner';
 import { scoreCtiFinding } from '@/lib/ai/analyzer';
 import { scanTargetSchema, normalizeTarget } from '@/lib/security/sanitize';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 // ── Public API V1 — Scan Engine ──────────────────────────────────────
 
 function corsHeaders() {

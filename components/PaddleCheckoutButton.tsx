@@ -10,6 +10,7 @@ interface PaddleCheckoutButtonProps {
   variant?: 'primary' | 'outline';
   children: React.ReactNode;
   className?: string;
+  style?: React.CSSProperties;
 }
 
 export default function PaddleCheckoutButton({
@@ -17,6 +18,7 @@ export default function PaddleCheckoutButton({
   variant = 'primary',
   children,
   className = '',
+  style,
 }: PaddleCheckoutButtonProps) {
   const [paddle, setPaddle] = useState<Paddle | undefined>(undefined);
   const [loading, setLoading] = useState(false);
@@ -85,6 +87,7 @@ export default function PaddleCheckoutButton({
       onClick={handleCheckout}
       disabled={loading || !paddle}
       className={`${baseStyles} ${variants[variant]} ${className}`}
+      style={style}
     >
       {(loading || !paddle) ? <Loader2 className="w-4 h-4 animate-spin" /> : children}
     </button>

@@ -80,6 +80,7 @@ export default function PricingPage() {
   const [userEmail, setUserEmail] = useState<string>("");
   const [paddle, setPaddle] = useState<Paddle | null>(null);
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
+  const [showDowngradeModal, setShowDowngradeModal] = useState(false);
 
   // Initialize Paddle client
   useEffect(() => {
@@ -157,39 +158,102 @@ export default function PricingPage() {
   );
 
   const getButtonConfig = (t: (typeof tiers)[0]) => {
-    if (t.id === "recon") {
+    const normalizedTier = (userTier || "recon").toLowerCase();
+    const isReconOrFree = normalizedTier === "recon" || normalizedTier === "free";
+
+    if (!isLoggedIn || isReconOrFree) {
+      if (t.id === "recon") {
+        return {
+          text: "Get Started Free",
+          action: () => {
+            if (!isLoggedIn) window.location.href = "/auth/signup";
+          },
+          disabled: false,
+          kind: "outline" as const,
+        };
+      }
+
+      if (t.id === "soc_pro") {
+        return {
+          text: "Upgrade to SOC Pro",
+          action: () => {
+            if (!isLoggedIn) {
+              window.location.href = "/auth/signup";
+              return;
+            }
+            openCheckout(t.id, t.priceIdEnv || "");
+          },
+          disabled: false,
+          kind: "teal" as const,
+        };
+      }
+
       return {
-        text: isLoggedIn
-          ? userTier === "recon" || userTier === "free"
-            ? "Current Plan"
-            : "Downgrade"
-          : "Get Started Free",
+        text: "Upgrade to Command & Control",
         action: () => {
-          if (!isLoggedIn) window.location.href = "/auth/signup";
+          if (!isLoggedIn) {
+            window.location.href = "/auth/signup";
+            return;
+          }
+          openCheckout(t.id, t.priceIdEnv || "");
         },
-        disabled: isLoggedIn && (userTier === "recon" || userTier === "free"),
+        disabled: false,
+        kind: "gradient" as const,
       };
     }
 
-    // Check if user already has this tier
-    if (isLoggedIn && userTier === t.id) {
+    if (normalizedTier === "soc_pro") {
+      if (t.id === "recon") {
+        return {
+          text: "Downgrade",
+          action: () => setShowDowngradeModal(true),
+          disabled: false,
+          kind: "outline" as const,
+        };
+      }
+
+      if (t.id === "soc_pro") {
+        return {
+          text: "Current Plan",
+          action: () => {},
+          disabled: true,
+          kind: "disabled" as const,
+        };
+      }
+
       return {
-        text: "Current Plan",
-        action: () => {},
-        disabled: true,
+        text: "Upgrade Now",
+        action: () => openCheckout(t.id, t.priceIdEnv || ""),
+        disabled: false,
+        kind: "gradient" as const,
+      };
+    }
+
+    if (normalizedTier === "command_control") {
+      if (t.id === "command_control") {
+        return {
+          text: "Current Plan",
+          action: () => {},
+          disabled: true,
+          kind: "disabled" as const,
+        };
+      }
+
+      return {
+        text: "Downgrade",
+        action: () => setShowDowngradeModal(true),
+        disabled: false,
+        kind: "outline" as const,
       };
     }
 
     return {
-      text: isLoggedIn ? "Upgrade Now" : "Get Started",
+      text: "Get Started Free",
       action: () => {
-        if (!isLoggedIn) {
-          window.location.href = "/auth/signup";
-          return;
-        }
-        openCheckout(t.id, t.priceIdEnv || "");
+        if (!isLoggedIn) window.location.href = "/auth/signup";
       },
       disabled: false,
+      kind: "outline" as const,
     };
   };
 
@@ -237,29 +301,40 @@ export default function PricingPage() {
           {tiers.map((t, i) => {
             const btn = getButtonConfig(t);
             const isCC = t.id === "command_control";
+            const isSocPro = t.id === "soc_pro";
+            const isFree = t.id === "recon";
 
             return (
-              <div 
+              <div
                 key={i} 
                 style={isCC ? {
                   border: '2px solid transparent',
                   background: 'linear-gradient(#161B22, #161B22) padding-box, linear-gradient(135deg, #2DD4BF, #A78BFA) border-box',
-                  transform: 'scale(1.05)',
+                  borderRadius: '16px',
+                  transform: 'scale(1.03)',
                   boxShadow: '0 0 40px rgba(45, 212, 191, 0.15)',
-                } : {}}
-                className={`relative p-8 rounded-2xl flex flex-col transition-all duration-300 ${
-                  isCC ? 'z-20' : (t.popular ? 'ring-2 ring-teal-500/50 shadow-2xl shadow-teal-500/10 scale-105 z-10' : 'hover:bg-[#1c2128] bg-[#161b22] border border-[#30363d]')
+                } : {
+                  border: '1px solid #30363D',
+                  borderRadius: '16px',
+                }}
+                className={`relative p-8 flex flex-col transition-all duration-300 bg-[#161B22] ${
+                  isCC ? 'z-20' : isFree ? 'opacity-90' : ''
                 }`}
               >
-                {t.popular && !isCC && (
-                  <div className="text-center mb-6">
-                    <span className="bg-teal-500/10 text-teal-400 border border-teal-500/20 text-[10px] font-black tracking-widest uppercase px-3 py-1 rounded-full">RECOMMENDED</span>
-                  </div>
-                )}
-
                 {isCC && (
-                  <div className="text-center mb-6">
-                    <span className="bg-gradient-to-r from-[#2DD4BF] to-[#A78BFA] text-white text-[10px] font-black tracking-[0.2em] uppercase px-4 py-1.5 rounded-full shadow-lg">MOST POWERFUL</span>
+                  <div className="mb-3">
+                    <div style={{
+                      background: 'linear-gradient(135deg, #2DD4BF, #A78BFA)',
+                      color: 'white',
+                      fontSize: '10px',
+                      fontWeight: 'bold',
+                      letterSpacing: '2px',
+                      textTransform: 'uppercase',
+                      padding: '4px 12px',
+                      borderRadius: '20px',
+                      display: 'inline-block',
+                      marginBottom: '12px'
+                    }}>MOST POWERFUL</div>
                   </div>
                 )}
 
@@ -287,39 +362,95 @@ export default function PricingPage() {
                 </ul>
 
                 <button
-                  onClick={() => {
-                    if (btn.text === "Downgrade") {
-                      toast("Downgrade Request", {
-                        description: "To downgrade, please contact our support team at support@phishslayer.tech",
-                        action: {
-                          label: "Contact Support",
-                          onClick: () => window.location.href = "mailto:support@phishslayer.tech"
+                  onClick={btn.action}
+                  disabled={btn.disabled || loadingConfig || checkoutLoading === t.id}
+                  style={
+                    btn.kind === "disabled"
+                      ? {
+                          background: '#21262D',
+                          color: '#8B949E',
+                          border: '1px solid #30363D',
+                          borderRadius: '6px',
+                          width: '100%',
+                          padding: '12px',
                         }
-                      });
-                      return;
-                    }
-                    btn.action();
-                  }}
-                  disabled={(btn.disabled && btn.text !== "Downgrade") || loadingConfig || checkoutLoading === t.id}
-                  className={`w-full py-3 rounded-xl text-sm font-bold transition-all ${
-                    btn.disabled && btn.text !== "Downgrade" 
-                      ? 'bg-[#21262d] text-[#6e7681] cursor-not-allowed' 
-                      : isCC 
-                        ? 'bg-gradient-to-r from-[#2DD4BF] to-[#A78BFA] text-white shadow-xl shadow-teal-500/10 hover:scale-[1.02]'
-                        : t.popular 
-                          ? 'bg-teal-500 hover:bg-teal-400 text-white shadow-lg shadow-teal-500/20' 
-                          : 'bg-[#1c2128] border border-[#30363d] text-[#e6edf3] hover:bg-[#21262d]'
-                  }`}
+                      : btn.kind === "gradient"
+                        ? {
+                            background: 'linear-gradient(135deg, #2DD4BF, #A78BFA)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            width: '100%',
+                            padding: '12px',
+                          }
+                        : btn.kind === "teal"
+                          ? {
+                              background: '#2DD4BF',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '6px',
+                              width: '100%',
+                              padding: '12px',
+                            }
+                          : {
+                              background: 'transparent',
+                              color: '#8B949E',
+                              border: '1px solid #8B949E',
+                              borderRadius: '6px',
+                              width: '100%',
+                              padding: '12px',
+                            }
+                  }
+                  className={`text-sm font-bold transition-all ${btn.disabled ? 'cursor-not-allowed' : 'hover:opacity-90'}`}
                 >
                   {loadingConfig || checkoutLoading === t.id ? (
                     <Loader2 className="w-4 h-4 animate-spin mx-auto" />
-                  ) : isCC && btn.text === "Upgrade Now" ? "Start Global Fleet →" : btn.text}
+                  ) : isCC && btn.text !== "Current Plan" ? "Start Global Fleet →" : btn.text}
                 </button>
               </div>
             );
           })}
         </div>
       </section>
+
+      {showDowngradeModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 px-4">
+          <div className="w-full max-w-md bg-[#161B22] border border-[#30363D] rounded-2xl p-6">
+            <h3 className="text-lg font-bold text-[#E6EDF3] mb-3">Downgrade Request</h3>
+            <p className="text-[#8B949E] text-sm leading-relaxed mb-6">
+              To downgrade your plan, please contact support@phishslayer.tech
+            </p>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => (window.location.href = "mailto:support@phishslayer.tech")}
+                style={{
+                  background: '#2DD4BF',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '10px 14px',
+                }}
+                className="text-sm font-semibold"
+              >
+                Contact Support
+              </button>
+              <button
+                onClick={() => setShowDowngradeModal(false)}
+                style={{
+                  background: 'transparent',
+                  color: '#8B949E',
+                  border: '1px solid #30363D',
+                  borderRadius: '6px',
+                  padding: '10px 14px',
+                }}
+                className="text-sm font-semibold"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* FAQ */}
       <section className="bg-[#161b22]/50 border-t border-[#30363d] py-24">

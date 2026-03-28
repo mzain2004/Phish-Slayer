@@ -30,21 +30,19 @@ export function PricingSection() {
   };
 
   const handleAction = async (planName: string) => {
-    if (planName === "Enterprise Edge") {
-      router.push("/contact");
-    } else if (planName === "Community") {
+    if (planName === "Free") {
       router.push("/auth/signup");
     }
   };
 
   const tiers = [
     {
-      name: "Community",
+      name: "Free",
       monthlyPrice: "0",
       annualPrice: "0",
       description: "For individuals and small labs.",
       features: ["10 AI Scans / Day", "Community Threat Feed", "Public Sandbox Matches", "Standard Speed Detection"],
-      cta: "Join Free",
+      cta: "Get Started Free",
       popular: false
     },
     {
@@ -55,8 +53,8 @@ export function PricingSection() {
       strikethrough: "$588",
       description: "For proactive security teams.",
       features: ["Unlimited AI Scans", "Real-Time EDR Agent (up to 50 nodes)", "Zero-Day Threat Signatures", "Discord/Slack Webhooks", "API Access (100 req/min)"],
-      cta: "Start 14-Day Trial",
-      popular: true
+      cta: "Upgrade Now",
+      popular: false
     },
     {
       name: "Command & Control",
@@ -157,6 +155,8 @@ export function PricingSection() {
         >
           {tiers.map((tier, i) => {
             const isCC = tier.name === "Command & Control";
+            const isSocPro = tier.name === "SOC Pro";
+            const isFree = tier.name === "Free";
             
             return (
               <motion.div
@@ -165,25 +165,28 @@ export function PricingSection() {
                 style={isCC ? {
                   border: '2px solid transparent',
                   background: 'linear-gradient(#161B22, #161B22) padding-box, linear-gradient(135deg, #2DD4BF, #A78BFA) border-box',
+                  borderRadius: '16px',
                   transform: 'scale(1.03)',
                   boxShadow: '0 0 40px rgba(45, 212, 191, 0.15)',
-                } : {}}
-                className={`relative p-8 rounded-[16px] flex flex-col transition-all duration-300 ease-out hover:-translate-y-2 ${
-                  isCC ? '' : (tier.popular 
-                    ? 'bg-gradient-to-b from-[#2DD4BF]/[0.08] to-[#161B22] border border-[#2DD4BF]/40' 
-                    : 'bg-[#161B22] border border-[#30363D] hover:border-[#2DD4BF]')
-                } ${isCC ? 'shadow-2xl z-20' : ''}`}
+                } : {
+                  border: '1px solid #30363D',
+                  borderRadius: '16px',
+                }}
+                className={`relative p-8 flex flex-col transition-all duration-300 ease-out hover:-translate-y-2 bg-[#161B22] ${isCC ? 'shadow-2xl z-20' : isFree ? 'opacity-90' : ''}`}
               >
-                {tier.popular && !isCC && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#2DD4BF] text-[#0D1117] font-mono text-[10px] font-bold uppercase tracking-[0.12em] px-3 py-1 rounded-[4px]">
-                    Most Popular
-                  </div>
-                )}
-
                 {isCC && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-[#2DD4BF] to-[#A78BFA] text-white font-mono text-[10px] font-bold uppercase tracking-[0.2em] px-4 py-1.5 rounded-full shadow-lg whitespace-nowrap">
-                    Most Powerful
-                  </div>
+                  <div style={{
+                    background: 'linear-gradient(135deg, #2DD4BF, #A78BFA)',
+                    color: 'white',
+                    fontSize: '10px',
+                    fontWeight: 'bold',
+                    letterSpacing: '2px',
+                    textTransform: 'uppercase',
+                    padding: '4px 12px',
+                    borderRadius: '20px',
+                    display: 'inline-block',
+                    marginBottom: '12px'
+                  }}>MOST POWERFUL</div>
                 )}
                 
                 <div className="mb-6">
@@ -223,20 +226,43 @@ export function PricingSection() {
                   ))}
                 </ul>
 
-                {tier.name === "Community" ? (
+                {tier.name === "Free" ? (
                   <button 
                     onClick={() => handleAction(tier.name)}
-                    className="w-full py-3.5 rounded-full font-bold text-[15px] transition-all duration-200 focus:outline-none tracking-[0.01em] bg-transparent text-[#E6EDF3] border border-[#30363D] hover:border-[#2DD4BF] hover:text-[#2DD4BF]"
+                    style={{
+                      background: 'transparent',
+                      color: '#8B949E',
+                      border: '1px solid #8B949E',
+                      borderRadius: '6px',
+                      width: '100%',
+                      padding: '12px'
+                    }}
+                    className="font-bold text-[15px] transition-all duration-200 focus:outline-none tracking-[0.01em] hover:opacity-90"
                   >
                     {tier.cta}
                   </button>
                 ) : (
-                  <PaddleCheckoutButton 
+                  <PaddleCheckoutButton
                     priceId={getPriceId(tier.name)}
-                    variant={tier.popular ? "primary" : "outline"}
-                    className={`w-full !py-3.5 ${isCC ? 'bg-gradient-to-r from-[#2DD4BF] to-[#A78BFA] !text-white border-none hover:shadow-[0_8px_25px_rgba(45,212,191,0.3)] hover:scale-[1.02]' : ''}`}
+                    variant="outline"
+                    style={isCC ? {
+                      background: 'linear-gradient(135deg, #2DD4BF, #A78BFA)',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      width: '100%',
+                      padding: '12px'
+                    } : {
+                      background: '#2DD4BF',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      width: '100%',
+                      padding: '12px'
+                    }}
+                    className="font-bold text-[15px] transition-all duration-200 hover:opacity-90"
                   >
-                    {isCC ? "Start Global Fleet →" : tier.cta}
+                    {isCC ? "Start Global Fleet →" : "Upgrade Now"}
                   </PaddleCheckoutButton>
                 )}
               </motion.div>

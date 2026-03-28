@@ -4,6 +4,9 @@ import { createClient } from '@/lib/supabase/server';
 import { z } from 'zod';
 import { logAuditEvent } from '@/lib/audit/auditLogger';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 const bodySchema = z.object({
   domText: z.string().max(50000),
   target: z.string().min(1).max(253),

@@ -3,6 +3,9 @@ import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { safeCompare } from '@/lib/security/safeCompare';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 // Admin Supabase client (bypasses RLS for agent writes)
 const getSupabaseAdmin = () =>
   createClient(

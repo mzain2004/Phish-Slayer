@@ -5,6 +5,9 @@ import { runPortPatrol } from '@/lib/recon/portPatrol';
 import { sanitizeTarget } from '@/lib/security/safeCompare';
 import { logAuditEvent } from '@/lib/audit/auditLogger';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 const bodySchema = z.object({
   target: z.string().min(1).max(253),
 });

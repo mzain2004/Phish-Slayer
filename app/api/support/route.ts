@@ -3,6 +3,9 @@ import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export async function POST(request: Request) {
   try {
     const supabase = await createClient();

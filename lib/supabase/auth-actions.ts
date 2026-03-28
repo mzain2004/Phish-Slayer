@@ -5,6 +5,13 @@ import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { logAuditEvent } from '@/lib/audit/auditLogger';
 
+// IMPORTANT: Before this works you must:
+// 1. Go to Supabase Dashboard -> Storage -> Create bucket
+//    Name: avatars, Public: true
+// 2. Run in SQL editor:
+//    ALTER TABLE public.profiles
+//      ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+
 // ─── Email / Password ────────────────────────────────────────────
 
 export async function signInWithEmail(formData: { email: string; password: string }) {
@@ -227,11 +234,13 @@ export async function uploadAvatar(formData: FormData) {
   const file = formData.get('avatar') as File | null;
   if (!file) return { error: 'No file provided' };
 
-  const path = `${user.id}/avatar.png`;
+  const fileNameParts = file.name.split('.');
+  const fileExtension = fileNameParts.length > 1 ? fileNameParts.pop()!.toLowerCase() : 'png';
+  const path = `avatars/${user.id}/avatar.${fileExtension}`;
 
   const { error: uploadError } = await supabase.storage
     .from('avatars')
-    .upload(path, file, { upsert: true, contentType: file.type });
+    .upload(path, file, { upsert: true });
 
   if (uploadError) return { error: uploadError.message };
 
@@ -239,20 +248,20 @@ export async function uploadAvatar(formData: FormData) {
     .from('avatars')
     .getPublicUrl(path);
 
-  const avatarUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+  const avatarUrl = urlData.publicUrl;
 
-  // Persist to user metadata
+  const { error: profileUpdateError } = await supabase
+    .from('profiles')
+    .update({ avatar_url: avatarUrl })
+    .eq('id', user.id);
+
+  if (profileUpdateError) return { error: profileUpdateError.message };
+
   const { error: updateError } = await supabase.auth.updateUser({
     data: { avatar_url: avatarUrl },
   });
 
   if (updateError) return { error: updateError.message };
-
-  // Sync with profiles table
-  await supabase
-    .from('profiles')
-    .update({ avatar_url: avatarUrl })
-    .eq('id', user.id);
 
   return { success: 'Avatar uploaded.', avatarUrl };
 }

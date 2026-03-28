@@ -3,6 +3,9 @@ import { createClient } from '@supabase/supabase-js';
 import { safeCompare } from '@/lib/security/safeCompare';
 import { logAuditEvent } from '@/lib/audit/auditLogger';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export async function GET(request: Request) {
   try {
     // Auth via CRON_SECRET
