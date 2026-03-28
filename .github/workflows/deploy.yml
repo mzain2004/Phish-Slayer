@@ -6,9 +6,31 @@ on:
       - main
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/mzain2004/phish-slayer:latest
+
       - name: Deploy to Azure VM
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -17,9 +39,9 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd /home/mzain2004/Phish-Slayer
-            git pull origin main
+            echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u mzain2004 --password-stdin
+            docker compose pull
             docker compose down
-            docker compose build --no-cache
             docker compose up -d
             docker compose ps
             echo "Deployment complete"
