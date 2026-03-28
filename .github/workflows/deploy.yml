@@ -50,9 +50,10 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd /home/mzain2004/Phish-Slayer
-            echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u mzain2004 --password-stdin
-            docker compose pull
+            git stash
+            git pull origin main
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u mzain2004 --password-stdin
             docker compose down
-            docker compose up -d
+            docker compose up -d --pull always
             docker compose ps
-            echo "Deployment complete"
+            echo "Deployment complete!"

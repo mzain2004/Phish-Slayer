@@ -524,7 +524,10 @@ export default function PricingPage() {
             <p style={{ color: "#8B949E", marginBottom: "24px" }}>
               To downgrade your plan, email us at:
             </p>
-            <a href="mailto:support@phishslayer.tech" style={{ color: "#2DD4BF" }}>
+            <a
+              href="mailto:support@phishslayer.tech"
+              style={{ color: "#2DD4BF" }}
+            >
               support@phishslayer.tech
             </a>
             <button
