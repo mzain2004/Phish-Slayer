@@ -11,7 +11,8 @@ export default function ApiDocsPage() {
       <div className="max-w-4xl mx-auto">
         <h1 className="text-4xl font-bold mb-3">Phish-Slayer Public API</h1>
         <p className="text-[#8B949E] mb-10">
-          Use the public scan endpoint with an active API key from your dashboard.
+          Use the public scan endpoint with an active API key from your
+          dashboard.
         </p>
 
         <section className="bg-[#161B22] border border-[#30363D] rounded-2xl p-6 mb-6">
@@ -22,9 +23,11 @@ export default function ApiDocsPage() {
 
         <section className="bg-[#161B22] border border-[#30363D] rounded-2xl p-6 mb-6">
           <h2 className="text-2xl font-semibold mb-4">Authentication</h2>
-          <p className="text-[#8B949E] mb-2">Send your API key in the header:</p>
+          <p className="text-[#8B949E] mb-2">
+            Send your API key in the header:
+          </p>
           <pre className="bg-[#0D1117] border border-[#30363D] rounded-xl p-4 text-sm overflow-x-auto">
-{`x-api-key: your_api_key_here`}
+            {`x-api-key: your_api_key_here`}
           </pre>
         </section>
 
@@ -32,11 +35,11 @@ export default function ApiDocsPage() {
           <h2 className="text-2xl font-semibold mb-4">Request Format</h2>
           <p className="text-[#8B949E] mb-2">GET</p>
           <pre className="bg-[#0D1117] border border-[#30363D] rounded-xl p-4 text-sm overflow-x-auto mb-4">
-{`GET /api/v1/scan?target=example.com`}
+            {`GET /api/v1/scan?target=example.com`}
           </pre>
           <p className="text-[#8B949E] mb-2">POST</p>
           <pre className="bg-[#0D1117] border border-[#30363D] rounded-xl p-4 text-sm overflow-x-auto">
-{`{
+            {`{
   "target": "example.com"
 }`}
           </pre>
@@ -45,7 +48,7 @@ export default function ApiDocsPage() {
         <section className="bg-[#161B22] border border-[#30363D] rounded-2xl p-6 mb-6">
           <h2 className="text-2xl font-semibold mb-4">Response Format</h2>
           <pre className="bg-[#0D1117] border border-[#30363D] rounded-xl p-4 text-sm overflow-x-auto">
-{`{
+            {`{
   "success": true,
   "data": {
     "target": "example.com",

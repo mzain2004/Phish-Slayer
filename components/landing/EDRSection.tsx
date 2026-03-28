@@ -20,6 +20,11 @@ export function EDRSection() {
   const isInView = useInView(containerRef, { once: false, margin: "-80px" });
   const [visibleLines, setVisibleLines] = useState<number>(0);
   const [typedChars, setTypedChars] = useState<string[]>(TERMINAL_LINES.map(() => ""));
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!isInView) {
@@ -128,7 +133,7 @@ export function EDRSection() {
                   }}
                 >
                   <span className="text-[#8B949E] opacity-50">
-                    {(new Date()).toISOString().split('T')[1].slice(0, 8)} |
+                    {mounted ? new Date().toISOString().split('T')[1].slice(0, 8) : "-"} |
                   </span> {typedChars[i]}
                   {i === visibleLines && (
                     <span className="ml-1 w-2 h-4 bg-[#2DD4BF] inline-block align-middle animate-[blink_1s_infinite]" />

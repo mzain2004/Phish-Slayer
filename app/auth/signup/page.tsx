@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import Link from "next/link";
 import {
@@ -25,6 +25,11 @@ export default function SignupPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleEmailSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,7 +79,7 @@ export default function SignupPage() {
           </div>
 
           <p className="text-xs text-slate-500 font-medium">
-            © {new Date().getFullYear()} Phish-Slayer Enterprise Security
+            © {mounted ? new Date().getFullYear() : "-"} Phish-Slayer Enterprise Security
           </p>
         </div>
       </div>

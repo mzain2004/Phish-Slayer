@@ -13,7 +13,10 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
-const TIER_DISPLAY: Record<string, { name: string; tagline: string; amount: string }> = {
+const TIER_DISPLAY: Record<
+  string,
+  { name: string; tagline: string; amount: string }
+> = {
   recon: {
     name: "Recon",
     tagline: "For individuals exploring threat intelligence",
@@ -39,7 +42,9 @@ const TIER_DISPLAY: Record<string, { name: string; tagline: string; amount: stri
 export default function BillingPage() {
   const router = useRouter();
   const [activePlan, setActivePlan] = useState("recon");
-  const [billingCustomerId, setBillingCustomerId] = useState<string | null>(null);
+  const [billingCustomerId, setBillingCustomerId] = useState<string | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -79,17 +84,18 @@ export default function BillingPage() {
 
     setIsPortalLoading(true);
     try {
-      const res = await fetch('/api/billing/portal');
+      const res = await fetch("/api/billing/portal");
       const data = await res.json();
 
       if (res.status === 400 && data?.redirect) {
         router.push(data.redirect);
         return;
       }
-      
+
       if (res.status === 404) {
         toast.error("No active billing profile found", {
-          description: "Please complete a checkout first to manage your subscription.",
+          description:
+            "Please complete a checkout first to manage your subscription.",
         });
         return;
       }
@@ -97,11 +103,14 @@ export default function BillingPage() {
       if (data.url) {
         window.location.href = data.url;
       } else {
-        throw new Error(data.error || 'Failed to get portal URL');
+        throw new Error(data.error || "Failed to get portal URL");
       }
     } catch (error: any) {
-      console.error('Portal Error:', error);
-      toast.error(error.message || "Failed to open billing portal. Please contact support.");
+      console.error("Portal Error:", error);
+      toast.error(
+        error.message ||
+          "Failed to open billing portal. Please contact support.",
+      );
     } finally {
       setIsPortalLoading(false);
     }
@@ -137,7 +146,9 @@ export default function BillingPage() {
           <div>
             <div className="flex items-center gap-3 mb-1">
               <Shield className="w-5 h-5 text-teal-400" />
-              <h2 className="text-[#e6edf3] text-xl font-semibold">{plan.name} Plan</h2>
+              <h2 className="text-[#e6edf3] text-xl font-semibold">
+                {plan.name} Plan
+              </h2>
               <span className="bg-teal-500/10 text-teal-400 border border-teal-500/20 text-xs px-2.5 py-0.5 rounded-full font-medium">
                 ACTIVE
               </span>
@@ -151,7 +162,11 @@ export default function BillingPage() {
                 onClick={handleManageSubscription}
                 className="flex items-center gap-2 px-4 py-2 bg-[#1c2128] border border-[#30363d] text-[#e6edf3] hover:bg-[#21262d] text-sm font-medium rounded-full transition-all hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-50"
               >
-                {isPortalLoading ? <Loader2 className="w-4 h-4 animate-spin text-teal-400" /> : <CreditCard className="w-4 h-4" />}
+                {isPortalLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-teal-400" />
+                ) : (
+                  <CreditCard className="w-4 h-4" />
+                )}
                 Manage Subscription
               </button>
             ) : (
@@ -168,30 +183,40 @@ export default function BillingPage() {
 
         <div className="mt-8 grid grid-cols-1 md:grid-cols-3 border-t border-[#30363d] pt-6 gap-6">
           <div>
-            <p className="text-[#6e7681] text-xs uppercase tracking-wider mb-1">Current Tier</p>
+            <p className="text-[#6e7681] text-xs uppercase tracking-wider mb-1">
+              Current Tier
+            </p>
             <p className="text-[#e6edf3] text-sm font-semibold">{plan.name}</p>
           </div>
           <div className="md:border-l border-[#30363d] md:pl-6">
-            <p className="text-[#6e7681] text-xs uppercase tracking-wider mb-1">Billing</p>
+            <p className="text-[#6e7681] text-xs uppercase tracking-wider mb-1">
+              Billing
+            </p>
             <p className="text-[#e6edf3] text-sm font-semibold">
               {isPaid ? "Monthly via Paddle" : "Free"}
             </p>
           </div>
           <div className="md:border-l border-[#30363d] md:pl-6">
-            <p className="text-[#6e7681] text-xs uppercase tracking-wider mb-1">Monthly Amount</p>
-            <p className="text-[#e6edf3] text-sm font-semibold">{plan.amount}/mo</p>
+            <p className="text-[#6e7681] text-xs uppercase tracking-wider mb-1">
+              Monthly Amount
+            </p>
+            <p className="text-[#e6edf3] text-sm font-semibold">
+              {plan.amount}/mo
+            </p>
           </div>
         </div>
       </div>
 
       {!billingCustomerId && (
         <div className="bg-[#161B22] border border-[#30363D] rounded-2xl p-6">
-          <h3 className="text-[#E6EDF3] text-lg font-semibold">No Active Subscription</h3>
+          <h3 className="text-[#E6EDF3] text-lg font-semibold">
+            No Active Subscription
+          </h3>
           <p className="text-[#8B949E] text-sm mt-2 mb-4">
             You are currently on the free Recon plan.
           </p>
           <button
-            onClick={() => router.push('/pricing')}
+            onClick={() => router.push("/pricing")}
             className="bg-[#2DD4BF] text-white border-none rounded-md px-4 py-2 text-sm font-semibold hover:opacity-90 transition-opacity"
           >
             Upgrade Your Plan
@@ -201,13 +226,19 @@ export default function BillingPage() {
 
       {/* Usage Section */}
       <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-6">
-        <h3 className="text-[#e6edf3] text-sm font-semibold mb-6">Plan Limits</h3>
+        <h3 className="text-[#e6edf3] text-sm font-semibold mb-6">
+          Plan Limits
+        </h3>
         <div className="space-y-6">
           <div>
             <div className="flex justify-between text-xs font-medium mb-2">
               <span className="text-[#8b949e]">Daily Scans</span>
               <span className="text-[#e6edf3]">
-                {activePlan === "command_control" ? "Unlimited" : activePlan === "soc_pro" ? "500/day" : "10/day"}
+                {activePlan === "command_control"
+                  ? "Unlimited"
+                  : activePlan === "soc_pro"
+                    ? "500/day"
+                    : "10/day"}
               </span>
             </div>
             <div className="bg-[#21262d] rounded-full h-1.5 overflow-hidden">
@@ -222,7 +253,11 @@ export default function BillingPage() {
             <div className="flex justify-between text-xs font-medium mb-2">
               <span className="text-[#8b949e]">Fleet Agent Slots</span>
               <span className="text-[#e6edf3]">
-                {activePlan === "command_control" ? "Unlimited" : activePlan === "soc_pro" ? "10" : "1"}
+                {activePlan === "command_control"
+                  ? "Unlimited"
+                  : activePlan === "soc_pro"
+                    ? "10"
+                    : "1"}
               </span>
             </div>
             <div className="bg-[#21262d] rounded-full h-1.5 overflow-hidden">
@@ -237,7 +272,11 @@ export default function BillingPage() {
             <div className="flex justify-between text-xs font-medium mb-2">
               <span className="text-[#8b949e]">API Access</span>
               <span className="text-[#e6edf3]">
-                {activePlan === "command_control" ? "Unlimited" : activePlan === "soc_pro" ? "1,000/day" : "Locked"}
+                {activePlan === "command_control"
+                  ? "Unlimited"
+                  : activePlan === "soc_pro"
+                    ? "1,000/day"
+                    : "Locked"}
               </span>
             </div>
             <div className="bg-[#21262d] rounded-full h-1.5 overflow-hidden">
@@ -273,14 +312,21 @@ export default function BillingPage() {
             <tbody>
               {!isPaid ? (
                 <tr>
-                  <td colSpan={4} className="px-5 py-8 text-center text-[#6e7681] text-sm">
+                  <td
+                    colSpan={4}
+                    className="px-5 py-8 text-center text-[#6e7681] text-sm"
+                  >
                     No billing history available on the Recon plan.
                   </td>
                 </tr>
               ) : (
                 <tr>
-                  <td colSpan={4} className="px-5 py-8 text-center text-[#6e7681] text-sm">
-                    Invoice history is managed by Paddle. Check your email for receipts.
+                  <td
+                    colSpan={4}
+                    className="px-5 py-8 text-center text-[#6e7681] text-sm"
+                  >
+                    Invoice history is managed by Paddle. Check your email for
+                    receipts.
                   </td>
                 </tr>
               )}

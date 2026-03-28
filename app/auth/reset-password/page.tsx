@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ShieldAlert,
@@ -18,6 +18,11 @@ export default function ResetPasswordPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const passwordsMatch = password.length > 0 && password === confirmPassword;
   const isValid = password.length >= 8 && passwordsMatch;
@@ -67,7 +72,7 @@ export default function ResetPasswordPage() {
           </div>
 
           <p className="text-xs text-blue-200/70">
-            © {new Date().getFullYear()} Phish-Slayer Enterprise Security
+            © {mounted ? new Date().getFullYear() : "-"} Phish-Slayer Enterprise Security
           </p>
         </div>
       </div>

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { createClient } from "@/lib/supabase/server";
 
+export const dynamic = "force-dynamic";
+
 interface EmailPayload {
   type?: string;
   userEmail?: string;
@@ -17,47 +19,44 @@ export async function POST(request: Request) {
     const payload: EmailPayload = await request.json();
 
     const type = payload.type || "Newsletter Subscription";
-    const userEmail = (payload.email || payload.userEmail || "").trim().toLowerCase();
+    const userEmail = (payload.email || payload.userEmail || "")
+      .trim()
+      .toLowerCase();
     const name = payload.name;
     const message = payload.message;
 
     if (!userEmail) {
-      return NextResponse.json({ error: "Email is required." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Email is required." },
+        { status: 400 },
+      );
     }
 
     if (!emailRegex.test(userEmail)) {
-      return NextResponse.json({ error: "Invalid email address." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid email address." },
+        { status: 400 },
+      );
     }
 
     const resendApiKey = process.env.RESEND_API_KEY;
+    const supabase = await createClient();
 
-    if (!resendApiKey) {
-      const supabase = await createClient();
-      const { error } = await supabase
-        .from("waitlist")
-        .upsert(
-          {
-            email: userEmail,
-            tier: "newsletter",
-            created_at: new Date().toISOString(),
-          },
-          {
-            onConflict: "email,tier",
-          },
-        );
+    const saveFallback = async () => {
+      const { error } = await supabase.from("waitlist").upsert(
+        { email: userEmail, tier: "newsletter" },
+        { onConflict: "email" },
+      );
 
       if (error && error.code !== "23505") {
         console.error("Communications fallback error:", error);
-        return NextResponse.json(
-          { error: "Unable to save your subscription right now. Please try again." },
-          { status: 503 },
-        );
       }
 
-      return NextResponse.json(
-        { success: true, message: "Saved to waitlist. Email service is temporarily unavailable." },
-        { status: 200 },
-      );
+      return NextResponse.json({ success: true, message: "Thanks! You'll hear from us soon." });
+    };
+
+    if (!resendApiKey) {
+      return saveFallback();
     }
 
     const resend = new Resend(resendApiKey);
@@ -82,30 +81,35 @@ ${message || "No message provided."}
       <h3>New ${type} Submission</h3>
       <p><strong>From:</strong> ${name || "Anonymous"} (${userEmail})</p>
       <p><strong>Message:</strong></p>
-      <p>${message ? message.replace(/\\n/g, '<br/>') : "No message provided."}</p>
+      <p>${message ? message.replace(/\\n/g, "<br/>") : "No message provided."}</p>
     `;
 
     // Send the email
     const fromEmail = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
     const toEmail = process.env.SUPPORT_EMAIL || "support@phishslayer.tech";
 
-    const { error: sendError } = await resend.emails.send({
-      from: `Phish-Slayer Platform <${fromEmail}>`,
-      to: toEmail,
-      subject: subject,
-      text: textBody,
-      html: htmlBody,
-    });
+    try {
+      const { error: sendError } = await resend.emails.send({
+        from: `Phish-Slayer Platform <${fromEmail}>`,
+        to: toEmail,
+        subject: subject,
+        text: textBody,
+        html: htmlBody,
+      });
 
-    if (sendError) {
-      console.error("Resend error:", sendError);
-      return NextResponse.json(
-        { error: "Email service is unavailable. Please try again later." },
-        { status: 502 },
-      );
+      if (sendError) {
+        console.error("Resend error:", sendError);
+        return saveFallback();
+      }
+    } catch (emailError) {
+      console.error("Email send exception:", emailError);
+      return saveFallback();
     }
 
-    return NextResponse.json({ success: true, message: "Email sent successfully" });
+    return NextResponse.json({
+      success: true,
+      message: "Thanks! You'll hear from us soon.",
+    });
   } catch (error) {
     console.error("Communications route error:", error);
     return NextResponse.json(

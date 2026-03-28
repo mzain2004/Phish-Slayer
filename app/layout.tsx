@@ -26,6 +26,7 @@ export default function RootLayout({
     >
       <head>
         <Script
+          id="termly-blocker"
           src="https://app.termly.io/resource-blocker/fa073781-55e5-45b6-a6ef-29405a9723b7?autoBlock=on"
           strategy="lazyOnload"
         />

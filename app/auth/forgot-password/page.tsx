@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ShieldAlert,
@@ -14,6 +14,11 @@ import {
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <div className="flex min-h-screen w-full bg-[#fafafa] font-sans text-slate-900">
@@ -46,7 +51,7 @@ export default function ForgotPasswordPage() {
           </div>
 
           <p className="text-xs text-slate-500 font-medium">
-            © {new Date().getFullYear()} Phish-Slayer Enterprise Security
+            © {mounted ? new Date().getFullYear() : "-"} Phish-Slayer Enterprise Security
           </p>
         </div>
       </div>

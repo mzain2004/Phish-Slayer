@@ -441,7 +441,8 @@ export default function PricingPage() {
                     btn.disabled ||
                     loadingConfig ||
                     checkoutLoading === t.id ||
-                    (!paddle && (btn.kind === "gradient" || btn.kind === "teal")) ||
+                    (!paddle &&
+                      (btn.kind === "gradient" || btn.kind === "teal")) ||
                     paddleInitError
                   }
                   style={
@@ -486,9 +487,11 @@ export default function PricingPage() {
                 >
                   {loadingConfig || checkoutLoading === t.id ? (
                     <Loader2 className="w-4 h-4 animate-spin mx-auto" />
-                  ) : paddleInitError && (btn.kind === "gradient" || btn.kind === "teal") ? (
+                  ) : paddleInitError &&
+                    (btn.kind === "gradient" || btn.kind === "teal") ? (
                     "Payment unavailable"
-                  ) : !paddle && (btn.kind === "gradient" || btn.kind === "teal") ? (
+                  ) : !paddle &&
+                    (btn.kind === "gradient" || btn.kind === "teal") ? (
                     "Loading..."
                   ) : isCC && btn.text !== "Current Plan" ? (
                     "Start Global Fleet →"

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { initializePaddle, Paddle } from "@paddle/paddle-js";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { createClient } from "@/lib/supabase/client";
 
 interface PaddleCheckoutButtonProps {
   priceId: string;
@@ -23,6 +24,7 @@ export default function PaddleCheckoutButton({
   const [mounted, setMounted] = useState(false);
   const [paddle, setPaddle] = useState<Paddle | undefined>(undefined);
   const [initError, setInitError] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -32,6 +34,13 @@ export default function PaddleCheckoutButton({
   useEffect(() => {
     if (!mounted) return;
     if (typeof window === "undefined") return;
+
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user?.email) {
+        setUserEmail(data.user.email);
+      }
+    });
 
     let active = true;
     const init = async () => {
@@ -86,6 +95,7 @@ export default function PaddleCheckoutButton({
     setLoading(true);
     try {
       p.Checkout.open({
+        ...(userEmail ? { customer: { email: userEmail } } : {}),
         items: [{ priceId, quantity: 1 }],
         settings: {
           displayMode: "overlay",

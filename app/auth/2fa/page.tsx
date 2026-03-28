@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import Link from "next/link";
 import {
   ShieldAlert,
@@ -17,7 +17,12 @@ const OTP_LENGTH = 6;
 export default function TwoFactorPage() {
   const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(""));
   const [verified, setVerified] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const code = otp.join("");
   const isComplete = code.length === OTP_LENGTH && otp.every((d) => /\d/.test(d));
@@ -95,7 +100,7 @@ export default function TwoFactorPage() {
           </div>
 
           <p className="text-xs text-blue-200/70">
-            © {new Date().getFullYear()} Phish-Slayer Enterprise Security
+            © {mounted ? new Date().getFullYear() : "-"} Phish-Slayer Enterprise Security
           </p>
         </div>
       </div>
