@@ -22,7 +22,6 @@ export default function ForgotPasswordPage() {
 
   return (
     <div className="flex min-h-screen w-full bg-[#fafafa] font-sans text-slate-900">
-
       {/* Left — Brand Panel */}
       <div className="hidden lg:flex lg:w-[45%] xl:w-[42%] relative flex-col justify-between bg-slate-950 text-white overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-900 to-teal-900 opacity-80" />
@@ -34,7 +33,9 @@ export default function ForgotPasswordPage() {
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 backdrop-blur-md">
               <ShieldAlert className="w-6 h-6 text-teal-400" />
             </div>
-            <span className="text-xl font-bold tracking-tight text-white">Phish-Slayer</span>
+            <span className="text-xl font-bold tracking-tight text-white">
+              Phish-Slayer
+            </span>
           </div>
 
           <div className="max-w-md">
@@ -45,13 +46,14 @@ export default function ForgotPasswordPage() {
               Account recovery made simple.
             </h1>
             <p className="text-teal-50/70 text-base leading-relaxed">
-              We'll send a secure link to your registered email address.
-              Click it to create a new password.
+              We'll send a secure link to your registered email address. Click
+              it to create a new password.
             </p>
           </div>
 
           <p className="text-xs text-slate-500 font-medium">
-            © {mounted ? new Date().getFullYear() : "-"} Phish-Slayer Enterprise Security
+            © {mounted ? new Date().getFullYear() : "-"} Phish-Slayer Enterprise
+            Security
           </p>
         </div>
       </div>
@@ -59,13 +61,14 @@ export default function ForgotPasswordPage() {
       {/* Right — Form / Success */}
       <div className="flex-1 flex items-center justify-center px-6 py-12 sm:px-12">
         <div className="w-full max-w-md">
-
           {/* Mobile Logo */}
           <div className="flex items-center gap-3 mb-10 lg:hidden">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 text-teal-400">
               <ShieldAlert className="w-6 h-6" />
             </div>
-            <span className="text-xl font-bold tracking-tight text-slate-900">Phish-Slayer</span>
+            <span className="text-xl font-bold tracking-tight text-slate-900">
+              Phish-Slayer
+            </span>
           </div>
 
           {/* Back to login */}
@@ -84,8 +87,8 @@ export default function ForgotPasswordPage() {
                   Reset your password
                 </h2>
                 <p className="text-sm text-slate-500 leading-relaxed">
-                  Enter the email address associated with your account. We&apos;ll send
-                  you a link to reset your password.
+                  Enter the email address associated with your account.
+                  We&apos;ll send you a link to reset your password.
                 </p>
               </div>
 

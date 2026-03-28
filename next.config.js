@@ -1,45 +1,52 @@
 const cspHeader = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.paddle.com https://app.termly.io",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.paddle.com https://app.termly.io https://public.profitwell.com",
+  "script-src-elem 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.paddle.com https://app.termly.io https://public.profitwell.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://app.termly.io https://cdn.paddle.com",
   "style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com https://app.termly.io https://cdn.paddle.com",
   "img-src * data: blob:",
   "font-src 'self' data: https://fonts.gstatic.com",
-  "connect-src 'self' https://*.paddle.com https://*.supabase.co https://*.supabase.in https://app.termly.io https://us.consent.api.termly.io wss://*.supabase.co wss://phishslayer.tech https://www.virustotal.com",
+  "connect-src 'self' https://*.paddle.com https://*.supabase.co https://*.supabase.in https://app.termly.io https://us.consent.api.termly.io wss://*.supabase.co wss://phishslayer.tech https://www.virustotal.com https://public.profitwell.com https://*.profitwell.com",
   "frame-src https://buy.paddle.com https://*.paddle.com https://app.termly.io https://checkout-service.paddle.com",
-  "worker-src blob:"
-].join('; ')
+  "worker-src blob:",
+].join("; ");
 
 const securityHeaders = [
-  { key: 'X-DNS-Prefetch-Control', value: 'on' },
-  { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
-  { key: 'X-Content-Type-Options', value: 'nosniff' },
-  { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
-  { key: 'X-XSS-Protection', value: '1; mode=block' },
-  { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
+  { key: "X-DNS-Prefetch-Control", value: "on" },
+  { key: "X-Frame-Options", value: "SAMEORIGIN" },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   {
-    key: 'Content-Security-Policy',
-    value: cspHeader
+    key: "Permissions-Policy",
+    value: "camera=(), microphone=(), geolocation=()",
   },
-]
+  { key: "X-XSS-Protection", value: "1; mode=block" },
+  {
+    key: "Strict-Transport-Security",
+    value: "max-age=63072000; includeSubDomains; preload",
+  },
+  {
+    key: "Content-Security-Policy",
+    value: cspHeader,
+  },
+];
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',
+  output: "standalone",
   async headers() {
-    return [{ source: '/(.*)', headers: securityHeaders }]
+    return [{ source: "/(.*)", headers: securityHeaders }];
   },
   experimental: {
     serverActions: {
       allowedOrigins: [
-        'phishslayer.tech',
-        'www.phishslayer.tech',
-        '40.123.224.93',
-        'localhost:3000',
-      ]
-    }
-  }
+        "phishslayer.tech",
+        "www.phishslayer.tech",
+        "40.123.224.93",
+        "localhost:3000",
+      ],
+    },
+  },
 };
 
 module.exports = nextConfig;

@@ -25,7 +25,8 @@ export default function TwoFactorPage() {
   }, []);
 
   const code = otp.join("");
-  const isComplete = code.length === OTP_LENGTH && otp.every((d) => /\d/.test(d));
+  const isComplete =
+    code.length === OTP_LENGTH && otp.every((d) => /\d/.test(d));
 
   const focusInput = useCallback((index: number) => {
     inputRefs.current[index]?.focus();
@@ -39,7 +40,10 @@ export default function TwoFactorPage() {
     if (value && index < OTP_LENGTH - 1) focusInput(index + 1);
   };
 
-  const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (
+    index: number,
+    e: React.KeyboardEvent<HTMLInputElement>,
+  ) => {
     if (e.key === "Backspace" && !otp[index] && index > 0) {
       focusInput(index - 1);
     }
@@ -47,7 +51,10 @@ export default function TwoFactorPage() {
 
   const handlePaste = (e: React.ClipboardEvent) => {
     e.preventDefault();
-    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, OTP_LENGTH);
+    const pasted = e.clipboardData
+      .getData("text")
+      .replace(/\D/g, "")
+      .slice(0, OTP_LENGTH);
     if (!pasted) return;
     const next = [...otp];
     for (let i = 0; i < pasted.length; i++) next[i] = pasted[i];
@@ -57,7 +64,6 @@ export default function TwoFactorPage() {
 
   return (
     <div className="flex min-h-screen w-full bg-[#fafafa] font-sans text-slate-900">
-
       {/* Left — Brand Panel */}
       <div className="hidden lg:flex lg:w-[45%] xl:w-[42%] relative flex-col justify-between bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-700 text-white overflow-hidden">
         <div className="absolute -top-32 -left-32 w-96 h-96 bg-white/10 rounded-full blur-3xl" />
@@ -68,7 +74,9 @@ export default function TwoFactorPage() {
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
               <ShieldAlert className="w-6 h-6 text-white" />
             </div>
-            <span className="text-xl font-bold tracking-tight">Phish-Slayer</span>
+            <span className="text-xl font-bold tracking-tight">
+              Phish-Slayer
+            </span>
           </div>
 
           <div className="max-w-md">
@@ -79,28 +87,36 @@ export default function TwoFactorPage() {
               Two-factor authentication
             </h1>
             <p className="text-blue-100 text-base leading-relaxed mb-8">
-              Scan the QR code with your authenticator app (like Google Authenticator
-              or Authy), then enter the 6-digit verification code below.
+              Scan the QR code with your authenticator app (like Google
+              Authenticator or Authy), then enter the 6-digit verification code
+              below.
             </p>
 
             <div className="space-y-3">
               <div className="flex items-center gap-3">
                 <CheckCircle2 className="w-5 h-5 text-emerald-300 shrink-0" />
-                <span className="text-sm text-blue-100">Time-based one-time passwords</span>
+                <span className="text-sm text-blue-100">
+                  Time-based one-time passwords
+                </span>
               </div>
               <div className="flex items-center gap-3">
                 <CheckCircle2 className="w-5 h-5 text-emerald-300 shrink-0" />
-                <span className="text-sm text-blue-100">Works offline — no SMS needed</span>
+                <span className="text-sm text-blue-100">
+                  Works offline — no SMS needed
+                </span>
               </div>
               <div className="flex items-center gap-3">
                 <CheckCircle2 className="w-5 h-5 text-emerald-300 shrink-0" />
-                <span className="text-sm text-blue-100">Phishing-resistant second factor</span>
+                <span className="text-sm text-blue-100">
+                  Phishing-resistant second factor
+                </span>
               </div>
             </div>
           </div>
 
           <p className="text-xs text-blue-200/70">
-            © {mounted ? new Date().getFullYear() : "-"} Phish-Slayer Enterprise Security
+            © {mounted ? new Date().getFullYear() : "-"} Phish-Slayer Enterprise
+            Security
           </p>
         </div>
       </div>
@@ -108,13 +124,14 @@ export default function TwoFactorPage() {
       {/* Right — 2FA Form / Success */}
       <div className="flex-1 flex items-center justify-center px-6 py-12 sm:px-12">
         <div className="w-full max-w-md">
-
           {/* Mobile Logo */}
           <div className="flex items-center gap-3 mb-10 lg:hidden">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white">
               <ShieldAlert className="w-6 h-6" />
             </div>
-            <span className="text-xl font-bold tracking-tight text-slate-900">Phish-Slayer</span>
+            <span className="text-xl font-bold tracking-tight text-slate-900">
+              Phish-Slayer
+            </span>
           </div>
 
           {!verified ? (
@@ -182,11 +199,16 @@ export default function TwoFactorPage() {
                   <label className="block text-sm font-semibold text-slate-700 mb-3">
                     Verification code
                   </label>
-                  <div className="flex gap-3 justify-center" onPaste={handlePaste}>
+                  <div
+                    className="flex gap-3 justify-center"
+                    onPaste={handlePaste}
+                  >
                     {otp.map((digit, i) => (
                       <input
                         key={i}
-                        ref={(el) => { inputRefs.current[i] = el; }}
+                        ref={(el) => {
+                          inputRefs.current[i] = el;
+                        }}
                         type="text"
                         inputMode="numeric"
                         maxLength={1}
@@ -240,7 +262,8 @@ export default function TwoFactorPage() {
               </h2>
               <p className="text-sm text-slate-500 leading-relaxed mb-8">
                 Two-factor authentication is now active on your account.
-                You&apos;ll be asked for a verification code each time you sign in.
+                You&apos;ll be asked for a verification code each time you sign
+                in.
               </p>
               <Link
                 href="/dashboard"

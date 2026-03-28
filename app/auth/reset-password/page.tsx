@@ -29,7 +29,6 @@ export default function ResetPasswordPage() {
 
   return (
     <div className="flex min-h-screen w-full bg-[#fafafa] font-sans text-slate-900">
-
       {/* Left — Brand Panel */}
       <div className="hidden lg:flex lg:w-[45%] xl:w-[42%] relative flex-col justify-between bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-700 text-white overflow-hidden">
         <div className="absolute -top-32 -left-32 w-96 h-96 bg-white/10 rounded-full blur-3xl" />
@@ -40,7 +39,9 @@ export default function ResetPasswordPage() {
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
               <ShieldAlert className="w-6 h-6 text-white" />
             </div>
-            <span className="text-xl font-bold tracking-tight">Phish-Slayer</span>
+            <span className="text-xl font-bold tracking-tight">
+              Phish-Slayer
+            </span>
           </div>
 
           <div className="max-w-md">
@@ -58,21 +59,28 @@ export default function ResetPasswordPage() {
             <div className="space-y-3">
               <div className="flex items-center gap-3">
                 <CheckCircle2 className="w-5 h-5 text-emerald-300 shrink-0" />
-                <span className="text-sm text-blue-100">Minimum 8 characters</span>
+                <span className="text-sm text-blue-100">
+                  Minimum 8 characters
+                </span>
               </div>
               <div className="flex items-center gap-3">
                 <CheckCircle2 className="w-5 h-5 text-emerald-300 shrink-0" />
-                <span className="text-sm text-blue-100">Mix of uppercase &amp; lowercase</span>
+                <span className="text-sm text-blue-100">
+                  Mix of uppercase &amp; lowercase
+                </span>
               </div>
               <div className="flex items-center gap-3">
                 <CheckCircle2 className="w-5 h-5 text-emerald-300 shrink-0" />
-                <span className="text-sm text-blue-100">Include numbers or symbols</span>
+                <span className="text-sm text-blue-100">
+                  Include numbers or symbols
+                </span>
               </div>
             </div>
           </div>
 
           <p className="text-xs text-blue-200/70">
-            © {mounted ? new Date().getFullYear() : "-"} Phish-Slayer Enterprise Security
+            © {mounted ? new Date().getFullYear() : "-"} Phish-Slayer Enterprise
+            Security
           </p>
         </div>
       </div>
@@ -80,13 +88,14 @@ export default function ResetPasswordPage() {
       {/* Right — Form / Success */}
       <div className="flex-1 flex items-center justify-center px-6 py-12 sm:px-12">
         <div className="w-full max-w-md">
-
           {/* Mobile Logo */}
           <div className="flex items-center gap-3 mb-10 lg:hidden">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white">
               <ShieldAlert className="w-6 h-6" />
             </div>
-            <span className="text-xl font-bold tracking-tight text-slate-900">Phish-Slayer</span>
+            <span className="text-xl font-bold tracking-tight text-slate-900">
+              Phish-Slayer
+            </span>
           </div>
 
           {!submitted ? (
@@ -104,7 +113,8 @@ export default function ResetPasswordPage() {
                   Create new password
                 </h2>
                 <p className="text-sm text-slate-500 leading-relaxed">
-                  Your new password must be different from previously used passwords.
+                  Your new password must be different from previously used
+                  passwords.
                 </p>
               </div>
 
@@ -146,7 +156,11 @@ export default function ResetPasswordPage() {
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-slate-400 hover:text-slate-600 transition-colors"
                     >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      {showPassword ? (
+                        <EyeOff className="w-4 h-4" />
+                      ) : (
+                        <Eye className="w-4 h-4" />
+                      )}
                     </button>
                   </div>
                   {/* Strength indicator */}
@@ -172,7 +186,9 @@ export default function ResetPasswordPage() {
                       />
                       <div
                         className={`h-1 flex-1 rounded-full transition-colors ${
-                          password.length >= 10 ? "bg-emerald-500" : "bg-slate-200"
+                          password.length >= 10
+                            ? "bg-emerald-500"
+                            : "bg-slate-200"
                         }`}
                       />
                     </div>
@@ -212,7 +228,11 @@ export default function ResetPasswordPage() {
                       onClick={() => setShowConfirm(!showConfirm)}
                       className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-slate-400 hover:text-slate-600 transition-colors"
                     >
-                      {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      {showConfirm ? (
+                        <EyeOff className="w-4 h-4" />
+                      ) : (
+                        <Eye className="w-4 h-4" />
+                      )}
                     </button>
                   </div>
                   {confirmPassword.length > 0 && !passwordsMatch && (

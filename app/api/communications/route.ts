@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { Resend } from "resend";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -18,92 +17,77 @@ export async function POST(request: Request) {
   try {
     const payload: EmailPayload = await request.json();
 
-    const type = payload.type || "Newsletter Subscription";
-    const userEmail = (payload.email || payload.userEmail || "")
+    const email = (payload.email || payload.userEmail || "")
       .trim()
       .toLowerCase();
-    const name = payload.name;
-    const message = payload.message;
 
-    if (!userEmail) {
+    if (!email) {
       return NextResponse.json(
         { error: "Email is required." },
         { status: 400 },
       );
     }
 
-    if (!emailRegex.test(userEmail)) {
+    if (!emailRegex.test(email)) {
       return NextResponse.json(
         { error: "Invalid email address." },
         { status: 400 },
       );
     }
 
-    const resendApiKey = process.env.RESEND_API_KEY;
     const supabase = await createClient();
 
-    const saveFallback = async () => {
-      const { error } = await supabase.from("waitlist").upsert(
-        { email: userEmail, tier: "newsletter" },
-        { onConflict: "email" },
+    const { error } = await supabase
+      .from("waitlist")
+      .upsert({ email, tier: "newsletter" }, { onConflict: "email" });
+
+    if (error) {
+      console.error("Communications DB save error:", error);
+      return NextResponse.json(
+        { error: "Failed to save subscription." },
+        { status: 500 },
       );
-
-      if (error && error.code !== "23505") {
-        console.error("Communications fallback error:", error);
-      }
-
-      return NextResponse.json({ success: true, message: "Thanks! You'll hear from us soon." });
-    };
-
-    if (!resendApiKey) {
-      return saveFallback();
     }
 
-    const resend = new Resend(resendApiKey);
-
-    // Dynamic subject line based on the type of form submitted
-    let subject = `[Phish-Slayer] New Inquiry: ${type.toUpperCase()}`;
-    if (name) {
-      subject += ` from ${name}`;
-    }
-
-    // Construct the email body
-    const textBody = `
-New ${type} received.
-
-From: ${name || "Anonymous"} (${userEmail})
-
-Message:
-${message || "No message provided."}
-    `;
-
-    const htmlBody = `
-      <h3>New ${type} Submission</h3>
-      <p><strong>From:</strong> ${name || "Anonymous"} (${userEmail})</p>
-      <p><strong>Message:</strong></p>
-      <p>${message ? message.replace(/\\n/g, "<br/>") : "No message provided."}</p>
-    `;
-
-    // Send the email
-    const fromEmail = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
-    const toEmail = process.env.SUPPORT_EMAIL || "support@phishslayer.tech";
-
-    try {
-      const { error: sendError } = await resend.emails.send({
-        from: `Phish-Slayer Platform <${fromEmail}>`,
-        to: toEmail,
-        subject: subject,
-        text: textBody,
-        html: htmlBody,
-      });
-
-      if (sendError) {
-        console.error("Resend error:", sendError);
-        return saveFallback();
+    const resendApiKey = process.env.RESEND_API_KEY;
+    if (resendApiKey) {
+      try {
+        await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${resendApiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            from: "Phish-Slayer <support@phishslayer.tech>",
+            to: [email],
+            subject: "Welcome to Phish-Slayer Updates",
+            html: `
+              <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2 style="color: #2DD4BF;">Welcome to Phish-Slayer 🛡️</h2>
+                <p>Thanks for subscribing! You'll be the first to know about:</p>
+                <ul>
+                  <li>New threat intelligence features</li>
+                  <li>Adaptive Defense Engine launch</li>
+                  <li>Platform updates and security insights</li>
+                </ul>
+                <p>In the meantime, check out the platform:</p>
+                <a href="https://phishslayer.tech"
+                  style="background: #2DD4BF; color: #0D1117;
+                  padding: 12px 24px; border-radius: 6px;
+                  text-decoration: none; display: inline-block;">
+                  Visit Phish-Slayer
+                </a>
+                <p style="color: #8B949E; margin-top: 24px; font-size: 12px;">
+                  You can unsubscribe at any time by replying to this email.
+                </p>
+              </div>
+            `,
+          }),
+        });
+      } catch (emailError) {
+        console.error("Welcome email send failed:", emailError);
       }
-    } catch (emailError) {
-      console.error("Email send exception:", emailError);
-      return saveFallback();
     }
 
     return NextResponse.json({

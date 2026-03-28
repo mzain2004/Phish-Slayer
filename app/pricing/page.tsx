@@ -506,44 +506,42 @@ export default function PricingPage() {
       </section>
 
       {showDowngradeModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 px-4">
-          <div className="w-full max-w-md bg-[#161B22] border border-[#30363D] rounded-2xl p-6">
-            <h3 className="text-lg font-bold text-[#E6EDF3] mb-3">
-              Downgrade Request
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div
+            style={{
+              background: "#161B22",
+              border: "1px solid #30363D",
+              borderRadius: "12px",
+              padding: "32px",
+              maxWidth: "400px",
+              width: "90%",
+              textAlign: "center",
+            }}
+          >
+            <h3 style={{ color: "#E6EDF3", marginBottom: "12px" }}>
+              Downgrade Plan
             </h3>
-            <p className="text-[#8B949E] text-sm leading-relaxed mb-6">
-              To downgrade your plan, please contact support@phishslayer.tech
+            <p style={{ color: "#8B949E", marginBottom: "24px" }}>
+              To downgrade your plan, email us at:
             </p>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() =>
-                  (window.location.href = "mailto:support@phishslayer.tech")
-                }
-                style={{
-                  background: "#2DD4BF",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "6px",
-                  padding: "10px 14px",
-                }}
-                className="text-sm font-semibold"
-              >
-                Contact Support
-              </button>
-              <button
-                onClick={() => setShowDowngradeModal(false)}
-                style={{
-                  background: "transparent",
-                  color: "#8B949E",
-                  border: "1px solid #30363D",
-                  borderRadius: "6px",
-                  padding: "10px 14px",
-                }}
-                className="text-sm font-semibold"
-              >
-                Close
-              </button>
-            </div>
+            <a href="mailto:support@phishslayer.tech" style={{ color: "#2DD4BF" }}>
+              support@phishslayer.tech
+            </a>
+            <button
+              onClick={() => setShowDowngradeModal(false)}
+              style={{
+                display: "block",
+                margin: "24px auto 0",
+                padding: "8px 24px",
+                background: "transparent",
+                border: "1px solid #30363D",
+                borderRadius: "6px",
+                color: "#8B949E",
+                cursor: "pointer",
+              }}
+            >
+              Close
+            </button>
           </div>
         </div>
       )}

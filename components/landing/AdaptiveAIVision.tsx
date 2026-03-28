@@ -46,7 +46,7 @@ export function AdaptiveAIVision() {
       }
 
       setFeedback(
-        "You're on the list! We'll notify you when Adaptive Defense launches.",
+        "You're on the list! We'll notify you when Adaptive Defense launches. 🚀",
       );
       setEmail("");
     } catch {
