@@ -1,8 +1,9 @@
-export const dynamic = 'force-dynamic'
-export const runtime = 'nodejs'
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { safeCompare } from '@/lib/security/safeCompare';
+
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 export async function GET(request: NextRequest) {
   // ── CRON Secret Guard ───────────────────────────────────────────────

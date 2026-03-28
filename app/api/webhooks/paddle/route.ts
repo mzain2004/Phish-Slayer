@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyPaddleWebhook, PADDLE_SOC_PRO_PRICE_ID, PADDLE_CC_PRICE_ID } from '@/lib/paddle';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+
 // Paddle Billing webhook events
 interface PaddleWebhookEvent {
   event_type: string;
