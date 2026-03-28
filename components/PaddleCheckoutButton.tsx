@@ -60,6 +60,12 @@ export default function PaddleCheckoutButton({
               ? "production"
               : "sandbox",
           token,
+          eventCallback: function (event) {
+            console.log("Paddle event:", event);
+            if (event.name === "checkout.error") {
+              console.error("Checkout error:", event.data);
+            }
+          },
         });
 
         if (active) {
@@ -95,8 +101,13 @@ export default function PaddleCheckoutButton({
     setLoading(true);
     try {
       p.Checkout.open({
+        items: [
+          {
+            priceId: priceId,
+            quantity: 1,
+          },
+        ],
         ...(userEmail ? { customer: { email: userEmail } } : {}),
-        items: [{ priceId, quantity: 1 }],
         settings: {
           displayMode: "overlay",
           theme: "dark",

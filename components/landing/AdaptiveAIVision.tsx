@@ -35,10 +35,7 @@ export function AdaptiveAIVision() {
       const res = await fetch("/api/waitlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: normalized,
-          tier: "adaptive_defense",
-        }),
+        body: JSON.stringify({ email: normalized }),
       });
 
       if (!res.ok) {
@@ -46,7 +43,7 @@ export function AdaptiveAIVision() {
       }
 
       setFeedback(
-        "You're on the list! We'll notify you when Adaptive Defense launches. 🚀",
+        "You're on the list! We'll be in touch. 🚀",
       );
       setEmail("");
     } catch {

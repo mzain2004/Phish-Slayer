@@ -26,7 +26,7 @@ export function Footer() {
       const data = await res.json();
 
       if (res.ok) {
-        toast.success(data?.message || "Thanks! You'll hear from us soon.");
+        toast.success("You're on the list! We'll be in touch. 🚀");
         setEmail("");
       } else {
         toast.error(data?.error || "Failed to subscribe. Please try again.");

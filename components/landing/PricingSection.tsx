@@ -4,7 +4,6 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Check } from "lucide-react";
 import { useRouter } from "next/navigation";
-import PaddleCheckoutButton from "@/components/PaddleCheckoutButton";
 
 const springConfig = {
   type: "spring" as const,
@@ -13,33 +12,16 @@ const springConfig = {
   bounce: 0.1,
 };
 
-const PADDLE_PRICES = {
-  SOC_PRO_MONTHLY: process.env.NEXT_PUBLIC_PADDLE_SOC_PRO_PRICE_ID || "",
-  SOC_PRO_ANNUAL: process.env.NEXT_PUBLIC_PADDLE_SOC_PRO_PRICE_ID || "",
-  CC_MONTHLY: process.env.NEXT_PUBLIC_PADDLE_CC_PRICE_ID || "",
-  CC_ANNUAL: process.env.NEXT_PUBLIC_PADDLE_CC_PRICE_ID || "",
-};
-
 export function PricingSection() {
   const [isAnnual, setIsAnnual] = useState(false);
   const router = useRouter();
 
-  const getPriceId = (planName: string) => {
-    if (planName === "SOC Pro") {
-      return isAnnual
-        ? PADDLE_PRICES.SOC_PRO_ANNUAL
-        : PADDLE_PRICES.SOC_PRO_MONTHLY;
-    }
-    if (planName === "Command & Control") {
-      return isAnnual ? PADDLE_PRICES.CC_ANNUAL : PADDLE_PRICES.CC_MONTHLY;
-    }
-    return "";
-  };
-
   const handleAction = async (planName: string) => {
     if (planName === "Free") {
       router.push("/auth/signup");
+      return;
     }
+    window.location.href = "/auth/signup";
   };
 
   const tiers = [
@@ -282,27 +264,19 @@ export function PricingSection() {
                   ))}
                 </ul>
 
-                {tier.name === "Free" ? (
-                  <button
-                    onClick={() => handleAction(tier.name)}
-                    style={{
-                      background: "transparent",
-                      color: "#8B949E",
-                      border: "1px solid #8B949E",
-                      borderRadius: "6px",
-                      width: "100%",
-                      padding: "12px",
-                    }}
-                    className="font-bold text-[15px] transition-all duration-200 focus:outline-none tracking-[0.01em] hover:opacity-90"
-                  >
-                    {tier.cta}
-                  </button>
-                ) : (
-                  <PaddleCheckoutButton
-                    priceId={getPriceId(tier.name)}
-                    variant="outline"
-                    style={
-                      isCC
+                <button
+                  onClick={() => handleAction(tier.name)}
+                  style={
+                    tier.name === "Free"
+                      ? {
+                          background: "transparent",
+                          color: "#8B949E",
+                          border: "1px solid #8B949E",
+                          borderRadius: "6px",
+                          width: "100%",
+                          padding: "12px",
+                        }
+                      : isCC
                         ? {
                             background:
                               "linear-gradient(135deg, #2DD4BF, #A78BFA)",
@@ -320,12 +294,15 @@ export function PricingSection() {
                             width: "100%",
                             padding: "12px",
                           }
-                    }
-                    className="font-bold text-[15px] transition-all duration-200 hover:opacity-90"
-                  >
-                    {isCC ? "Start Global Fleet →" : "Upgrade Now"}
-                  </PaddleCheckoutButton>
-                )}
+                  }
+                  className="font-bold text-[15px] transition-all duration-200 focus:outline-none tracking-[0.01em] hover:opacity-90"
+                >
+                  {tier.name === "Free"
+                    ? "Get Started"
+                    : isCC
+                      ? "Get Started"
+                      : "Get Started"}
+                </button>
               </motion.div>
             );
           })}

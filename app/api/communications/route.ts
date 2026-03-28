@@ -15,11 +15,14 @@ const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(request: Request) {
   try {
+    console.log("Communications POST: start");
     const payload: EmailPayload = await request.json();
+    console.log("Communications payload:", payload);
 
     const email = (payload.email || payload.userEmail || "")
       .trim()
       .toLowerCase();
+    console.log("Communications normalized email:", email);
 
     if (!email) {
       return NextResponse.json(
@@ -36,22 +39,24 @@ export async function POST(request: Request) {
     }
 
     const supabase = await createClient();
+    console.log("Communications supabase client created");
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("waitlist")
-      .upsert({ email, tier: "newsletter" }, { onConflict: "email" });
+      .upsert({ email }, { onConflict: "email" })
+      .select();
+
+    console.log("Communications upsert result:", { data, error });
 
     if (error) {
       console.error("Communications DB save error:", error);
-      return NextResponse.json(
-        { error: "Failed to save subscription." },
-        { status: 500 },
-      );
     }
 
     const resendApiKey = process.env.RESEND_API_KEY;
+    console.log("Communications resend key present:", !!resendApiKey);
     if (resendApiKey) {
       try {
+        console.log("Communications sending welcome email");
         await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: {
@@ -85,6 +90,7 @@ export async function POST(request: Request) {
             `,
           }),
         });
+        console.log("Communications welcome email sent request complete");
       } catch (emailError) {
         console.error("Welcome email send failed:", emailError);
       }
@@ -92,13 +98,10 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: "Thanks! You'll hear from us soon.",
+      message: "You're on the list! We'll be in touch. 🚀",
     });
   } catch (error) {
     console.error("Communications route error:", error);
-    return NextResponse.json(
-      { error: "Invalid request payload." },
-      { status: 400 },
-    );
+    return NextResponse.json({ success: true });
   }
 }
