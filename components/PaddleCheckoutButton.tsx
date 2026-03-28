@@ -31,7 +31,7 @@ export default function PaddleCheckoutButton({
         }
 
         const p = await initializePaddle({
-          environment: (process.env.NEXT_PUBLIC_PADDLE_ENV as 'sandbox' | 'production') || 'sandbox',
+          environment: 'production',
           token: token,
         });
 
@@ -49,17 +49,7 @@ export default function PaddleCheckoutButton({
 
   const handleCheckout = () => {
     if (!paddle) {
-      setLoading(true);
-      // Attempt one-time re-init if somehow missed
-      toast.info('Initializing payment system...');
-      setTimeout(() => {
-        if (!paddle) {
-          toast.error('Payment system failed to load. Please refresh the page or contact support.');
-          setLoading(false);
-        } else {
-          openCheckout(paddle);
-        }
-      }, 2000);
+      toast.error('Payment system loading. Please try again.');
       return;
     }
     openCheckout(paddle);
@@ -93,10 +83,10 @@ export default function PaddleCheckoutButton({
   return (
     <button
       onClick={handleCheckout}
-      disabled={loading}
+      disabled={loading || !paddle}
       className={`${baseStyles} ${variants[variant]} ${className}`}
     >
-      {loading && !paddle ? <Loader2 className="w-4 h-4 animate-spin" /> : children}
+      {(loading || !paddle) ? <Loader2 className="w-4 h-4 animate-spin" /> : children}
     </button>
   );
 }

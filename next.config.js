@@ -8,7 +8,7 @@ const securityHeaders = [
   { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
   {
     key: 'Content-Security-Policy',
-    value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.paddle.com https://app.termly.io; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src * data: blob:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://*.paddle.com https://*.supabase.co https://*.supabase.in; frame-src https://buy.paddle.com https://*.paddle.com;"
+    value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.paddle.com https://app.termly.io; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://app.termly.io; img-src * data: blob:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://*.paddle.com https://*.supabase.co https://*.supabase.in https://app.termly.io wss://*.supabase.co wss://phishslayer.tech https://www.virustotal.com; frame-src https://buy.paddle.com https://*.paddle.com https://app.termly.io;"
   },
 ]
 
@@ -23,7 +23,7 @@ const nextConfig = {
       allowedOrigins: [
         'phishslayer.tech',
         'www.phishslayer.tech',
-        '20.235.98.184',
+        '40.123.224.93',
         'localhost:3000',
       ]
     }

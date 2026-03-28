@@ -236,10 +236,32 @@ export default function PricingPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto items-stretch">
           {tiers.map((t, i) => {
             const btn = getButtonConfig(t);
+            const isCC = t.id === "command_control";
 
             return (
-              <div key={i} className={`bg-[#161b22] border border-[#30363d] rounded-2xl p-8 flex flex-col transition-all duration-300 ${t.popular ? 'ring-2 ring-teal-500/50 shadow-2xl shadow-teal-500/10 scale-105 z-10' : 'hover:bg-[#1c2128]'}`}>
-                {t.popular && <div className="text-center mb-6"><span className="bg-teal-500/10 text-teal-400 border border-teal-500/20 text-[10px] font-black tracking-widest uppercase px-3 py-1 rounded-full">RECOMMENDED</span></div>}
+              <div 
+                key={i} 
+                style={isCC ? {
+                  border: '2px solid transparent',
+                  background: 'linear-gradient(#161B22, #161B22) padding-box, linear-gradient(135deg, #2DD4BF, #A78BFA) border-box',
+                  transform: 'scale(1.05)',
+                  boxShadow: '0 0 40px rgba(45, 212, 191, 0.15)',
+                } : {}}
+                className={`relative p-8 rounded-2xl flex flex-col transition-all duration-300 ${
+                  isCC ? 'z-20' : (t.popular ? 'ring-2 ring-teal-500/50 shadow-2xl shadow-teal-500/10 scale-105 z-10' : 'hover:bg-[#1c2128] bg-[#161b22] border border-[#30363d]')
+                }`}
+              >
+                {t.popular && !isCC && (
+                  <div className="text-center mb-6">
+                    <span className="bg-teal-500/10 text-teal-400 border border-teal-500/20 text-[10px] font-black tracking-widest uppercase px-3 py-1 rounded-full">RECOMMENDED</span>
+                  </div>
+                )}
+
+                {isCC && (
+                  <div className="text-center mb-6">
+                    <span className="bg-gradient-to-r from-[#2DD4BF] to-[#A78BFA] text-white text-[10px] font-black tracking-[0.2em] uppercase px-4 py-1.5 rounded-full shadow-lg">MOST POWERFUL</span>
+                  </div>
+                )}
 
                 <h3 className="text-xl font-bold text-[#e6edf3] mb-2">{t.name}</h3>
                 <p className="text-[#8b949e] text-sm leading-relaxed mb-8">{t.desc}</p>
@@ -254,18 +276,44 @@ export default function PricingPage() {
                 <ul className="space-y-4 mb-10 flex-1">
                   {t.features.map((f, idx) => (
                     <li key={idx} className="flex items-start gap-3">
-                      {f.ok ? <Check className="w-4 h-4 text-teal-400 mt-0.5 shrink-0" /> : <X className="w-4 h-4 text-[#30363d] mt-0.5 shrink-0" />}
+                      {f.ok ? (
+                        <Check className={`w-4 h-4 mt-0.5 shrink-0 ${isCC ? 'text-[#A78BFA]' : 'text-teal-400'}`} />
+                      ) : (
+                        <X className="w-4 h-4 text-[#30363d] mt-0.5 shrink-0" />
+                      )}
                       <span className={`text-sm ${f.ok ? 'text-[#e6edf3]' : 'text-[#6e7681]'}`}>{f.text}</span>
                     </li>
                   ))}
                 </ul>
 
                 <button
-                  onClick={btn.action}
-                  disabled={btn.disabled || loadingConfig || checkoutLoading === t.id}
-                  className={`w-full py-3 rounded-xl text-sm font-bold transition-all ${btn.disabled ? 'bg-[#21262d] text-[#6e7681] cursor-not-allowed' : t.popular ? 'bg-teal-500 hover:bg-teal-400 text-white shadow-lg shadow-teal-500/20' : 'bg-[#1c2128] border border-[#30363d] text-[#e6edf3] hover:bg-[#21262d]'}`}
+                  onClick={() => {
+                    if (btn.text === "Downgrade") {
+                      toast("Downgrade Request", {
+                        description: "To downgrade, please contact our support team at support@phishslayer.tech",
+                        action: {
+                          label: "Contact Support",
+                          onClick: () => window.location.href = "mailto:support@phishslayer.tech"
+                        }
+                      });
+                      return;
+                    }
+                    btn.action();
+                  }}
+                  disabled={(btn.disabled && btn.text !== "Downgrade") || loadingConfig || checkoutLoading === t.id}
+                  className={`w-full py-3 rounded-xl text-sm font-bold transition-all ${
+                    btn.disabled && btn.text !== "Downgrade" 
+                      ? 'bg-[#21262d] text-[#6e7681] cursor-not-allowed' 
+                      : isCC 
+                        ? 'bg-gradient-to-r from-[#2DD4BF] to-[#A78BFA] text-white shadow-xl shadow-teal-500/10 hover:scale-[1.02]'
+                        : t.popular 
+                          ? 'bg-teal-500 hover:bg-teal-400 text-white shadow-lg shadow-teal-500/20' 
+                          : 'bg-[#1c2128] border border-[#30363d] text-[#e6edf3] hover:bg-[#21262d]'
+                  }`}
                 >
-                  {loadingConfig || checkoutLoading === t.id ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : btn.text}
+                  {loadingConfig || checkoutLoading === t.id ? (
+                    <Loader2 className="w-4 h-4 animate-spin mx-auto" />
+                  ) : isCC && btn.text === "Upgrade Now" ? "Start Global Fleet →" : btn.text}
                 </button>
               </div>
             );

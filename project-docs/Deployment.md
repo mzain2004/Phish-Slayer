@@ -9,7 +9,7 @@
 |----------|-------|
 | Provider | Microsoft Azure |
 | OS | Ubuntu 24.04 LTS |
-| IP Address | 20.235.98.184 |
+| IP Address | 40.123.224.93 |
 | Domain | phishslayer.tech |
 | SSH User | mzain2004 |
 | App Path | `/home/mzain2004/Phish-Slayer` |
@@ -121,7 +121,7 @@ Config file: `/etc/nginx/sites-available/default`
 ```nginx
 server {
     listen 80;
-    server_name phishslayer.tech www.phishslayer.tech 20.235.98.184;
+    server_name phishslayer.tech www.phishslayer.tech 40.123.224.93;
 
     location / {
         proxy_pass http://localhost:3000;

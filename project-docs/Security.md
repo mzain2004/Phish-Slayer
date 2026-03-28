@@ -41,7 +41,7 @@ experimental: {
     allowedOrigins: [
       'phishslayer.tech',
       'www.phishslayer.tech',
-      '20.235.98.184',           // Azure VM IP
+      '40.123.224.93',           // Azure VM IP
       'localhost:3000',
     ]
   }

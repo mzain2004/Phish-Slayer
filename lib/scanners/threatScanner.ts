@@ -17,23 +17,77 @@ export interface CtiFinding {
   };
 }
 
+function encodeUrlForVT(url: string): string {
+  // Ensure URL has protocol
+  const normalized = url.startsWith('http') 
+    ? url 
+    : `https://${url}`
+  
+  // Base64 encode
+  const encoded = Buffer.from(normalized)
+    .toString('base64')
+  
+  // Make URL-safe and remove padding
+  return encoded
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '')
+}
+
 export async function scanTarget(indicator: string): Promise<CtiFinding> {
   const isIp = net.isIP(indicator) !== 0; // returns 4 or 6 for valid IPs, 0 otherwise
 
-  const endpoint = isIp
+  let endpoint = isIp
     ? `${VT_BASE}/ip_addresses/${encodeURIComponent(indicator)}`
-    : `${VT_BASE}/urls/${Buffer.from(indicator).toString('base64url')}`;
+    : `${VT_BASE}/urls/${encodeUrlForVT(indicator)}`;
 
-  const res = await fetch(endpoint, {
+  let res = await fetch(endpoint, {
     headers: {
       'x-apikey': VT_API_KEY,
     },
-    // Ensure this isn't cached
     cache: 'no-store',
   });
 
+  // Handle 404 — Not found in VT database, so submit and wait
+  if (res.status === 404 && !isIp) {
+    console.log(`[VT] URL not found in database, submitting for analysis: ${indicator}`);
+    const submitRes = await fetch(`${VT_BASE}/urls`, {
+      method: 'POST',
+      headers: {
+        'x-apikey': VT_API_KEY,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: `url=${encodeURIComponent(indicator)}`,
+    });
+
+    if (submitRes.ok) {
+      // Poll a few times or just return unknown for now?
+      // For first-time scans, we'll mark as unknown rather than hanging the UI for minutes
+      return {
+        maliciousCount: 0,
+        totalEngines: 0,
+        verdict: 'unknown',
+        summary: {
+          last_analysis_stats: { unknown: 1 },
+          reputation: 0,
+          meaningful_name: 'Queued for Analysis',
+        },
+      };
+    }
+  }
+
   if (res.status === 429) {
-    throw new Error('RATE_LIMIT');
+    // Return a degraded but successful object instead of crashing
+    return {
+      maliciousCount: 0,
+      totalEngines: 0,
+      verdict: 'unknown',
+      summary: {
+        last_analysis_stats: { rate_limited: 1 },
+        reputation: 0,
+        meaningful_name: 'Rate Limited',
+      },
+    };
   }
 
   if (!res.ok) {

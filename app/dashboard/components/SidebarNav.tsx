@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
@@ -31,6 +32,11 @@ type SidebarNavProps = {
 
 export default function SidebarNav({ profile }: SidebarNavProps) {
   const pathname = usePathname();
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
+
+  const toggleSection = (label: string) => {
+    setCollapsedSections(prev => ({ ...prev, [label]: !prev[label] }));
+  };
 
   const isCurrentPath = (path: string) => pathname === path;
 
@@ -39,13 +45,13 @@ export default function SidebarNav({ profile }: SidebarNavProps) {
     return (
       <Link
         href={href}
-        className={`flex items-center gap-3 px-3 py-2 mx-2 rounded-full text-sm transition-all duration-200 ${
+        className={`flex items-center gap-3 px-3 py-2 mx-2 rounded-lg text-sm transition-all duration-200 ${
           isActive
-            ? 'text-teal-400 bg-teal-500/10 border border-teal-500/20 shadow-[0_0_15px_rgba(45,212,191,0.1)]'
-            : 'text-[#8b949e] hover:text-teal-400 hover:bg-teal-500/10'
+            ? 'text-teal-400 bg-teal-500/10 border border-teal-500/20 shadow-[0_0_15px_rgba(45,212,191,0.1)] font-bold opacity-100'
+            : 'text-[#8b949e] opacity-80 hover:opacity-100 hover:text-teal-400 hover:bg-teal-500/10'
         }`}
       >
-        <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-teal-400' : ''}`} />
+        <Icon className={`w-[1.1rem] h-[1.1rem] flex-shrink-0 ${isActive ? 'text-teal-400' : ''}`} />
         <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-100 whitespace-nowrap overflow-hidden">
           {label}
         </span>
@@ -54,9 +60,17 @@ export default function SidebarNav({ profile }: SidebarNavProps) {
   };
 
   const SectionLabel = ({ label }: { label: string }) => (
-    <span className="px-3 py-2 text-[10px] font-semibold tracking-widest uppercase text-[#6e7681] block mt-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-75 whitespace-nowrap overflow-hidden">
-      {label}
-    </span>
+    <div 
+      onClick={() => toggleSection(label)}
+      className="flex items-center justify-between px-3 py-2 mt-4 cursor-pointer group/label"
+    >
+      <span className="text-[10px] font-semibold tracking-widest uppercase text-[#6e7681] opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-75 whitespace-nowrap overflow-hidden">
+        {label}
+      </span>
+      <span className="text-[#6e7681] text-[10px] opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+        {collapsedSections[label] ? '+' : '−'}
+      </span>
+    </div>
   );
 
   const roleBadgeStyles: Record<UserRole, string> = {
@@ -86,23 +100,35 @@ export default function SidebarNav({ profile }: SidebarNavProps) {
 
       {/* Navigation */}
       <nav className="flex-1 py-4 overflow-y-auto">
-        <SectionLabel label="OPERATIONS" />
-        <NavItem href="/dashboard" icon={ShieldIcon} label="Command Center" />
-        <NavItem href="/dashboard/scans" icon={Search} label="Threat Scanner" />
-        <NavItem href="/dashboard/incidents" icon={AlertTriangle} label="Incidents" />
-        <NavItem href="/dashboard/threats" icon={Globe} label="Threat Intel" />
-        <NavItem href="/dashboard/intel" icon={Database} label="Intel Vault" />
+        <SectionLabel label="MONITORING" />
+        {!collapsedSections["MONITORING"] && (
+          <>
+            <NavItem href="/dashboard" icon={ShieldIcon} label="Command Center" />
+            <NavItem href="/dashboard/scans" icon={Search} label="Threat Scanner" />
+            <NavItem href="/dashboard/threats" icon={Globe} label="Threat Intel" />
+            <NavItem href="/dashboard/intel" icon={Database} label="Intel Vault" />
+          </>
+        )}
 
-        <SectionLabel label="INFRASTRUCTURE" />
-        <NavItem href="/dashboard/agent" icon={Monitor} label="Endpoint Monitor" />
-        <NavItem href="/dashboard/agents" icon={Cpu} label="Agent Fleet" />
+        <SectionLabel label="RESPONSE" />
+        {!collapsedSections["RESPONSE"] && (
+          <>
+            <NavItem href="/dashboard/incidents" icon={AlertTriangle} label="Incidents" />
+            <NavItem href="/dashboard/agent" icon={Monitor} label="Endpoint Monitor" />
+            <NavItem href="/dashboard/agents" icon={Cpu} label="Agent Fleet" />
+          </>
+        )}
 
         <SectionLabel label="PLATFORM" />
-        <NavItem href="/dashboard/settings" icon={Settings} label="Settings" />
-        <NavItem href="/dashboard/billing" icon={CreditCard} label="Billing" />
-        <NavItem href="/dashboard/admin" icon={Users} label="Team" />
-        <NavItem href="/dashboard/apikeys" icon={Key} label="API Keys" />
-        <NavItem href="/dashboard/audit" icon={FileText} label="Audit Log" />
+        {!collapsedSections["PLATFORM"] && (
+          <>
+            <NavItem href="/dashboard/settings" icon={Settings} label="Settings" />
+            <NavItem href="/dashboard/billing" icon={CreditCard} label="Billing" />
+            <NavItem href="/dashboard/admin" icon={Users} label="Team" />
+            <NavItem href="/dashboard/apikeys" icon={Key} label="API Keys" />
+            <NavItem href="/dashboard/audit" icon={FileText} label="Audit Log" />
+          </>
+        )}
 
         <div className="mt-8 border-t border-[#30363d]/50 pt-2">
           <NavItem href="/dashboard/support" icon={LifeBuoy} label="Support" />

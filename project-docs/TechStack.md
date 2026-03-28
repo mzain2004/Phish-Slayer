@@ -135,7 +135,7 @@ The technology choices below are FINAL for V3. Do not suggest replacing any of t
 ## 13. Infrastructure
 
 **Azure VM** — Ubuntu 24.04 LTS
-- IP: `20.235.98.184`
+- IP: `40.123.224.93`
 - Domain: `phishslayer.tech`
 - User: `mzain2004`
 - App path: `/home/mzain2004/Phish-Slayer`

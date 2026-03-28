@@ -1,61 +1,66 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
-import { Paddle, Environment } from '@paddle/paddle-node-sdk';
 
-export async function GET() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  // Get customer ID from profiles
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select('billing_customer_id')
-    .eq('id', user.id)
-    .single();
-
-  if (profileError || !profile?.billing_customer_id) {
-    return NextResponse.json(
-      { error: 'No active billing profile found. Please complete a checkout first.' },
-      { status: 404 }
-    );
-  }
-
+export async function POST() {
   try {
-    const paddle = new Paddle(process.env.PADDLE_API_KEY!, {
-      environment: (process.env.NEXT_PUBLIC_PADDLE_ENV as Environment) || Environment.sandbox,
-    });
-
-    // 1. Fetch active/trialing subscriptions for this customer
-    const subscriptionCollection = paddle.subscriptions.list({
-      customerId: [profile.billing_customer_id],
-      status: ['active', 'trialing'],
-    });
+    const supabase = await createClient();
     
-    const subscriptions = await subscriptionCollection.next();
-    const subscriptionIds = subscriptions.map((s: any) => s.id);
+    // 1. Get authenticated user
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-    if (subscriptionIds.length === 0) {
+    // 2. Get billing_customer_id from profiles
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('billing_customer_id')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || !profile?.billing_customer_id) {
       return NextResponse.json(
-        { error: 'No active subscription found to manage.' },
-        { status: 404 }
+        { error: 'No active subscription found. Please subscribe to a plan first.' }, 
+        { status: 400 }
       );
     }
 
-    // 2. Create portal session with the specific subscription IDs
-    const portalSession = await paddle.customerPortalSessions.create(
-      profile.billing_customer_id,
-      subscriptionIds
+    const customerId = profile.billing_customer_id;
+
+    // 3. Call Paddle portal session API
+    const response = await fetch(
+      `https://api.paddle.com/customers/${customerId}/portal-sessions`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.PADDLE_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          urls: [{ type: 'subscription_management' }]
+        })
+      }
     );
 
-    return NextResponse.json({ url: portalSession.urls.general });
-  } catch (error: any) {
-    console.error('Paddle Portal Error:', error);
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('Paddle Portal Session Error:', errorData);
+      return NextResponse.json(
+        { error: 'Failed to create billing portal session' }, 
+        { status: response.status }
+      );
+    }
+
+    const data = await response.json();
+    
+    // 4. Return portal URL
+    return NextResponse.json({ url: data.data.urls[0].url });
+
+  } catch (error) {
+    console.error('Billing Portal Route Error:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to generate portal link' },
+      { error: 'Internal server error' }, 
       { status: 500 }
     );
   }

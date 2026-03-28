@@ -155,31 +155,43 @@ export function PricingSection() {
           variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.25 } } }}
           className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto"
         >
-          {tiers.map((tier, i) => (
-            <motion.div
-              key={i}
-              variants={{ hidden: { opacity: 0, y: 80 }, visible: { opacity: 1, y: 0, transition: springConfig } }}
-              className={`relative p-8 rounded-[16px] flex flex-col transition-all duration-300 ease-out hover:-translate-y-2 hover:shadow-[0_20px_40px_-15px_rgba(45,212,191,0.15)] ${
-                tier.popular 
-                  ? 'bg-gradient-to-b from-[#2DD4BF]/[0.08] to-[#161B22] border border-[#2DD4BF]/40' 
-                  : 'bg-[#161B22] border border-[#30363D] hover:border-[#2DD4BF]'
-              }`}
-            >
-              {tier.popular && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#2DD4BF] text-[#0D1117] font-mono text-[10px] font-bold uppercase tracking-[0.12em] px-3 py-1 rounded-[4px]">
-                  Most Popular
-                </div>
-              )}
-              
-              <div className="mb-6">
-                <h3 className="text-xl font-bold text-[#E6EDF3] mb-2 tracking-tight">{tier.name}</h3>
-                <p className="text-[#8B949E] text-sm">{tier.description}</p>
-              </div>
+          {tiers.map((tier, i) => {
+            const isCC = tier.name === "Command & Control";
+            
+            return (
+              <motion.div
+                key={i}
+                variants={{ hidden: { opacity: 0, y: 80 }, visible: { opacity: 1, y: 0, transition: springConfig } }}
+                style={isCC ? {
+                  border: '2px solid transparent',
+                  background: 'linear-gradient(#161B22, #161B22) padding-box, linear-gradient(135deg, #2DD4BF, #A78BFA) border-box',
+                  transform: 'scale(1.03)',
+                  boxShadow: '0 0 40px rgba(45, 212, 191, 0.15)',
+                } : {}}
+                className={`relative p-8 rounded-[16px] flex flex-col transition-all duration-300 ease-out hover:-translate-y-2 ${
+                  isCC ? '' : (tier.popular 
+                    ? 'bg-gradient-to-b from-[#2DD4BF]/[0.08] to-[#161B22] border border-[#2DD4BF]/40' 
+                    : 'bg-[#161B22] border border-[#30363D] hover:border-[#2DD4BF]')
+                } ${isCC ? 'shadow-2xl z-20' : ''}`}
+              >
+                {tier.popular && !isCC && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#2DD4BF] text-[#0D1117] font-mono text-[10px] font-bold uppercase tracking-[0.12em] px-3 py-1 rounded-[4px]">
+                    Most Popular
+                  </div>
+                )}
 
-              <div className="mb-8">
-                {tier.name === 'Enterprise Edge' ? (
-                  <span className="text-[56px] font-extrabold text-[#E6EDF3] tracking-[-0.03em] leading-none">Custom</span>
-                ) : (
+                {isCC && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-[#2DD4BF] to-[#A78BFA] text-white font-mono text-[10px] font-bold uppercase tracking-[0.2em] px-4 py-1.5 rounded-full shadow-lg whitespace-nowrap">
+                    Most Powerful
+                  </div>
+                )}
+                
+                <div className="mb-6">
+                  <h3 className="text-xl font-bold text-[#E6EDF3] mb-2 tracking-tight">{tier.name}</h3>
+                  <p className="text-[#8B949E] text-sm">{tier.description}</p>
+                </div>
+
+                <div className="mb-8">
                   <div className="flex flex-col">
                     <div className="flex items-baseline gap-1">
                       <span className="text-[56px] font-extrabold text-[#E6EDF3] tracking-[-0.03em] leading-none">
@@ -189,7 +201,7 @@ export function PricingSection() {
                         / {isAnnual ? 'year' : 'month'}
                       </span>
                     </div>
-                    {isAnnual && tier.name !== 'Community' && (
+                    {isAnnual && tier.monthlyPrice !== "0" && (
                       <div className="mt-2 flex flex-col gap-1">
                         <span className="text-[#3FB950] text-[13px] font-bold">
                           {tier.savings}
@@ -200,40 +212,36 @@ export function PricingSection() {
                       </div>
                     )}
                   </div>
+                </div>
+
+                <ul className="space-y-4 mb-8 flex-1">
+                  {tier.features.map((feat, idx) => (
+                    <li key={idx} className="flex flex-start gap-3">
+                      <Check className={`w-5 h-5 shrink-0 ${isCC ? 'text-[#A78BFA]' : 'text-[#2DD4BF]'}`} strokeWidth={1.5} />
+                      <span className="text-[#8B949E] text-sm leading-tight">{feat}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                {tier.name === "Community" ? (
+                  <button 
+                    onClick={() => handleAction(tier.name)}
+                    className="w-full py-3.5 rounded-full font-bold text-[15px] transition-all duration-200 focus:outline-none tracking-[0.01em] bg-transparent text-[#E6EDF3] border border-[#30363D] hover:border-[#2DD4BF] hover:text-[#2DD4BF]"
+                  >
+                    {tier.cta}
+                  </button>
+                ) : (
+                  <PaddleCheckoutButton 
+                    priceId={getPriceId(tier.name)}
+                    variant={tier.popular ? "primary" : "outline"}
+                    className={`w-full !py-3.5 ${isCC ? 'bg-gradient-to-r from-[#2DD4BF] to-[#A78BFA] !text-white border-none hover:shadow-[0_8px_25px_rgba(45,212,191,0.3)] hover:scale-[1.02]' : ''}`}
+                  >
+                    {isCC ? "Start Global Fleet →" : tier.cta}
+                  </PaddleCheckoutButton>
                 )}
-              </div>
-
-              <ul className="space-y-4 mb-8 flex-1">
-                {tier.features.map((feat, idx) => (
-                  <li key={idx} className="flex flex-start gap-3">
-                    <Check className="w-5 h-5 text-[#2DD4BF] shrink-0" strokeWidth={1.5} />
-                    <span className="text-[#8B949E] text-sm leading-tight">{feat}</span>
-                  </li>
-                ))}
-              </ul>
-
-              {tier.name === "Community" || tier.name === "Enterprise Edge" ? (
-                <button 
-                  onClick={() => handleAction(tier.name)}
-                  className={`w-full py-3.5 rounded-full font-bold text-[15px] transition-all duration-200 focus:outline-none tracking-[0.01em] ${
-                    tier.popular 
-                      ? 'bg-[#2DD4BF] text-[#0D1117] hover:bg-[#14B8A6] hover:-translate-y-[1px] hover:shadow-[0_8px_25px_rgba(45,212,191,0.3)]' 
-                      : 'bg-transparent text-[#E6EDF3] border border-[#30363D] hover:border-[#2DD4BF] hover:text-[#2DD4BF]'
-                  }`}
-                >
-                  {tier.cta}
-                </button>
-              ) : (
-                <PaddleCheckoutButton 
-                  priceId={getPriceId(tier.name)}
-                  variant={tier.popular ? "primary" : "outline"}
-                  className="w-full !py-3.5"
-                >
-                  {tier.cta}
-                </PaddleCheckoutButton>
-              )}
-            </motion.div>
-          ))}
+              </motion.div>
+            );
+          })}
         </motion.div>
       </div>
     </section>
