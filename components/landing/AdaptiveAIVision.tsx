@@ -42,9 +42,7 @@ export function AdaptiveAIVision() {
         throw new Error("waitlist_request_failed");
       }
 
-      setFeedback(
-        "You're on the list! We'll be in touch. 🚀",
-      );
+      setFeedback("You're on the list! We'll be in touch. 🚀");
       setEmail("");
     } catch {
       setError("Something went wrong. Please try again.");

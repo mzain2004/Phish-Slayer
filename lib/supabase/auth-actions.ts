@@ -2,7 +2,6 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
 import { logAuditEvent } from "@/lib/audit/auditLogger";
 
 // IMPORTANT: Before this works you must:
@@ -65,12 +64,13 @@ export async function signUpWithEmail(formData: {
 
 export async function signInWithSocial(provider: "google" | "github") {
   const supabase = await createClient();
-  const origin = (await headers()).get("origin") || "http://localhost:3000";
+  const siteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL || "https://phishslayer.tech";
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider,
     options: {
-      redirectTo: `${origin}/auth/callback`,
+      redirectTo: `${siteUrl}/auth/callback`,
     },
   });
 
