@@ -9,9 +9,26 @@ export async function GET(request: Request) {
 
   if (code) {
     const supabase = await createClient();
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    const { data: sessionData, error } =
+      await supabase.auth.exchangeCodeForSession(code);
 
-    if (!error) {
+    if (!error && sessionData?.user) {
+      const user = sessionData.user;
+      const metadata = user.user_metadata;
+
+      await supabase
+        .from("profiles")
+        .upsert(
+          {
+            id: user.id,
+            email: user.email,
+            full_name: metadata?.full_name || metadata?.name || "",
+            avatar_url: metadata?.avatar_url || metadata?.picture || null,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "id" },
+        );
+
       return NextResponse.redirect(`${siteUrl}/dashboard`);
     }
   }

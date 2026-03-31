@@ -28,7 +28,7 @@ export default function RootLayout({
         <Script
           id="termly-blocker"
           src="https://app.termly.io/resource-blocker/fa073781-55e5-45b6-a6ef-29405a9723b7?autoBlock=on"
-          strategy="lazyOnload"
+          strategy="beforeInteractive"
         />
       </head>
       <body className="bg-[#0D1117] text-[#E6EDF3] antialiased min-h-screen">

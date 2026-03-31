@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import Link from "next/link";
 import {
@@ -10,7 +10,6 @@ import {
   Eye,
   EyeOff,
   ArrowRight,
-  CheckCircle2,
   Github,
   Loader2,
 } from "lucide-react";
@@ -20,31 +19,54 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [isPending, startTransition] = useTransition();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [slowMessage, setSlowMessage] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  const handleEmailSubmit = (e: React.FormEvent) => {
+  const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    startTransition(async () => {
+    setError(null);
+    setSlowMessage(null);
+    setIsSubmitting(true);
+
+    const slowTimer = window.setTimeout(() => {
+      setSlowMessage("Taking longer than expected...");
+    }, 10000);
+
+    try {
       const result = await signInWithEmail({ email, password });
       if (result?.error) {
-        toast.error(result.error);
+        setError(result.error);
       }
       // On success, the server action redirects — no toast needed
-    });
+    } catch (err) {
+      setError("Connection error. Please try again.");
+    } finally {
+      window.clearTimeout(slowTimer);
+      setIsSubmitting(false);
+    }
   };
 
-  const handleSocial = (provider: "google" | "github") => {
-    startTransition(async () => {
+  const handleSocial = async (provider: "google" | "github") => {
+    setError(null);
+    setSlowMessage(null);
+    setIsSubmitting(true);
+
+    try {
       const result = await signInWithSocial(provider);
       if (result?.error) {
         toast.error(result.error);
       }
-    });
+    } catch (err) {
+      toast.error("Connection error. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -107,7 +129,7 @@ export default function LoginPage() {
           <div className="flex flex-col sm:flex-row gap-3">
             <button
               type="button"
-              disabled={isPending}
+              disabled={isSubmitting}
               onClick={() => handleSocial("google")}
               className="flex flex-1 items-center justify-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 hover:border-slate-300 transition-all disabled:opacity-50"
             >
@@ -133,7 +155,7 @@ export default function LoginPage() {
             </button>
             <button
               type="button"
-              disabled={isPending}
+              disabled={isSubmitting}
               onClick={() => handleSocial("github")}
               className="flex flex-1 items-center justify-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 hover:border-slate-300 transition-all disabled:opacity-50"
             >
@@ -175,7 +197,7 @@ export default function LoginPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  disabled={isPending}
+                  disabled={isSubmitting}
                   placeholder="you@company.com"
                   className="block w-full rounded-lg border border-slate-200 bg-white py-3 pl-10 pr-4 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-colors disabled:opacity-50"
                 />
@@ -209,7 +231,7 @@ export default function LoginPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  disabled={isPending}
+                  disabled={isSubmitting}
                   placeholder="••••••••"
                   className="block w-full rounded-lg border border-slate-200 bg-white py-3 pl-10 pr-12 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-colors disabled:opacity-50"
                 />
@@ -232,6 +254,7 @@ export default function LoginPage() {
                 id="remember"
                 name="remember"
                 type="checkbox"
+                disabled={isSubmitting}
                 className="h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
               />
               <label htmlFor="remember" className="text-sm text-slate-600">
@@ -239,17 +262,26 @@ export default function LoginPage() {
               </label>
             </div>
 
+            {(error || slowMessage) && (
+              <div
+                className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"
+                aria-live="polite"
+              >
+                {error ?? slowMessage}
+              </div>
+            )}
+
             <button
               type="submit"
-              disabled={isPending}
+              disabled={isSubmitting}
               className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-teal-400 to-blue-500 px-4 py-3 text-sm font-bold text-white shadow-lg hover:shadow-cyan-500/25 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed border-none"
             >
-              {isPending ? (
+              {isSubmitting ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
                 <ArrowRight className="w-4 h-4" />
               )}
-              {isPending ? "Signing in…" : "Sign in"}
+              {isSubmitting ? "Signing in…" : "Sign in"}
             </button>
           </form>
 
