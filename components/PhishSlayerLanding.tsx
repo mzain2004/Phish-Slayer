@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -115,9 +114,16 @@ export default function PhishSlayerLanding({
   const [authIntent, setAuthIntent] = useState<"login" | "signup">("login");
 
   return (
-    <main className="relative min-h-screen overflow-hidden flex flex-col items-center text-white">
+    <main
+      className="relative min-h-screen overflow-hidden flex flex-col items-center text-white"
+      style={{
+        background: "linear-gradient(135deg, #6B21A8 0%, #0D9488 100%)",
+      }}
+    >
       <motion.section
-        whileHover={{ filter: "drop-shadow(0 0 60px rgba(167, 139, 250, 0.15))" }}
+        whileHover={{
+          filter: "drop-shadow(0 0 60px rgba(167, 139, 250, 0.15))",
+        }}
         className="w-full max-w-5xl mx-auto px-6 pt-32 pb-24 flex flex-col items-center text-center transition-all duration-700"
       >
         <div
@@ -234,15 +240,10 @@ export default function PhishSlayerLanding({
           everyone.
         </p>
 
-        <div className="relative w-full max-w-3xl aspect-[2/1] mb-12 rounded-3xl overflow-hidden">
+        <div className="relative w-full max-w-3xl aspect-[2/1] mb-12 rounded-3xl overflow-hidden bg-purple-500/20 border border-white/10 flex items-center justify-center">
           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent z-10"></div>
-          <Image
-            src="https://picsum.photos/seed/team/1200/600"
-            alt="Team"
-            fill
-            className="object-cover opacity-60 grayscale"
-            referrerPolicy="no-referrer"
-          />
+          <div className="absolute inset-0 bg-teal-500/20"></div>
+          <Shield className="relative z-20 w-16 h-16 text-white/80" />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl relative z-20 -mt-24">

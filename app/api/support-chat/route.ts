@@ -1,0 +1,56 @@
+import { NextResponse } from "next/server";
+import { GoogleGenAI } from "@google/genai";
+import { z } from "zod";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const bodySchema = z.object({
+  message: z.string().trim().min(1).max(2000),
+});
+
+export async function POST(request: Request) {
+  try {
+    const parsed = bodySchema.safeParse(await request.json());
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid request payload" },
+        { status: 400 },
+      );
+    }
+
+    const apiKey = process.env.GEMINI_API_KEY;
+
+    if (!apiKey) {
+      console.error("GEMINI_API_KEY is not set for /api/support-chat");
+      return NextResponse.json(
+        { error: "Support service is unavailable" },
+        { status: 500 },
+      );
+    }
+
+    const ai = new GoogleGenAI({ apiKey });
+    const prompt = `You are a helpful cybersecurity assistant for Phish-Slayer, an AI threat detection platform.
+Provide concise, practical, and professional guidance.
+
+User message: ${parsed.data.message}`;
+
+    const result = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+    });
+
+    const reply =
+      (result.text || "").trim() ||
+      "I can help with that. Please share a bit more detail.";
+
+    return NextResponse.json({ reply });
+  } catch (error) {
+    console.error("Support chat route error:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
+  }
+}
