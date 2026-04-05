@@ -167,8 +167,7 @@ function buildLifecycleSummary(
   events: NonHumanLifecycleEvent[],
 ): NonHumanLifecycleSummary {
   const sorted = [...events].sort(
-    (a, b) =>
-      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
   );
 
   const avgRisk = Math.round(
@@ -188,8 +187,9 @@ function buildLifecycleSummary(
     type: events[0]?.identityType || "service_principal",
     createdAt: sorted[0]?.timestamp,
     lastActivity: sorted[sorted.length - 1]?.timestamp,
-    consentEvents: events.filter((event) => event.eventType === "consent_granted")
-      .length,
+    consentEvents: events.filter(
+      (event) => event.eventType === "consent_granted",
+    ).length,
     tokenEvents: events.filter((event) => event.eventType === "token_issued")
       .length,
     permissionChanges: events.filter(

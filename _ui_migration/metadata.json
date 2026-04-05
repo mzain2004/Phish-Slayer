@@ -1,0 +1,5 @@
+{
+  "name": "Phish-Slayer",
+  "description": "AI-powered threat detection and sandbox analysis dashboard.",
+  "requestFramePermissions": []
+}

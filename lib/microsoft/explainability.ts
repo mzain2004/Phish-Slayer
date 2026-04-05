@@ -127,7 +127,8 @@ export function explainChainConfidence(params: {
     recommendation =
       "Moderate confidence. Collect additional signals before escalating.";
   } else if (params.decayedScore >= 40) {
-    recommendation = "Low confidence partial graph. Manual analyst review required.";
+    recommendation =
+      "Low confidence partial graph. Manual analyst review required.";
   } else {
     recommendation =
       "Very low confidence. Insufficient evidence - gather more telemetry.";

@@ -7,7 +7,18 @@ const config: Config = {
     "./lib/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
-    extend: {},
+    extend: {
+      fontFamily: {
+        sans: ["var(--font-inter)", "Inter", "system-ui", "sans-serif"],
+      },
+      colors: {
+        background: "#000000",
+        foreground: "#ffffff",
+        card: "#050505",
+        cardBorder: "rgba(255, 255, 255, 0.12)",
+        accent: "#2DD4BF",
+      },
+    },
   },
   plugins: [],
 };
