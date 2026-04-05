@@ -1,8 +1,15 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { motion } from 'framer-motion';
-import { Activity, RefreshCw, Shield, AlertTriangle, Database, ArrowRight } from 'lucide-react';
+import Link from "next/link";
+import { motion } from "framer-motion";
+import {
+  Activity,
+  RefreshCw,
+  Shield,
+  AlertTriangle,
+  Database,
+  ArrowRight,
+} from "lucide-react";
 
 type RecentScan = {
   target: string;
@@ -21,7 +28,7 @@ type CommandCenterViewProps = {
 };
 
 const glassCard =
-  'liquid-glass bg-white/5 backdrop-blur-3xl border border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)] rounded-2xl';
+  "liquid-glass bg-white/5 backdrop-blur-3xl border border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)] rounded-2xl";
 
 const staggerGrid = {
   hidden: { opacity: 0 },
@@ -38,7 +45,7 @@ const gridItem = {
   show: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.5, ease: 'easeOut' as const },
+    transition: { duration: 0.5, ease: "easeOut" as const },
   },
 };
 
@@ -55,8 +62,12 @@ export default function CommandCenterView({
       <div className="px-8 py-6 border-b border-white/10">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-white text-2xl font-semibold tracking-tight">Command Center</h1>
-            <p className="text-white/50 text-sm mt-0.5">Enterprise Security Posture - Liquid Glass</p>
+            <h1 className="text-white text-2xl font-semibold tracking-tight">
+              Command Center
+            </h1>
+            <p className="text-white/50 text-sm mt-0.5">
+              Enterprise Security Posture - Liquid Glass
+            </p>
           </div>
           <Link
             href="/dashboard/scans"
@@ -76,52 +87,87 @@ export default function CommandCenterView({
           variants={staggerGrid}
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
         >
-          <motion.div variants={gridItem} className={`p-6 ${glassCard} flex flex-col gap-2`}>
+          <motion.div
+            variants={gridItem}
+            className={`p-6 ${glassCard} flex flex-col gap-2`}
+          >
             <div className="flex justify-between items-start">
               <span className="text-white/70 font-medium">Total Scans</span>
             </div>
-            <div className="text-3xl font-bold text-white mt-2">{totalScans}</div>
+            <div className="text-3xl font-bold text-white mt-2">
+              {totalScans}
+            </div>
           </motion.div>
 
-          <motion.div variants={gridItem} className={`p-6 ${glassCard} flex flex-col gap-2`}>
+          <motion.div
+            variants={gridItem}
+            className={`p-6 ${glassCard} flex flex-col gap-2`}
+          >
             <div className="flex justify-between items-start">
               <span className="text-white/70 font-medium">Malicious</span>
               <span className="px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 text-xs font-bold border border-red-500/20">
                 Active
               </span>
             </div>
-            <div className="text-3xl font-bold text-red-400 mt-2">{maliciousScans}</div>
-          </motion.div>
-
-          <motion.div variants={gridItem} className={`p-6 ${glassCard} flex flex-col gap-2`}>
-            <div className="flex justify-between items-start">
-              <span className="text-white/70 font-medium">Active Incidents</span>
+            <div className="text-3xl font-bold text-red-400 mt-2">
+              {maliciousScans}
             </div>
-            <div className="text-3xl font-bold text-amber-300 mt-2">{activeIncidents}</div>
-            <span className="text-xs text-white/50">{resolvedIncidents} resolved</span>
           </motion.div>
 
-          <motion.div variants={gridItem} className={`p-6 ${glassCard} flex flex-col gap-2`}>
+          <motion.div
+            variants={gridItem}
+            className={`p-6 ${glassCard} flex flex-col gap-2`}
+          >
+            <div className="flex justify-between items-start">
+              <span className="text-white/70 font-medium">
+                Active Incidents
+              </span>
+            </div>
+            <div className="text-3xl font-bold text-amber-300 mt-2">
+              {activeIncidents}
+            </div>
+            <span className="text-xs text-white/50">
+              {resolvedIncidents} resolved
+            </span>
+          </motion.div>
+
+          <motion.div
+            variants={gridItem}
+            className={`p-6 ${glassCard} flex flex-col gap-2`}
+          >
             <div className="flex justify-between items-start">
               <span className="text-white/70 font-medium">Intel Vault</span>
             </div>
-            <div className="text-3xl font-bold text-[#2DD4BF] mt-2">{intelVaultSize}</div>
+            <div className="text-3xl font-bold text-[#2DD4BF] mt-2">
+              {intelVaultSize}
+            </div>
           </motion.div>
         </motion.div>
 
-        <motion.div className={`p-6 ${glassCard} flex flex-col gap-6`} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+        <motion.div
+          className={`p-6 ${glassCard} flex flex-col gap-6`}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+        >
           <div className="flex justify-between items-center">
-            <h2 className="text-xl font-bold text-white">Network Telemetry (Live)</h2>
+            <h2 className="text-xl font-bold text-white">
+              Network Telemetry (Live)
+            </h2>
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-              <span className="text-xs text-white/50 uppercase tracking-wider">Live</span>
+              <span className="text-xs text-white/50 uppercase tracking-wider">
+                Live
+              </span>
             </div>
           </div>
 
           <div className="w-full h-52 relative flex items-end justify-between gap-[2px] pt-6 overflow-hidden">
             <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-20">
               {[...Array(5)].map((_, i) => (
-                <div key={i} className="w-full h-[1px] bg-white border-b border-white/5"></div>
+                <div
+                  key={i}
+                  className="w-full h-[1px] bg-white border-b border-white/5"
+                ></div>
               ))}
             </div>
             <div className="flex-1 flex items-end justify-between gap-[2px] h-full z-10">
@@ -133,8 +179,8 @@ export default function CommandCenterView({
                     key={i}
                     className={`flex-1 rounded-t-sm transition-all duration-500 ${
                       isAccent
-                        ? 'bg-[#A78BFA]/60 shadow-[0_0_10px_rgba(167,139,250,0.3)]'
-                        : 'bg-[#2DD4BF]/40 shadow-[0_0_10px_rgba(45,212,191,0.2)]'
+                        ? "bg-[#A78BFA]/60 shadow-[0_0_10px_rgba(167,139,250,0.3)]"
+                        : "bg-[#2DD4BF]/40 shadow-[0_0_10px_rgba(45,212,191,0.2)]"
                     }`}
                     style={{ height: `${height}%` }}
                   ></div>
@@ -145,7 +191,11 @@ export default function CommandCenterView({
         </motion.div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <motion.div className={`p-6 ${glassCard} flex flex-col gap-4`} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+          <motion.div
+            className={`p-6 ${glassCard} flex flex-col gap-4`}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+          >
             <h2 className="text-xl font-bold text-white mb-2">Quick Actions</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Link
@@ -153,22 +203,33 @@ export default function CommandCenterView({
                 className="p-4 rounded-xl bg-white/5 border border-white/10 flex flex-col items-center justify-center gap-3 text-center transition-colors hover:bg-white/10"
               >
                 <Activity className="w-6 h-6 text-[#2DD4BF]" />
-                <span className="text-sm font-bold text-white">Run System Diagnostic</span>
+                <span className="text-sm font-bold text-white">
+                  Run System Diagnostic
+                </span>
               </Link>
               <Link
                 href="/dashboard/incidents"
                 className="p-4 rounded-xl bg-white/5 border border-white/10 flex flex-col items-center justify-center gap-3 text-center transition-colors hover:bg-white/10"
               >
                 <Shield className="w-6 h-6 text-white" />
-                <span className="text-sm font-bold text-white">Isolate Compromised Nodes</span>
+                <span className="text-sm font-bold text-white">
+                  Isolate Compromised Nodes
+                </span>
               </Link>
             </div>
           </motion.div>
 
-          <motion.div className={`p-6 ${glassCard} flex flex-col gap-4`} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+          <motion.div
+            className={`p-6 ${glassCard} flex flex-col gap-4`}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+          >
             <div className="flex justify-between items-center mb-2">
               <h2 className="text-xl font-bold text-white">Event Feed</h2>
-              <Link href="/dashboard/threats" className="text-xs text-[#2DD4BF] hover:underline">
+              <Link
+                href="/dashboard/threats"
+                className="text-xs text-[#2DD4BF] hover:underline"
+              >
                 View All
               </Link>
             </div>
@@ -184,14 +245,14 @@ export default function CommandCenterView({
                 ? recentScans.slice(0, 3)
                 : [
                     {
-                      target: 'No recent scan activity',
-                      verdict: 'clean',
-                      dateLabel: 'Just now',
+                      target: "No recent scan activity",
+                      verdict: "clean",
+                      dateLabel: "Just now",
                       riskScore: 0,
                     },
                   ]
               ).map((scan, index) => {
-                const isMalicious = scan.verdict.toLowerCase() === 'malicious';
+                const isMalicious = scan.verdict.toLowerCase() === "malicious";
                 return (
                   <motion.div
                     key={`${scan.target}-${index}`}
@@ -200,13 +261,16 @@ export default function CommandCenterView({
                   >
                     <div
                       className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${
-                        isMalicious ? 'bg-red-500' : 'bg-[#2DD4BF]'
+                        isMalicious ? "bg-red-500" : "bg-[#2DD4BF]"
                       }`}
                     ></div>
                     <div className="flex flex-col">
-                      <span className="text-sm text-white/90 font-medium">{scan.target}</span>
+                      <span className="text-sm text-white/90 font-medium">
+                        {scan.target}
+                      </span>
                       <span className="text-xs text-white/50">
-                        {scan.dateLabel} - verdict: {scan.verdict.toUpperCase()} - score: {scan.riskScore}
+                        {scan.dateLabel} - verdict: {scan.verdict.toUpperCase()}{" "}
+                        - score: {scan.riskScore}
                       </span>
                     </div>
                   </motion.div>
