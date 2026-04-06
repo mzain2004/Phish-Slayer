@@ -27,7 +27,7 @@ export default function RootLayout({
       suppressHydrationWarning
       className="dark selection:bg-teal-500/30"
     >
-      <body className="text-white antialiased min-h-screen font-sans">
+      <body className="bg-black text-white antialiased min-h-screen font-sans">
         <AnimatedGradientMesh />
         <Navbar />
         {children}
