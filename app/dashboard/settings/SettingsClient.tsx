@@ -13,7 +13,8 @@ type Props = {
 };
 
 function generateApiKey() {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  const chars =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
   let suffix = "";
   for (let i = 0; i < 40; i += 1) {
     suffix += chars[Math.floor(Math.random() * chars.length)];
@@ -61,7 +62,9 @@ export default function SettingsClient({
     }
 
     startTransition(async () => {
-      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
       if (error) {
         toast.error(error.message);
         return;
@@ -94,7 +97,9 @@ export default function SettingsClient({
     <div className="flex flex-col gap-6 text-white">
       <header className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-3xl">
         <h1 className="text-3xl font-bold">Platform Settings</h1>
-        <p className="mt-2 text-sm text-white/60">Manage profile information, account security, and API access.</p>
+        <p className="mt-2 text-sm text-white/60">
+          Manage profile information, account security, and API access.
+        </p>
       </header>
 
       <section className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-3xl">
@@ -111,7 +116,9 @@ export default function SettingsClient({
             />
           </div>
           <div className="md:col-span-1">
-            <label className="mb-2 block text-sm text-white/70">Full name</label>
+            <label className="mb-2 block text-sm text-white/70">
+              Full name
+            </label>
             <input
               value={profileName}
               onChange={(e) => setProfileName(e.target.value)}
@@ -125,7 +132,12 @@ export default function SettingsClient({
           disabled={isPending}
           className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[#2DD4BF] px-4 py-2 text-sm font-semibold text-black transition hover:bg-[#14B8A6] disabled:opacity-60"
         >
-          {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save Profile
+          {isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Save className="h-4 w-4" />
+          )}{" "}
+          Save Profile
         </button>
       </section>
 
@@ -154,7 +166,12 @@ export default function SettingsClient({
           disabled={isPending}
           className="mt-4 inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/20 disabled:opacity-60"
         >
-          {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />} Update Password
+          {isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Lock className="h-4 w-4" />
+          )}{" "}
+          Update Password
         </button>
       </section>
 
@@ -170,7 +187,12 @@ export default function SettingsClient({
           disabled={isPending}
           className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[#2DD4BF] px-4 py-2 text-sm font-semibold text-black transition hover:bg-[#14B8A6] disabled:opacity-60"
         >
-          {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Key className="h-4 w-4" />} Regenerate API Key
+          {isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Key className="h-4 w-4" />
+          )}{" "}
+          Regenerate API Key
         </button>
       </section>
     </div>

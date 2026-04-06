@@ -42,7 +42,10 @@ const navItems = [
 
 function SidebarItem({ icon: Icon, label, href, active }: SidebarItemProps) {
   return (
-    <motion.div whileHover={!active ? { scale: 1.02, filter: "brightness(1.1)" } : {}} whileTap={{ scale: 0.98 }}>
+    <motion.div
+      whileHover={!active ? { scale: 1.02, filter: "brightness(1.1)" } : {}}
+      whileTap={{ scale: 0.98 }}
+    >
       <Link
         href={href}
         className={`group relative flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all duration-300 w-full text-left overflow-hidden ${
@@ -83,7 +86,7 @@ export default function Sidebar() {
         fullName:
           typeof user.user_metadata?.full_name === "string"
             ? user.user_metadata.full_name
-            : user.email ?? "Authenticated user",
+            : (user.email ?? "Authenticated user"),
         email: user.email ?? "authenticated@phish-slayer.local",
       });
     };
@@ -92,12 +95,16 @@ export default function Sidebar() {
   }, []);
 
   return (
-    <aside className={`fixed top-4 bottom-4 left-4 w-[280px] ${glassCard} flex flex-col z-20`}>
+    <aside
+      className={`fixed top-4 bottom-4 left-4 w-[280px] ${glassCard} flex flex-col z-20`}
+    >
       <div className="p-6 flex items-center gap-3 border-b border-white/10">
         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#A78BFA] to-[#2DD4BF] flex items-center justify-center">
           <Shield className="w-4 h-4 text-black" />
         </div>
-        <span className="font-space-grotesk font-bold text-xl tracking-tight">Phish-Slayer</span>
+        <span className="font-space-grotesk font-bold text-xl tracking-tight">
+          Phish-Slayer
+        </span>
       </div>
 
       <nav className="flex-1 p-4 flex flex-col gap-2">
@@ -123,8 +130,12 @@ export default function Sidebar() {
         <div className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 transition-colors cursor-pointer">
           <div className="w-8 h-8 rounded-full bg-white/10 border border-white/20" />
           <div className="flex flex-col min-w-0">
-            <span className="text-sm font-medium truncate">{profile.fullName}</span>
-            <span className="text-xs text-white/50 truncate">{profile.email}</span>
+            <span className="text-sm font-medium truncate">
+              {profile.fullName}
+            </span>
+            <span className="text-xs text-white/50 truncate">
+              {profile.email}
+            </span>
           </div>
         </div>
       </div>

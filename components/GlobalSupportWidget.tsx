@@ -3,10 +3,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MessageCircle, X, Send, Bot, User, Loader2 } from 'lucide-react';
-import { GoogleGenAI } from '@google/genai';
-
-// Initialize Gemini API
-const ai = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY });
 
 type Message = {
   role: 'user' | 'model';
@@ -21,20 +17,6 @@ export default function GlobalSupportWidget() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  
-  // We need to keep a chat session reference to maintain history properly with the API
-  const chatRef = useRef<any>(null);
-
-  useEffect(() => {
-    if (!chatRef.current) {
-      chatRef.current = ai.chats.create({
-        model: 'gemini-3-flash-preview',
-        config: {
-          systemInstruction: 'You are a helpful cybersecurity assistant for Phish-Slayer, an AI threat detection platform. You help users understand phishing, cybersecurity, and how Phish-Slayer protects them. Keep your answers concise, professional, and helpful.',
-        }
-      });
-    }
-  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -53,18 +35,26 @@ export default function GlobalSupportWidget() {
     setIsLoading(true);
 
     try {
-      if (!chatRef.current) {
-        chatRef.current = ai.chats.create({
-          model: 'gemini-3-flash-preview',
-          config: {
-            systemInstruction: 'You are a helpful cybersecurity assistant for Phish-Slayer, an AI threat detection platform. You help users understand phishing, cybersecurity, and how Phish-Slayer protects them. Keep your answers concise, professional, and helpful.',
-          }
-        });
+      const response = await fetch('/api/support-chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message: userText }),
+      });
+
+      const payload = await response.json();
+
+      if (!response.ok) {
+        const errorMessage = typeof payload?.error === 'string' ? payload.error : 'Support service is unavailable right now.';
+        throw new Error(errorMessage);
       }
 
-      const response = await chatRef.current.sendMessage({ message: userText });
-      
-      setMessages(prev => [...prev, { role: 'model', text: response.text }]);
+      const replyText = typeof payload?.reply === 'string' && payload.reply.trim().length > 0
+        ? payload.reply
+        : 'I can help with that. Please share a bit more detail.';
+
+      setMessages(prev => [...prev, { role: 'model', text: replyText }]);
     } catch (error) {
       console.error('Chat error:', error);
       setMessages(prev => [...prev, { role: 'model', text: 'Sorry, I encountered an error. Please try again later.' }]);

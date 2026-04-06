@@ -33,10 +33,14 @@ export default function ForgotPasswordModal({
     setLoading(true);
     setError(null);
 
-    const redirectBase = process.env.NEXT_PUBLIC_SITE_URL ?? window.location.origin;
-    const { error: authError } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${redirectBase}/auth/callback`,
-    });
+    const redirectBase =
+      process.env.NEXT_PUBLIC_SITE_URL ?? window.location.origin;
+    const { error: authError } = await supabase.auth.resetPasswordForEmail(
+      email,
+      {
+        redirectTo: `${redirectBase}/auth/callback`,
+      },
+    );
 
     if (authError) {
       setError(authError.message);
