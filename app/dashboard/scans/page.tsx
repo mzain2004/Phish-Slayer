@@ -163,30 +163,30 @@ function ScanManagerContent() {
   const latestScan = allScans[0] ?? null;
 
   return (
-    <div className="bg-black font-sans text-slate-100 antialiased min-h-screen flex flex-col w-full">
+    <div className="font-sans text-slate-100 antialiased min-h-screen flex flex-col w-full">
       <main className="flex-1 px-4 sm:px-8 py-8 w-full max-w-5xl mx-auto flex flex-col gap-10">
-        <section className="rounded-[12px] border border-[rgba(45,212,191,0.18)] [background:linear-gradient(180deg,rgba(45,212,191,0.06),rgba(255,255,255,0.03))] p-2 backdrop-blur-[8px]">
+        <section className="rounded-full border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.06)] p-1">
           <div className="grid grid-cols-2 gap-2">
             <motion.button
               onClick={() => setActiveTab("scanner")}
-              whileHover={{ backgroundColor: "rgba(255,255,255,0.14)" }}
+              whileHover={{ opacity: 0.8 }}
               whileTap={{ scale: 0.96 }}
               className={`rounded-full px-5 py-2 text-sm font-semibold [transition:all_0.2s_ease] ${
                 activeTab === "scanner"
-                  ? "bg-[#2DD4BF]/20 text-[#2DD4BF] border border-[#2DD4BF]/40"
-                  : "border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.08)] text-white"
+                  ? "bg-[linear-gradient(135deg,#2DD4BF,#22c55e)] text-black font-semibold"
+                  : "bg-transparent text-white/50"
               }`}
             >
               Threat Scanner
             </motion.button>
             <motion.button
               onClick={() => setActiveTab("sandbox")}
-              whileHover={{ backgroundColor: "rgba(255,255,255,0.14)" }}
+              whileHover={{ opacity: 0.8 }}
               whileTap={{ scale: 0.96 }}
               className={`rounded-full px-5 py-2 text-sm font-semibold [transition:all_0.2s_ease] ${
                 activeTab === "sandbox"
-                  ? "bg-[#2DD4BF]/20 text-[#2DD4BF] border border-[#2DD4BF]/40"
-                  : "border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.08)] text-white"
+                  ? "bg-[linear-gradient(135deg,#2DD4BF,#22c55e)] text-black font-semibold"
+                  : "bg-transparent text-white/50"
               }`}
             >
               Sandbox Analysis
@@ -199,7 +199,7 @@ function ScanManagerContent() {
             {/* Hero Scanner Section */}
             <motion.section
               {...cardHover}
-              className="relative rounded-2xl border border-[rgba(45,212,191,0.18)] bg-[linear-gradient(155deg,rgba(8,47,73,0.35),rgba(15,23,42,0.7))] overflow-hidden"
+              className="relative rounded-2xl border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.05)] backdrop-blur-[12px] p-10 overflow-hidden"
             >
               <div className="absolute inset-0 overflow-hidden pointer-events-none">
                 <div className="absolute -top-20 -right-20 w-80 h-80 bg-teal-900/20 rounded-full blur-3xl opacity-60"></div>
@@ -213,7 +213,7 @@ function ScanManagerContent() {
                 </div>
               )}
 
-              <div className="relative z-10 px-8 py-12 sm:px-12 sm:py-16 text-center flex flex-col items-center">
+              <div className="relative z-10 text-center flex flex-col items-center">
                 <div className="w-16 h-16 rounded-2xl bg-gradient-to-r from-teal-400 to-blue-500 flex items-center justify-center text-white shadow-lg shadow-cyan-500/30 mb-6">
                   <Crosshair className="w-8 h-8" />
                 </div>
@@ -241,18 +241,18 @@ function ScanManagerContent() {
                         }
                         disabled={isPending}
                         placeholder="e.g. 8.8.8.8 or suspicious-domain.com"
-                        className="w-full pl-12 pr-4 py-4 bg-white/5 border border-white/10 rounded-xl text-base text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full pl-12 pr-6 py-3 bg-[rgba(255,255,255,0.08)] border border-[rgba(255,255,255,0.15)] rounded-full text-base text-[#E6EDF3] placeholder:text-white/50 focus:outline-none focus:border-[#2DD4BF] focus:shadow-[0_0_0_2px_rgba(45,212,191,0.2)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                       />
                     </div>
                     <motion.button
                       onClick={handleScan}
                       disabled={isPending || !target.trim()}
                       whileHover={{
-                        scale: 1.03,
-                        boxShadow: "0 0 20px rgba(45,212,191,0.4)",
+                        scale: 1.04,
+                        boxShadow: "0 0 24px rgba(45,212,191,0.4)",
                       }}
-                      whileTap={{ scale: 0.96 }}
-                      className="flex min-w-[160px] items-center justify-center gap-2 whitespace-nowrap rounded-full px-5 py-2 text-base font-semibold text-black [transition:all_0.2s_ease] [background:linear-gradient(135deg,#2DD4BF,#22c55e)] disabled:cursor-not-allowed disabled:opacity-50"
+                      whileTap={{ scale: 0.97 }}
+                      className="flex min-w-[160px] items-center justify-center gap-2 whitespace-nowrap rounded-full px-7 py-3 text-base font-bold text-black [transition:all_0.2s_ease] [background:linear-gradient(135deg,#2DD4BF,#22c55e)] disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {isPending ? (
                         <Loader2 className="w-5 h-5 animate-spin" />
@@ -347,7 +347,7 @@ function ScanManagerContent() {
               ) : (
                 <motion.div
                   {...cardHover}
-                  className="rounded-xl border border-[rgba(45,212,191,0.14)] bg-[rgba(15,23,42,0.58)] overflow-hidden flex flex-col"
+                  className="rounded-2xl border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.06)] backdrop-blur-[8px] overflow-hidden flex flex-col"
                 >
                   <div className="overflow-x-auto">
                     <table className="w-full text-left">
@@ -378,7 +378,7 @@ function ScanManagerContent() {
                           <tr
                             key={s.id || i}
                             onClick={() => router.push("/dashboard/threats")}
-                            className="hover:bg-white/10 transition-colors cursor-pointer"
+                            className="hover:bg-[rgba(255,255,255,0.04)] transition-colors cursor-pointer"
                           >
                             <td className="px-6 py-4">
                               <p className="text-sm font-semibold text-teal-400 truncate max-w-[220px] font-mono">
@@ -440,10 +440,10 @@ function ScanManagerContent() {
                                 <span
                                   className={`text-sm font-bold ${
                                     s.risk_score >= 70
-                                      ? "text-red-400"
-                                      : s.risk_score >= 40
-                                        ? "text-orange-400"
-                                        : "text-green-400"
+                                      ? "text-[#F85149]"
+                                      : s.risk_score >= 31
+                                        ? "text-[#E3B341]"
+                                        : "text-[#3FB950]"
                                   }`}
                                 >
                                   {s.risk_score}/100

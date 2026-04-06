@@ -38,10 +38,10 @@ const BAR_COLORS = ["#0d9488", "#0ea5e9", "#f97316", "#ef4444", "#8b5cf6"];
 
 const cardHover = {
   whileHover: {
-    y: -3,
-    boxShadow: "0 18px 38px rgba(15, 23, 42, 0.45)",
+    scale: 1.02,
+    boxShadow: "0 8px 32px rgba(45,212,191,0.15)",
   },
-  transition: { type: "spring" as const, stiffness: 260, damping: 24 },
+  transition: { type: "spring" as const, stiffness: 300, damping: 20 },
 };
 
 function countryFlag(code: string | null): string {
@@ -193,7 +193,6 @@ export default function AgentDashboardPage() {
           justifyContent: "center",
           alignItems: "center",
           height: "100vh",
-          background: "#0D1117",
         }}
       >
         <div style={{ color: "#8B949E" }}>Loading...</div>
@@ -210,7 +209,7 @@ export default function AgentDashboardPage() {
   }
 
   return (
-    <div className="bg-black text-white font-sans min-h-screen flex flex-col w-full">
+    <div className="text-white font-sans min-h-screen flex flex-col w-full">
       <main className="flex-1 px-4 sm:px-8 py-8 w-full max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
@@ -254,25 +253,29 @@ export default function AgentDashboardPage() {
                     setPage(0);
                   }}
                   placeholder="Filter by process, IP, levelâ€¦"
-                  className="w-56 py-2 pl-10 pr-4 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-teal-500 focus:border-teal-500 shadow-sm"
+                  className="w-56 py-2.5 pl-10 pr-5 rounded-full bg-[rgba(255,255,255,0.08)] border border-[rgba(255,255,255,0.15)] text-sm text-[#E6EDF3] placeholder:text-white/50 focus:outline-none focus:border-[#2DD4BF] focus:shadow-[0_0_0_2px_rgba(45,212,191,0.2)]"
                 />
               </div>
-              <button
+              <motion.button
                 onClick={handleRefresh}
-                className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-slate-300 hover:bg-white/10 shadow-sm transition-colors"
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                className="flex items-center gap-2 rounded-full border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.08)] px-5 py-2.5 text-sm font-semibold text-[#E6EDF3]"
               >
                 <RefreshCw
                   className={`w-4 h-4 ${!loaded ? "animate-spin" : ""}`}
                 />
                 Refresh
-              </button>
-              <button
+              </motion.button>
+              <motion.button
                 onClick={exportCsv}
-                className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-slate-300 hover:bg-white/10 shadow-sm transition-colors"
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                className="flex items-center gap-2 rounded-full border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.08)] px-5 py-2.5 text-sm font-semibold text-[#E6EDF3]"
               >
                 <Download className="w-4 h-4" />
                 Export CSV
-              </button>
+              </motion.button>
             </div>
           </div>
         </div>
@@ -281,7 +284,7 @@ export default function AgentDashboardPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <motion.div
             {...cardHover}
-            className="flex flex-col gap-1 rounded-xl bg-[linear-gradient(165deg,rgba(15,23,42,0.75),rgba(15,118,110,0.18))] p-5 shadow-sm border border-[rgba(45,212,191,0.16)]"
+            className="flex flex-col gap-1 rounded-[12px] bg-[rgba(255,255,255,0.06)] p-5 border border-[rgba(255,255,255,0.1)] backdrop-blur-[8px]"
           >
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium text-[#8B949E]">Total Events</p>
@@ -293,7 +296,7 @@ export default function AgentDashboardPage() {
           </motion.div>
           <motion.div
             {...cardHover}
-            className="flex flex-col gap-1 rounded-xl bg-[linear-gradient(165deg,rgba(15,23,42,0.75),rgba(127,29,29,0.2))] p-5 shadow-sm border border-[rgba(248,113,113,0.22)]"
+            className="flex flex-col gap-1 rounded-[12px] bg-[rgba(255,255,255,0.06)] p-5 border border-[rgba(255,255,255,0.1)] backdrop-blur-[8px]"
           >
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium text-[#8B949E]">
@@ -307,7 +310,7 @@ export default function AgentDashboardPage() {
           </motion.div>
           <motion.div
             {...cardHover}
-            className="flex flex-col gap-1 rounded-xl bg-[linear-gradient(165deg,rgba(15,23,42,0.75),rgba(30,58,138,0.2))] p-5 shadow-sm border border-[rgba(56,189,248,0.2)]"
+            className="flex flex-col gap-1 rounded-[12px] bg-[rgba(255,255,255,0.06)] p-5 border border-[rgba(255,255,255,0.1)] backdrop-blur-[8px]"
           >
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium text-[#8B949E]">Unique IPs</p>
@@ -319,7 +322,7 @@ export default function AgentDashboardPage() {
           </motion.div>
           <motion.div
             {...cardHover}
-            className="flex flex-col gap-1 rounded-xl bg-[linear-gradient(165deg,rgba(15,23,42,0.75),rgba(124,45,18,0.2))] p-5 shadow-sm border border-[rgba(251,146,60,0.24)]"
+            className="flex flex-col gap-1 rounded-[12px] bg-[rgba(255,255,255,0.06)] p-5 border border-[rgba(255,255,255,0.1)] backdrop-blur-[8px]"
           >
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium text-[#8B949E]">
@@ -338,7 +341,7 @@ export default function AgentDashboardPage() {
           {/* Bar Chart */}
           <motion.div
             {...cardHover}
-            className="lg:col-span-2 bg-[rgba(15,23,42,0.6)] border border-[rgba(45,212,191,0.16)] rounded-xl p-6 shadow-sm"
+            className="lg:col-span-2 bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] rounded-2xl p-6 backdrop-blur-[8px]"
           >
             <div className="flex items-center gap-2 mb-4">
               <Activity className="w-5 h-5 text-teal-400" />
@@ -401,7 +404,7 @@ export default function AgentDashboardPage() {
           {/* Beaconing Alert */}
           <motion.div
             {...cardHover}
-            className="bg-[rgba(15,23,42,0.6)] border border-[rgba(248,113,113,0.16)] rounded-xl p-6 shadow-sm flex flex-col"
+            className="bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] rounded-2xl p-6 backdrop-blur-[8px] flex flex-col"
           >
             <div className="flex items-center gap-2 mb-4">
               <AlertTriangle className="w-5 h-5 text-orange-500" />

@@ -26,32 +26,43 @@ import { UpgradeBanner } from "@/components/ui/UpgradeBanner";
 
 const cardHover = {
   whileHover: {
-    y: -3,
-    boxShadow: "0 20px 40px rgba(15, 23, 42, 0.45)",
+    scale: 1.02,
+    boxShadow: "0 8px 32px rgba(45,212,191,0.15)",
   },
-  transition: { type: "spring" as const, stiffness: 260, damping: 24 },
+  transition: { type: "spring" as const, stiffness: 300, damping: 20 },
 };
 
 /* â”€â”€ Severity Badge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function SeverityBadge({ severity }: { severity: string }) {
   const s = severity?.toLowerCase() ?? "";
-  let bg = "bg-slate-500/10 text-[#8B949E] border-slate-500/20";
-  if (s === "critical")
-    bg =
-      "bg-red-500/10 text-red-400 border-red-500/20 shadow-[0_0_6px_rgba(239,68,68,0.15)]";
-  else if (s === "high")
-    bg =
-      "bg-orange-500/10 text-orange-400 border-orange-500/20 shadow-[0_0_6px_rgba(249,115,22,0.12)]";
-  else if (s === "medium")
-    bg = "bg-yellow-500/10 text-yellow-400 border-yellow-500/20";
-  else if (s === "low")
-    bg = "bg-slate-500/10 text-[#8B949E] border-slate-500/20";
+  let bg = "bg-white/10 text-[#E6EDF3] border border-white/10";
+  if (s === "critical") {
+    bg = "bg-[rgba(248,81,73,0.2)] text-[#F85149] border border-[rgba(248,81,73,0.35)]";
+  } else if (s === "high") {
+    bg = "bg-[rgba(227,179,65,0.2)] text-[#E3B341] border border-[rgba(227,179,65,0.35)]";
+  }
 
   return (
     <span
-      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider border ${bg} transition-colors`}
+      className={`inline-flex items-center rounded-full px-[10px] py-[2px] text-[11px] font-bold uppercase tracking-wider ${bg}`}
     >
       {severity || "Unknown"}
+    </span>
+  );
+}
+
+function TypeBadge({ value }: { value: string | null }) {
+  const t = (value || "").toUpperCase();
+  const isKnownType = t === "DOMAIN" || t === "IPV4" || t === "URL";
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-[10px] py-[2px] text-[11px] font-bold uppercase tracking-wider ${
+        isKnownType
+          ? "bg-[rgba(45,212,191,0.15)] text-[#2DD4BF] border border-[rgba(45,212,191,0.35)]"
+          : "bg-white/10 text-[#E6EDF3] border border-white/10"
+      }`}
+    >
+      {value || "N/A"}
     </span>
   );
 }
@@ -123,7 +134,7 @@ export default function IntelVaultPage() {
 
   /* â”€â”€ Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   return (
-    <div className="bg-black text-white font-sans min-h-screen flex flex-col w-full overflow-x-hidden">
+    <div className="text-white font-sans min-h-screen flex flex-col w-full overflow-x-hidden">
       <main className="flex-1 w-full max-w-7xl mx-auto p-6 md:p-10">
         {/* Page Header */}
         <div className="mb-8">
@@ -182,7 +193,7 @@ export default function IntelVaultPage() {
             <motion.div
               {...cardHover}
               key={kpi.label}
-              className={`rounded-xl border bg-[linear-gradient(165deg,rgba(15,23,42,0.7),rgba(15,118,110,0.18))] border-[rgba(45,212,191,0.16)] p-4 flex items-center gap-4 ${kpi.color}`}
+              className={`rounded-[12px] border bg-[rgba(255,255,255,0.06)] border-[rgba(255,255,255,0.1)] p-4 flex items-center gap-4 backdrop-blur-[8px] ${kpi.color}`}
             >
               <kpi.icon className="w-6 h-6 shrink-0 opacity-80" />
               <div>
@@ -199,10 +210,10 @@ export default function IntelVaultPage() {
           {/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Whitelist Table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           <motion.div
             {...cardHover}
-            className="w-full xl:w-[380px] xl:min-w-[340px] bg-[rgba(15,23,42,0.55)] rounded-xl border border-[rgba(45,212,191,0.16)] overflow-hidden flex flex-col"
+            className="w-full xl:w-[380px] xl:min-w-[340px] bg-[rgba(255,255,255,0.04)] rounded-2xl border border-[rgba(255,255,255,0.08)] backdrop-blur-[8px] overflow-hidden flex flex-col"
           >
             {/* Header */}
-            <div className="px-5 py-4 border-b border-white/10 flex items-center gap-2">
+            <div className="px-5 py-4 border-b border-white/10 flex items-center gap-2 text-[#E6EDF3]">
               <ListPlus className="w-5 h-5 text-teal-400" />
               <h2 className="text-base font-semibold text-white">
                 Target Whitelist
@@ -213,11 +224,11 @@ export default function IntelVaultPage() {
             </div>
 
             {/* Table header */}
-            <div className="bg-white/5 px-5 py-2 border-b border-white/10 flex items-center justify-between">
-              <span className="text-[11px] font-bold text-[#8B949E] uppercase tracking-wider">
+            <div className="bg-[rgba(255,255,255,0.05)] px-5 py-2 border-b border-white/10 flex items-center justify-between">
+              <span className="text-[11px] font-bold text-[#E6EDF3] uppercase tracking-wider">
                 Target
               </span>
-              <span className="text-[11px] font-bold text-[#8B949E] uppercase tracking-wider">
+              <span className="text-[11px] font-bold text-[#E6EDF3] uppercase tracking-wider">
                 Date Added
               </span>
             </div>
@@ -239,13 +250,13 @@ export default function IntelVaultPage() {
                 {whitelist.map((item) => (
                   <li
                     key={item.id}
-                    className="px-5 py-3.5 flex items-center justify-between gap-3 hover:bg-white/10 transition-colors group"
+                    className="px-5 py-3.5 flex items-center justify-between gap-3 hover:bg-[rgba(255,255,255,0.04)] transition-colors group"
                   >
                     <div className="flex flex-col min-w-0">
-                      <span className="text-sm font-semibold text-white truncate">
+                      <span className="text-sm font-semibold text-[#E6EDF3] truncate">
                         {item.target}
                       </span>
-                      <span className="text-[11px] text-[#8B949E] mt-0.5">
+                      <span className="text-[11px] text-[#E6EDF3] mt-0.5">
                         {new Date(item.created_at).toLocaleDateString("en-US", {
                           month: "short",
                           day: "numeric",
@@ -272,10 +283,10 @@ export default function IntelVaultPage() {
           {/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Intel Vault Table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           <motion.div
             {...cardHover}
-            className="flex-1 w-full bg-[rgba(15,23,42,0.55)] rounded-xl border border-[rgba(45,212,191,0.16)] overflow-hidden flex flex-col"
+            className="flex-1 w-full bg-[rgba(255,255,255,0.04)] rounded-2xl border border-[rgba(255,255,255,0.08)] backdrop-blur-[8px] overflow-hidden flex flex-col"
           >
             {/* Header */}
-            <div className="px-5 py-4 border-b border-white/10 flex items-center gap-2">
+            <div className="px-5 py-4 border-b border-white/10 flex items-center gap-2 text-[#E6EDF3]">
               <Database className="w-5 h-5 text-teal-400" />
               <h2 className="text-base font-semibold text-white">
                 Proprietary Intel Vault
@@ -286,17 +297,17 @@ export default function IntelVaultPage() {
             </div>
 
             {/* Table header */}
-            <div className="bg-white/5 px-5 py-2 border-b border-white/10 grid grid-cols-12 gap-3 items-center">
-              <span className="col-span-5 text-[11px] font-bold text-[#8B949E] uppercase tracking-wider">
+            <div className="bg-[rgba(255,255,255,0.05)] px-5 py-2 border-b border-white/10 grid grid-cols-12 gap-3 items-center">
+              <span className="col-span-5 text-[11px] font-bold text-[#E6EDF3] uppercase tracking-wider">
                 Indicator
               </span>
-              <span className="col-span-2 text-[11px] font-bold text-[#8B949E] uppercase tracking-wider">
+              <span className="col-span-2 text-[11px] font-bold text-[#E6EDF3] uppercase tracking-wider">
                 Type
               </span>
-              <span className="col-span-2 text-[11px] font-bold text-[#8B949E] uppercase tracking-wider">
+              <span className="col-span-2 text-[11px] font-bold text-[#E6EDF3] uppercase tracking-wider">
                 Severity
               </span>
-              <span className="col-span-2 text-[11px] font-bold text-[#8B949E] uppercase tracking-wider">
+              <span className="col-span-2 text-[11px] font-bold text-[#E6EDF3] uppercase tracking-wider">
                 Source
               </span>
               <span className="col-span-1" />
@@ -319,12 +330,12 @@ export default function IntelVaultPage() {
                 {indicators.map((item) => (
                   <li
                     key={item.id}
-                    className="px-5 py-3 grid grid-cols-12 gap-3 items-center hover:bg-white/10 transition-colors group"
+                    className="px-5 py-3 grid grid-cols-12 gap-3 items-center hover:bg-[rgba(255,255,255,0.04)] transition-colors group"
                   >
                     {/* Indicator */}
                     <div className="col-span-5 min-w-0">
                       <p
-                        className="text-sm font-semibold text-white truncate"
+                        className="text-sm font-semibold text-[#E6EDF3] truncate"
                         title={item.indicator}
                       >
                         {item.indicator}
@@ -333,9 +344,7 @@ export default function IntelVaultPage() {
 
                     {/* Type */}
                     <div className="col-span-2">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider text-teal-400 bg-teal-500/10 border border-teal-500/20">
-                        {item.type || "â€”"}
-                      </span>
+                      <TypeBadge value={item.type || null} />
                     </div>
 
                     {/* Severity */}
@@ -345,7 +354,7 @@ export default function IntelVaultPage() {
 
                     {/* Source */}
                     <div className="col-span-2">
-                      <span className="text-xs font-medium text-[#8B949E] truncate block">
+                      <span className="text-xs font-medium text-[#E6EDF3] truncate block">
                         {item.source || "â€”"}
                       </span>
                     </div>
