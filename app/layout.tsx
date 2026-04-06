@@ -5,7 +5,6 @@ import { Toaster } from "sonner";
 import { validateEnv } from "@/lib/config/validateEnv";
 import ConsentBanner from "@/components/ConsentBanner";
 import AnimatedGradientMesh from "@/components/AnimatedGradientMesh";
-import Navbar from "@/components/Navbar";
 import GlobalSupportWidget from "@/components/GlobalSupportWidget";
 
 // Validate environment variables at startup (server-side only)
@@ -29,7 +28,6 @@ export default function RootLayout({
     >
       <body className="bg-black text-white antialiased min-h-screen font-sans">
         <AnimatedGradientMesh />
-        <Navbar />
         {children}
         <GlobalSupportWidget />
         <Script

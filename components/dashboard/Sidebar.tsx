@@ -96,7 +96,8 @@ export default function Sidebar() {
 
   return (
     <aside
-      className={`fixed top-4 bottom-4 left-4 w-[280px] ${glassCard} flex flex-col z-20`}
+      className="fixed top-4 bottom-4 left-4 z-20 flex w-[280px] flex-col rounded-2xl border border-white/10 backdrop-blur-[12px]"
+      style={{ background: "rgba(30, 20, 60, 0.85)" }}
     >
       <div className="p-6 flex items-center gap-3 border-b border-white/10">
         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#A78BFA] to-[#2DD4BF] flex items-center justify-center">

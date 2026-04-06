@@ -69,7 +69,7 @@ export default async function DashboardOverviewPage() {
   return (
     <div className="flex flex-col gap-6 text-white">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="p-6 bg-white/5 backdrop-blur-3xl border border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)] rounded-2xl flex flex-col gap-2">
+        <div className="flex flex-col gap-2 rounded-[12px] border border-[rgba(255,255,255,0.1)] [background:rgba(255,255,255,0.05)] p-6 backdrop-blur-[8px]">
           <div className="flex justify-between items-start">
             <span className="text-white/70 font-medium">Time to Contain</span>
           </div>
@@ -78,7 +78,7 @@ export default async function DashboardOverviewPage() {
           </div>
         </div>
 
-        <div className="p-6 bg-white/5 backdrop-blur-3xl border border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)] rounded-2xl flex flex-col gap-2">
+        <div className="flex flex-col gap-2 rounded-[12px] border border-[rgba(255,255,255,0.1)] [background:rgba(255,255,255,0.05)] p-6 backdrop-blur-[8px]">
           <div className="flex justify-between items-start">
             <span className="text-white/70 font-medium">Active Incidents</span>
             <span className="px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 text-xs font-bold border border-red-500/20">
@@ -90,14 +90,14 @@ export default async function DashboardOverviewPage() {
           </div>
         </div>
 
-        <div className="p-6 bg-white/5 backdrop-blur-3xl border border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)] rounded-2xl flex flex-col gap-2">
+        <div className="flex flex-col gap-2 rounded-[12px] border border-[rgba(255,255,255,0.1)] [background:rgba(255,255,255,0.05)] p-6 backdrop-blur-[8px]">
           <div className="flex justify-between items-start">
             <span className="text-white/70 font-medium">API Latency</span>
           </div>
           <div className="text-3xl font-bold text-white mt-2">14ms</div>
         </div>
 
-        <div className="p-6 bg-white/5 backdrop-blur-3xl border border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)] rounded-2xl flex flex-col gap-2">
+        <div className="flex flex-col gap-2 rounded-[12px] border border-[rgba(255,255,255,0.1)] [background:rgba(255,255,255,0.05)] p-6 backdrop-blur-[8px]">
           <div className="flex justify-between items-start">
             <span className="text-white/70 font-medium">Global Risk Score</span>
           </div>
