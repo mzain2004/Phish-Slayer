@@ -78,7 +78,7 @@ export default function DashboardShell({ children }: DashboardShellProps) {
       const fullName =
         typeof user.user_metadata?.full_name === "string"
           ? user.user_metadata.full_name
-          : user.email ?? "Authenticated user";
+          : (user.email ?? "Authenticated user");
       const avatarUrl =
         typeof user.user_metadata?.avatar_url === "string"
           ? user.user_metadata.avatar_url
@@ -116,7 +116,9 @@ export default function DashboardShell({ children }: DashboardShellProps) {
         <div className="absolute bottom-[-20%] right-[-10%] w-[60vw] h-[60vw] rounded-full bg-[#2DD4BF] opacity-20 blur-[150px]" />
       </div>
 
-      <aside className={`fixed top-4 bottom-4 left-4 w-[280px] ${glassCard} flex flex-col z-20`}>
+      <aside
+        className={`fixed top-4 bottom-4 left-4 w-[280px] ${glassCard} flex flex-col z-20`}
+      >
         <div className="p-6 flex items-center gap-3 border-b border-white/10">
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#A78BFA] to-[#2DD4BF] flex items-center justify-center">
             <Shield className="w-4 h-4 text-black" />
@@ -163,15 +165,21 @@ export default function DashboardShell({ children }: DashboardShellProps) {
               </div>
             )}
             <div className="flex flex-col min-w-0">
-              <span className="text-sm font-medium truncate">{profile.fullName}</span>
-              <span className="text-xs text-white/50 truncate">{profile.email}</span>
+              <span className="text-sm font-medium truncate">
+                {profile.fullName}
+              </span>
+              <span className="text-xs text-white/50 truncate">
+                {profile.email}
+              </span>
             </div>
           </div>
         </div>
       </aside>
 
       <div className="flex-1 ml-[300px] flex flex-col min-h-screen z-10 p-4">
-        <header className={`w-full h-16 ${glassCard} flex items-center justify-between px-6 mb-6 relative z-50`}>
+        <header
+          className={`w-full h-16 ${glassCard} flex items-center justify-between px-6 mb-6 relative z-50`}
+        >
           <div className="text-sm font-medium text-white/70">
             Dashboard <span className="text-white/30 mx-2">/</span>{" "}
             <span className="text-white">{sectionTitle}</span>
@@ -196,7 +204,9 @@ export default function DashboardShell({ children }: DashboardShellProps) {
 
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/20">
               <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-              <span className="text-xs font-medium text-green-400">System Status: Optimal</span>
+              <span className="text-xs font-medium text-green-400">
+                System Status: Optimal
+              </span>
             </div>
           </div>
         </header>

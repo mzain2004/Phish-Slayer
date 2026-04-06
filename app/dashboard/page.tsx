@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import DashboardShell from "@/components/dashboard/DashboardShell";
 
 type ScanRow = {
   target: string | null;
@@ -68,24 +67,29 @@ export default async function DashboardOverviewPage() {
   const timeToContain = "00:00:00";
 
   return (
-    <DashboardShell>
-      <div className="flex flex-col gap-6 text-white">
+    <div className="flex flex-col gap-6 text-white">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           <div className="p-6 bg-white/5 backdrop-blur-3xl border border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)] rounded-2xl flex flex-col gap-2">
             <div className="flex justify-between items-start">
               <span className="text-white/70 font-medium">Time to Contain</span>
             </div>
-            <div className="text-3xl font-bold text-white mt-2">{timeToContain}</div>
+            <div className="text-3xl font-bold text-white mt-2">
+              {timeToContain}
+            </div>
           </div>
 
           <div className="p-6 bg-white/5 backdrop-blur-3xl border border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)] rounded-2xl flex flex-col gap-2">
             <div className="flex justify-between items-start">
-              <span className="text-white/70 font-medium">Active Incidents</span>
+              <span className="text-white/70 font-medium">
+                Active Incidents
+              </span>
               <span className="px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 text-xs font-bold border border-red-500/20">
                 {resolvedIncidents > 0 ? `-${resolvedIncidents}` : "+0"}
               </span>
             </div>
-            <div className="text-3xl font-bold text-white mt-2">{activeIncidents}</div>
+            <div className="text-3xl font-bold text-white mt-2">
+              {activeIncidents}
+            </div>
           </div>
 
           <div className="p-6 bg-white/5 backdrop-blur-3xl border border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)] rounded-2xl flex flex-col gap-2">
@@ -97,25 +101,36 @@ export default async function DashboardOverviewPage() {
 
           <div className="p-6 bg-white/5 backdrop-blur-3xl border border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)] rounded-2xl flex flex-col gap-2">
             <div className="flex justify-between items-start">
-              <span className="text-white/70 font-medium">Global Risk Score</span>
+              <span className="text-white/70 font-medium">
+                Global Risk Score
+              </span>
             </div>
-            <div className="text-3xl font-bold text-[#2DD4BF] mt-2">{formattedRiskScore}</div>
+            <div className="text-3xl font-bold text-[#2DD4BF] mt-2">
+              {formattedRiskScore}
+            </div>
           </div>
         </div>
 
         <div className="p-6 bg-white/5 backdrop-blur-3xl border border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)] rounded-2xl flex flex-col gap-6">
           <div className="flex justify-between items-center">
-            <h2 className="text-xl font-bold text-white">Network Telemetry (Live)</h2>
+            <h2 className="text-xl font-bold text-white">
+              Network Telemetry (Live)
+            </h2>
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-              <span className="text-xs text-white/50 uppercase tracking-wider">Live</span>
+              <span className="text-xs text-white/50 uppercase tracking-wider">
+                Live
+              </span>
             </div>
           </div>
 
           <div className="w-full h-64 relative flex items-end justify-between gap-[2px] pt-6 overflow-hidden">
             <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-20">
               {[...Array(5)].map((_, i) => (
-                <div key={`grid-${i}`} className="w-full h-[1px] bg-white border-b border-white/5" />
+                <div
+                  key={`grid-${i}`}
+                  className="w-full h-[1px] bg-white border-b border-white/5"
+                />
               ))}
             </div>
 
@@ -144,10 +159,14 @@ export default async function DashboardOverviewPage() {
             <h2 className="text-xl font-bold text-white mb-2">Quick Actions</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <button className="p-4 rounded-xl bg-white/5 border border-white/10 flex flex-col items-center justify-center gap-3 text-center transition-colors">
-                <span className="text-sm font-bold text-white">Run System Diagnostic</span>
+                <span className="text-sm font-bold text-white">
+                  Run System Diagnostic
+                </span>
               </button>
               <button className="p-4 rounded-xl bg-white/5 border border-white/10 flex flex-col items-center justify-center gap-3 text-center transition-colors">
-                <span className="text-sm font-bold text-white">Isolate Compromised Nodes</span>
+                <span className="text-sm font-bold text-white">
+                  Isolate Compromised Nodes
+                </span>
               </button>
             </div>
           </div>
@@ -193,8 +212,7 @@ export default async function DashboardOverviewPage() {
           </div>
         </div>
 
-        <div className="hidden">{maliciousScans + (intelCount ?? 0)}</div>
-      </div>
-    </DashboardShell>
+      <div className="hidden">{maliciousScans + (intelCount ?? 0)}</div>
+    </div>
   );
 }
