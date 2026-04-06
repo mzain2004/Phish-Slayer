@@ -19,21 +19,14 @@ export default async function DashboardLayout({
 
   return (
     <div
-      className="relative flex min-h-screen overflow-hidden text-white"
+      className="relative flex h-screen flex-row overflow-hidden text-white"
       style={{
         background:
           "linear-gradient(135deg, #4a3f7a 0%, #1a4a4a 50%, #0d2b2b 100%)",
       }}
     >
       <Sidebar />
-      <main
-        className="relative z-10 min-h-screen flex-1 overflow-x-hidden p-4 md:p-6"
-        style={{
-          marginLeft: "var(--dashboard-sidebar-width, 64px)",
-          width: "calc(100vw - var(--dashboard-sidebar-width, 64px))",
-          minWidth: 0,
-        }}
-      >
+      <main className="relative z-10 flex-1 min-w-0 overflow-y-auto overflow-x-hidden p-4 md:p-6">
         <DashboardErrorBoundary>{children}</DashboardErrorBoundary>
       </main>
     </div>

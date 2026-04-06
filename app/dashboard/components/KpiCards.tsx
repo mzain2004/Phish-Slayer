@@ -32,7 +32,9 @@ export default function KpiCards({
         <div className="flex items-start justify-between">
           <span className="font-medium text-white/70">Time to Contain</span>
         </div>
-        <div className="mt-2 text-3xl font-bold text-white">{timeToContain}</div>
+        <div className="mt-2 text-3xl font-bold text-white">
+          {timeToContain}
+        </div>
       </motion.div>
 
       <motion.div
@@ -45,7 +47,9 @@ export default function KpiCards({
             {resolvedIncidents > 0 ? `-${resolvedIncidents}` : "+0"}
           </span>
         </div>
-        <div className="mt-2 text-3xl font-bold text-white">{activeIncidents}</div>
+        <div className="mt-2 text-3xl font-bold text-white">
+          {activeIncidents}
+        </div>
       </motion.div>
 
       <motion.div
@@ -65,7 +69,9 @@ export default function KpiCards({
         <div className="flex items-start justify-between">
           <span className="font-medium text-white/70">Global Risk Score</span>
         </div>
-        <div className="mt-2 text-3xl font-bold text-[#2DD4BF]">{formattedRiskScore}</div>
+        <div className="mt-2 text-3xl font-bold text-[#2DD4BF]">
+          {formattedRiskScore}
+        </div>
       </motion.div>
     </div>
   );

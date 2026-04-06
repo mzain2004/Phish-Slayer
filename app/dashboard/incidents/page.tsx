@@ -191,7 +191,7 @@ export default function IncidentReportsPage() {
       }
     });
   };
-  
+
   const handleCreateIncident = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newIncident.title) {
@@ -337,8 +337,9 @@ export default function IncidentReportsPage() {
     },
     {
       label: "Resolved",
-      value: incidents.filter((i) => i.status?.toLowerCase().includes("resolved"))
-        .length,
+      value: incidents.filter((i) =>
+        i.status?.toLowerCase().includes("resolved"),
+      ).length,
       icon: CheckCircle2,
       iconClass: "text-emerald-500",
     },
@@ -405,21 +406,25 @@ export default function IncidentReportsPage() {
                   className="w-56 py-2.5 pl-10 pr-4 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-teal-500 focus:border-teal-500 transition-all"
                 />
               </div>
-              <button
+              <motion.button
                 onClick={exportToExcel}
-                className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-slate-300 hover:bg-white/10 transition-colors"
+                whileHover={{ backgroundColor: "rgba(255,255,255,0.14)" }}
+                whileTap={{ scale: 0.96 }}
+                className="flex items-center gap-2 rounded-full border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.08)] px-5 py-2 text-sm font-semibold text-white [transition:all_0.2s_ease]"
               >
                 <Download className="w-4 h-4" />
                 Export
-              </button>
+              </motion.button>
 
-              <button
+              <motion.button
                 onClick={() => setIsCreateModalOpen(true)}
-                className="flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-teal-500 transition-colors shadow-lg shadow-teal-900/20"
+                whileHover={{ scale: 1.03, boxShadow: "0 0 20px rgba(45,212,191,0.4)" }}
+                whileTap={{ scale: 0.96 }}
+                className="flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold text-black [transition:all_0.2s_ease] [background:linear-gradient(135deg,#2DD4BF,#22c55e)]"
               >
                 <Plus className="w-4 h-4" />
                 New Incident
-              </button>
+              </motion.button>
             </div>
           </div>
         </div>
@@ -446,10 +451,14 @@ export default function IncidentReportsPage() {
                 className="flex flex-col gap-1 rounded-[12px] border border-[rgba(255,255,255,0.12)] [background:rgba(255,255,255,0.06)] p-5 backdrop-blur-[8px]"
               >
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium text-[#8B949E]">{card.label}</p>
+                  <p className="text-sm font-medium text-[#8B949E]">
+                    {card.label}
+                  </p>
                   <Icon className={`h-5 w-5 ${card.iconClass}`} />
                 </div>
-                <p className="mt-2 text-3xl font-bold text-white">{card.value}</p>
+                <p className="mt-2 text-3xl font-bold text-white">
+                  {card.value}
+                </p>
               </motion.div>
             );
           })}
@@ -573,13 +582,15 @@ export default function IncidentReportsPage() {
                               {!incident.status
                                 ?.toLowerCase()
                                 .includes("resolved") && (
-                                <button
+                                <motion.button
                                   onClick={() => handleResolve(incident.id)}
                                   disabled={
                                     isPending && actionId === incident.id
                                   }
                                   title="Resolve"
-                                  className="inline-flex items-center gap-1.5 rounded-lg border border-green-500/20 bg-green-500/10 px-3 py-1.5 text-xs font-semibold text-green-400 hover:bg-green-500/20 transition-colors disabled:opacity-50"
+                                  whileHover={{ scale: 1.03, boxShadow: "0 0 20px rgba(45,212,191,0.4)" }}
+                                  whileTap={{ scale: 0.96 }}
+                                  className="inline-flex items-center gap-1.5 rounded-full px-5 py-2 text-xs font-semibold text-black [transition:all_0.2s_ease] [background:linear-gradient(135deg,#2DD4BF,#22c55e)] disabled:opacity-50"
                                 >
                                   {isActioning(incident.id, "resolve") ? (
                                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -587,12 +598,12 @@ export default function IncidentReportsPage() {
                                     <CheckCircle2 className="w-3.5 h-3.5" />
                                   )}
                                   Resolve
-                                </button>
+                                </motion.button>
                               )}
 
                               {/* Block IP/Domain */}
                               {extractTarget(incident) && (
-                                <button
+                                <motion.button
                                   onClick={() => {
                                     const target = extractTarget(incident);
                                     if (target)
@@ -602,7 +613,9 @@ export default function IncidentReportsPage() {
                                     isPending && actionId === incident.id
                                   }
                                   title="Block IP"
-                                  className="inline-flex items-center gap-1.5 rounded-lg border border-orange-500/20 bg-orange-500/10 px-3 py-1.5 text-xs font-semibold text-orange-400 hover:bg-orange-500/20 transition-colors disabled:opacity-50"
+                                  whileHover={{ backgroundColor: "rgba(248,81,73,0.25)" }}
+                                  whileTap={{ scale: 0.96 }}
+                                  className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(248,81,73,0.3)] bg-[rgba(248,81,73,0.15)] px-5 py-2 text-xs font-semibold text-[#F85149] [transition:all_0.2s_ease] disabled:opacity-50"
                                 >
                                   {isActioning(incident.id, "block") ? (
                                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -610,15 +623,17 @@ export default function IncidentReportsPage() {
                                     <Ban className="w-3.5 h-3.5" />
                                   )}
                                   Block IP
-                                </button>
+                                </motion.button>
                               )}
 
                               {/* Delete */}
-                              <button
+                              <motion.button
                                 onClick={() => handleDelete(incident.id)}
                                 disabled={isPending && actionId === incident.id}
                                 title="Delete"
-                                className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-400 hover:bg-red-500/20 transition-colors disabled:opacity-50"
+                                whileHover={{ backgroundColor: "rgba(248,81,73,0.25)" }}
+                                whileTap={{ scale: 0.96 }}
+                                className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(248,81,73,0.3)] bg-[rgba(248,81,73,0.15)] px-5 py-2 text-xs font-semibold text-[#F85149] [transition:all_0.2s_ease] disabled:opacity-50"
                               >
                                 {isActioning(incident.id, "delete") ? (
                                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -626,7 +641,7 @@ export default function IncidentReportsPage() {
                                   <Trash2 className="w-3.5 h-3.5" />
                                 )}
                                 Delete
-                              </button>
+                              </motion.button>
                             </div>
                           </td>
                         )}
@@ -644,16 +659,22 @@ export default function IncidentReportsPage() {
       {isCreateModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-all duration-300">
           <div className="bg-white/5 border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl relative animate-in fade-in zoom-in duration-200">
-            <button
+            <motion.button
               onClick={() => setIsCreateModalOpen(false)}
-              className="absolute top-4 right-4 text-[#8B949E] hover:text-white transition-colors"
+              whileHover={{ backgroundColor: "rgba(255,255,255,0.14)" }}
+              whileTap={{ scale: 0.96 }}
+              className="absolute right-4 top-4 rounded-full border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.08)] px-5 py-2 text-[#8B949E] [transition:all_0.2s_ease]"
             >
               <X className="w-5 h-5" />
-            </button>
+            </motion.button>
 
             <div className="p-8">
-              <h2 className="text-2xl font-bold text-white mb-2">Create New Incident</h2>
-              <p className="text-[#8B949E] text-sm mb-6">Manually log a threat or security investigation.</p>
+              <h2 className="text-2xl font-bold text-white mb-2">
+                Create New Incident
+              </h2>
+              <p className="text-[#8B949E] text-sm mb-6">
+                Manually log a threat or security investigation.
+              </p>
 
               <form onSubmit={handleCreateIncident} className="space-y-5">
                 <div>
@@ -664,7 +685,9 @@ export default function IncidentReportsPage() {
                     type="text"
                     required
                     value={newIncident.title}
-                    onChange={(e) => setNewIncident({ ...newIncident, title: e.target.value })}
+                    onChange={(e) =>
+                      setNewIncident({ ...newIncident, title: e.target.value })
+                    }
                     className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-slate-600 focus:ring-2 focus:ring-teal-500/50 outline-none transition-all"
                     placeholder="e.g. Unusual login from Russia"
                   />
@@ -677,7 +700,12 @@ export default function IncidentReportsPage() {
                     </label>
                     <select
                       value={newIncident.severity}
-                      onChange={(e) => setNewIncident({ ...newIncident, severity: e.target.value })}
+                      onChange={(e) =>
+                        setNewIncident({
+                          ...newIncident,
+                          severity: e.target.value,
+                        })
+                      }
                       className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-teal-500/50 outline-none transition-all cursor-pointer"
                     >
                       <option value="Low">Low</option>
@@ -693,12 +721,19 @@ export default function IncidentReportsPage() {
                     </label>
                     <select
                       value={newIncident.assignee}
-                      onChange={(e) => setNewIncident({ ...newIncident, assignee: e.target.value })}
+                      onChange={(e) =>
+                        setNewIncident({
+                          ...newIncident,
+                          assignee: e.target.value,
+                        })
+                      }
                       className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-teal-500/50 outline-none transition-all cursor-pointer"
                     >
                       <option value="Unassigned">Unassigned</option>
-                      {orgUsers.map(u => (
-                        <option key={u.id} value={u.display_name}>{u.display_name}</option>
+                      {orgUsers.map((u) => (
+                        <option key={u.id} value={u.display_name}>
+                          {u.display_name}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -711,24 +746,33 @@ export default function IncidentReportsPage() {
                   <textarea
                     rows={4}
                     value={newIncident.description}
-                    onChange={(e) => setNewIncident({ ...newIncident, description: e.target.value })}
+                    onChange={(e) =>
+                      setNewIncident({
+                        ...newIncident,
+                        description: e.target.value,
+                      })
+                    }
                     className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-slate-600 focus:ring-2 focus:ring-teal-500/50 outline-none transition-all resize-none"
                     placeholder="Describe the threat or suspicious activity observed..."
                   />
                 </div>
 
                 <div className="flex gap-3 pt-4">
-                  <button
+                  <motion.button
                     type="button"
                     onClick={() => setIsCreateModalOpen(false)}
-                    className="flex-1 px-6 py-3 rounded-xl border border-white/10 font-semibold text-slate-300 hover:bg-white/10 transition-all active:scale-95"
+                    whileHover={{ backgroundColor: "rgba(255,255,255,0.14)" }}
+                    whileTap={{ scale: 0.96 }}
+                    className="flex-1 rounded-full border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.08)] px-5 py-2 font-semibold text-white [transition:all_0.2s_ease]"
                   >
                     Cancel
-                  </button>
-                  <button
+                  </motion.button>
+                  <motion.button
                     type="submit"
                     disabled={isPending}
-                    className="flex-1 px-6 py-3 rounded-xl bg-teal-600 font-bold text-white hover:bg-teal-500 transition-all shadow-xl shadow-teal-900/30 disabled:opacity-50 disabled:scale-100 active:scale-95"
+                    whileHover={{ scale: 1.03, boxShadow: "0 0 20px rgba(45,212,191,0.4)" }}
+                    whileTap={{ scale: 0.96 }}
+                    className="flex-1 rounded-full px-5 py-2 font-semibold text-black [transition:all_0.2s_ease] [background:linear-gradient(135deg,#2DD4BF,#22c55e)] disabled:opacity-50"
                   >
                     {isPending ? (
                       <div className="flex items-center justify-center gap-2">
@@ -738,7 +782,7 @@ export default function IncidentReportsPage() {
                     ) : (
                       "Create Incident"
                     )}
-                  </button>
+                  </motion.button>
                 </div>
               </form>
             </div>
@@ -748,4 +792,3 @@ export default function IncidentReportsPage() {
     </div>
   );
 }
-

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useTransition, Suspense, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { launchScan, getScans } from "@/lib/supabase/actions";
 import { createClient } from "@/lib/supabase/client";
@@ -158,26 +159,30 @@ function ScanManagerContent() {
       <main className="flex-1 px-4 sm:px-8 py-8 w-full max-w-5xl mx-auto flex flex-col gap-10">
         <section className="rounded-[12px] border border-[rgba(255,255,255,0.1)] [background:rgba(255,255,255,0.05)] p-2 backdrop-blur-[8px]">
           <div className="grid grid-cols-2 gap-2">
-            <button
+            <motion.button
               onClick={() => setActiveTab("scanner")}
-              className={`rounded-lg px-4 py-2 text-sm font-semibold transition-all ${
+              whileHover={{ backgroundColor: "rgba(255,255,255,0.14)" }}
+              whileTap={{ scale: 0.96 }}
+              className={`rounded-full px-5 py-2 text-sm font-semibold [transition:all_0.2s_ease] ${
                 activeTab === "scanner"
                   ? "bg-[#2DD4BF]/20 text-[#2DD4BF] border border-[#2DD4BF]/40"
-                  : "text-white hover:bg-white/10"
+                  : "border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.08)] text-white"
               }`}
             >
               Threat Scanner
-            </button>
-            <button
+            </motion.button>
+            <motion.button
               onClick={() => setActiveTab("sandbox")}
-              className={`rounded-lg px-4 py-2 text-sm font-semibold transition-all ${
+              whileHover={{ backgroundColor: "rgba(255,255,255,0.14)" }}
+              whileTap={{ scale: 0.96 }}
+              className={`rounded-full px-5 py-2 text-sm font-semibold [transition:all_0.2s_ease] ${
                 activeTab === "sandbox"
                   ? "bg-[#2DD4BF]/20 text-[#2DD4BF] border border-[#2DD4BF]/40"
-                  : "text-white hover:bg-white/10"
+                  : "border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.08)] text-white"
               }`}
             >
               Sandbox Analysis
-            </button>
+            </motion.button>
           </div>
         </section>
 
@@ -228,10 +233,12 @@ function ScanManagerContent() {
                         className="w-full pl-12 pr-4 py-4 bg-white/5 border border-white/10 rounded-xl text-base text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                       />
                     </div>
-                    <button
+                    <motion.button
                       onClick={handleScan}
                       disabled={isPending || !target.trim()}
-                      className="px-8 py-4 bg-teal-500 hover:bg-teal-400 text-white border-none text-base font-bold rounded-xl shadow-lg shadow-teal-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 whitespace-nowrap min-w-[160px]"
+                      whileHover={{ scale: 1.03, boxShadow: "0 0 20px rgba(45,212,191,0.4)" }}
+                      whileTap={{ scale: 0.96 }}
+                      className="flex min-w-[160px] items-center justify-center gap-2 whitespace-nowrap rounded-full px-5 py-2 text-base font-semibold text-black [transition:all_0.2s_ease] [background:linear-gradient(135deg,#2DD4BF,#22c55e)] disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {isPending ? (
                         <Loader2 className="w-5 h-5 animate-spin" />
@@ -239,7 +246,7 @@ function ScanManagerContent() {
                         <ShieldCheck className="w-5 h-5" />
                       )}
                       {isPending ? "Scanningâ€¦" : "Scan Target"}
-                    </button>
+                    </motion.button>
                   </div>
                 )}
                 {isViewer && (
@@ -274,18 +281,22 @@ function ScanManagerContent() {
                 {/* View Scope Toggle for Managers+ */}
                 {isManagerOrAdmin && (
                   <div className="flex bg-white/5 p-1 rounded-lg border border-white/10">
-                    <button
+                    <motion.button
                       onClick={() => setViewScope("all")}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${viewScope === "all" ? "bg-white/10 shadow-sm text-white" : "text-[#8B949E] hover:text-slate-300"}`}
+                      whileHover={{ backgroundColor: "rgba(255,255,255,0.14)" }}
+                      whileTap={{ scale: 0.96 }}
+                      className={`flex items-center gap-1.5 rounded-full px-5 py-2 text-xs font-semibold [transition:all_0.2s_ease] ${viewScope === "all" ? "bg-white/10 text-white" : "bg-[rgba(255,255,255,0.08)] text-[#8B949E]"}`}
                     >
                       <Users className="w-3.5 h-3.5" /> All Users
-                    </button>
-                    <button
+                    </motion.button>
+                    <motion.button
                       onClick={() => setViewScope("my")}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${viewScope === "my" ? "bg-white/10 shadow-sm text-white" : "text-[#8B949E] hover:text-slate-300"}`}
+                      whileHover={{ backgroundColor: "rgba(255,255,255,0.14)" }}
+                      whileTap={{ scale: 0.96 }}
+                      className={`flex items-center gap-1.5 rounded-full px-5 py-2 text-xs font-semibold [transition:all_0.2s_ease] ${viewScope === "my" ? "bg-white/10 text-white" : "bg-[rgba(255,255,255,0.08)] text-[#8B949E]"}`}
                     >
                       <User className="w-3.5 h-3.5" /> My Scans
-                    </button>
+                    </motion.button>
                   </div>
                 )}
 
@@ -463,25 +474,29 @@ function ScanManagerContent() {
                         of {filteredScans.length} scans
                       </span>
                       <div className="flex items-center gap-2">
-                        <button
+                        <motion.button
                           onClick={() => setPage((p) => Math.max(0, p - 1))}
                           disabled={page === 0}
-                          className="p-1.5 rounded-md border border-white/10 bg-white/5 text-[#8B949E] hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          whileHover={{ backgroundColor: "rgba(255,255,255,0.14)" }}
+                          whileTap={{ scale: 0.96 }}
+                          className="rounded-full border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.08)] px-5 py-2 text-[#8B949E] [transition:all_0.2s_ease] disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           <ChevronLeft className="w-4 h-4" />
-                        </button>
+                        </motion.button>
                         <span className="text-xs font-bold text-[#8B949E] px-2">
                           Page {page + 1} of {totalPages}
                         </span>
-                        <button
+                        <motion.button
                           onClick={() =>
                             setPage((p) => Math.min(totalPages - 1, p + 1))
                           }
                           disabled={page >= totalPages - 1}
-                          className="p-1.5 rounded-md border border-white/10 bg-white/5 text-[#8B949E] hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          whileHover={{ backgroundColor: "rgba(255,255,255,0.14)" }}
+                          whileTap={{ scale: 0.96 }}
+                          className="rounded-full border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.08)] px-5 py-2 text-[#8B949E] [transition:all_0.2s_ease] disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           <ChevronRight className="w-4 h-4" />
-                        </button>
+                        </motion.button>
                       </div>
                     </div>
                   )}
@@ -518,12 +533,14 @@ function ScanManagerContent() {
                   Open the deep analysis workspace to inspect IOC traces, source
                   intelligence, and detonation insights.
                 </p>
-                <button
+                <motion.button
                   onClick={() => router.push("/dashboard/threats")}
-                  className="mt-4 rounded-lg bg-[#2DD4BF] px-4 py-2 text-sm font-semibold text-black transition hover:bg-[#14B8A6]"
+                  whileHover={{ scale: 1.03, boxShadow: "0 0 20px rgba(45,212,191,0.4)" }}
+                  whileTap={{ scale: 0.96 }}
+                  className="mt-4 rounded-full px-5 py-2 text-sm font-semibold text-black [transition:all_0.2s_ease] [background:linear-gradient(135deg,#2DD4BF,#22c55e)]"
                 >
                   Open Deep Analysis
-                </button>
+                </motion.button>
               </div>
 
               <div className="rounded-[12px] border border-[rgba(255,255,255,0.1)] [background:rgba(255,255,255,0.05)] p-3 backdrop-blur-[8px]">

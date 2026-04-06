@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
 import { toast } from "sonner";
 import {
   CreditCard,
@@ -157,10 +158,12 @@ export default function BillingPage() {
           </div>
           <div className="flex items-center gap-3">
             {isPaid ? (
-              <button
+              <motion.button
                 disabled={isPortalLoading}
                 onClick={handleManageSubscription}
-                className="flex items-center gap-2 px-4 py-2 bg-[#1c2128] border border-white/10 text-[#e6edf3] hover:bg-[#21262d] text-sm font-medium rounded-[6px] transition-all hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-50"
+                whileHover={{ backgroundColor: "rgba(255,255,255,0.14)" }}
+                whileTap={{ scale: 0.96 }}
+                className="flex items-center gap-2 rounded-full border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.08)] px-5 py-2 text-sm font-semibold text-white [transition:all_0.2s_ease] disabled:opacity-50"
               >
                 {isPortalLoading ? (
                   <Loader2 className="w-4 h-4 animate-spin text-teal-400" />
@@ -168,7 +171,7 @@ export default function BillingPage() {
                   <CreditCard className="w-4 h-4" />
                 )}
                 Manage Subscription
-              </button>
+              </motion.button>
             ) : (
               <Link
                 href="/pricing"
@@ -215,12 +218,14 @@ export default function BillingPage() {
           <p className="text-[#8B949E] text-sm mt-2 mb-4">
             You are currently on the free Recon plan.
           </p>
-          <button
+          <motion.button
             onClick={() => router.push("/pricing")}
-            className="bg-[#2DD4BF] text-white border-none rounded-md px-4 py-2 text-sm font-semibold hover:opacity-90 transition-opacity"
+            whileHover={{ scale: 1.03, boxShadow: "0 0 20px rgba(45,212,191,0.4)" }}
+            whileTap={{ scale: 0.96 }}
+            className="rounded-full px-5 py-2 text-sm font-semibold text-black [transition:all_0.2s_ease] [background:linear-gradient(135deg,#2DD4BF,#22c55e)]"
           >
             Upgrade Your Plan
-          </button>
+          </motion.button>
         </div>
       )}
 

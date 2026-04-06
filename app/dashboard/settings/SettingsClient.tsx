@@ -198,10 +198,12 @@ export default function SettingsClient({
             />
           </div>
         </div>
-        <button
+        <motion.button
           onClick={saveProfile}
           disabled={isPending}
-          className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[#2DD4BF] px-4 py-2 text-sm font-semibold text-black transition hover:bg-[#14B8A6] disabled:opacity-60"
+          whileHover={{ scale: 1.03, boxShadow: "0 0 20px rgba(45,212,191,0.4)" }}
+          whileTap={{ scale: 0.96 }}
+          className="mt-4 inline-flex items-center gap-2 rounded-full px-5 py-2 [transition:all_0.2s_ease] [background:linear-gradient(135deg,#2DD4BF,#22c55e)] text-sm font-semibold text-black disabled:opacity-60"
         >
           {isPending ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -209,7 +211,7 @@ export default function SettingsClient({
             <Save className="h-4 w-4" />
           )}{" "}
           Save Profile
-        </button>
+        </motion.button>
       </motion.section>
 
       <motion.section
@@ -235,10 +237,12 @@ export default function SettingsClient({
             placeholder="Confirm password"
           />
         </div>
-        <button
+        <motion.button
           onClick={updatePassword}
           disabled={isPending}
-          className="mt-4 inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/20 disabled:opacity-60"
+          whileHover={{ backgroundColor: "rgba(255,255,255,0.14)" }}
+          whileTap={{ scale: 0.96 }}
+          className="mt-4 inline-flex items-center gap-2 rounded-full border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.08)] px-5 py-2 text-sm font-semibold text-white [transition:all_0.2s_ease] disabled:opacity-60"
         >
           {isPending ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -246,7 +250,7 @@ export default function SettingsClient({
             <Lock className="h-4 w-4" />
           )}{" "}
           Update Password
-        </button>
+        </motion.button>
       </motion.section>
 
       <motion.section
@@ -259,10 +263,12 @@ export default function SettingsClient({
         <div className="rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white/90 break-all">
           {apiKey ?? "No API key generated yet"}
         </div>
-        <button
+        <motion.button
           onClick={regenerateApiKey}
           disabled={isPending}
-          className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[#2DD4BF] px-4 py-2 text-sm font-semibold text-black transition hover:bg-[#14B8A6] disabled:opacity-60"
+          whileHover={{ scale: 1.03, boxShadow: "0 0 20px rgba(45,212,191,0.4)" }}
+          whileTap={{ scale: 0.96 }}
+          className="mt-4 inline-flex items-center gap-2 rounded-full px-5 py-2 [transition:all_0.2s_ease] [background:linear-gradient(135deg,#2DD4BF,#22c55e)] text-sm font-semibold text-black disabled:opacity-60"
         >
           {isPending ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -270,7 +276,7 @@ export default function SettingsClient({
             <Key className="h-4 w-4" />
           )}{" "}
           Regenerate API Key
-        </button>
+        </motion.button>
       </motion.section>
     </div>
   );

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import KpiCards from "./components/KpiCards";
+import QuickActionsPanel from "./components/QuickActionsPanel";
 
 type ScanRow = {
   target: string | null;
@@ -120,21 +121,7 @@ export default async function DashboardOverviewPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="p-6 bg-white/5 backdrop-blur-3xl border border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)] rounded-2xl flex flex-col gap-4">
-          <h2 className="text-xl font-bold text-white mb-2">Quick Actions</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <button className="p-4 rounded-xl bg-white/5 border border-white/10 flex flex-col items-center justify-center gap-3 text-center transition-colors">
-              <span className="text-sm font-bold text-white">
-                Run System Diagnostic
-              </span>
-            </button>
-            <button className="p-4 rounded-xl bg-white/5 border border-white/10 flex flex-col items-center justify-center gap-3 text-center transition-colors">
-              <span className="text-sm font-bold text-white">
-                Isolate Compromised Nodes
-              </span>
-            </button>
-          </div>
-        </div>
+        <QuickActionsPanel />
 
         <div className="p-6 bg-white/5 backdrop-blur-3xl border border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)] rounded-2xl flex flex-col gap-4">
           <div className="flex justify-between items-center mb-2">
