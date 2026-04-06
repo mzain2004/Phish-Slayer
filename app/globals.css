@@ -67,6 +67,7 @@
   background: #64748b;
 }
 * {
+  box-sizing: border-box;
   scrollbar-width: thin;
   scrollbar-color: #475569 #1e293b;
 }
@@ -269,4 +270,5 @@ body {
     BlinkMacSystemFont,
     "Segoe UI",
     sans-serif;
+  overflow-x: hidden;
 }

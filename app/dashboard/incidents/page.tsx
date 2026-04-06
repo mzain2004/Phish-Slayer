@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useState, useEffect, useTransition, useMemo } from "react";
+import { motion } from "framer-motion";
 import { toast } from "sonner";
 import {
   Shield,
@@ -319,9 +320,39 @@ export default function IncidentReportsPage() {
 
   const isViewOnly = role && isReadOnly(role);
   const canAssign = role && canAssignIncidents(role);
+  const statCards = [
+    {
+      label: "Total Incidents",
+      value: incidents.length,
+      icon: Shield,
+      iconClass: "text-teal-600",
+    },
+    {
+      label: "Open",
+      value: incidents.filter(
+        (i) => !i.status?.toLowerCase().includes("resolved"),
+      ).length,
+      icon: AlertTriangle,
+      iconClass: "text-orange-500",
+    },
+    {
+      label: "Resolved",
+      value: incidents.filter((i) => i.status?.toLowerCase().includes("resolved"))
+        .length,
+      icon: CheckCircle2,
+      iconClass: "text-emerald-500",
+    },
+    {
+      label: "Critical",
+      value: incidents.filter((i) => i.severity?.toLowerCase() === "critical")
+        .length,
+      icon: AlertTriangle,
+      iconClass: "text-red-500",
+    },
+  ];
 
   return (
-    <div className="bg-black text-slate-100 font-sans min-h-screen flex flex-col w-full">
+    <div className="text-slate-100 font-sans min-h-screen flex w-full flex-col overflow-x-hidden">
       <main className="flex-1 px-4 sm:px-8 py-8 w-full max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
@@ -394,57 +425,34 @@ export default function IncidentReportsPage() {
         </div>
 
         {/* KPI Row */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <div className="flex flex-col gap-1 rounded-xl bg-white/5 p-5 border border-white/10">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-[#8B949E]">
-                Total Incidents
-              </p>
-              <Shield className="text-teal-600 w-5 h-5" />
-            </div>
-            <p className="text-3xl font-bold text-white mt-2">
-              {incidents.length}
-            </p>
-          </div>
-          <div className="flex flex-col gap-1 rounded-xl bg-white/5 p-5 border border-white/10">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-[#8B949E]">Open</p>
-              <AlertTriangle className="text-orange-500 w-5 h-5" />
-            </div>
-            <p className="text-3xl font-bold text-white mt-2">
-              {
-                incidents.filter(
-                  (i) => !i.status?.toLowerCase().includes("resolved"),
-                ).length
-              }
-            </p>
-          </div>
-          <div className="flex flex-col gap-1 rounded-xl bg-white/5 p-5 border border-white/10">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-[#8B949E]">Resolved</p>
-              <CheckCircle2 className="text-emerald-500 w-5 h-5" />
-            </div>
-            <p className="text-3xl font-bold text-white mt-2">
-              {
-                incidents.filter((i) =>
-                  i.status?.toLowerCase().includes("resolved"),
-                ).length
-              }
-            </p>
-          </div>
-          <div className="flex flex-col gap-1 rounded-xl bg-white/5 p-5 border border-white/10">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-[#8B949E]">Critical</p>
-              <AlertTriangle className="text-red-500 w-5 h-5" />
-            </div>
-            <p className="text-3xl font-bold text-white mt-2">
-              {
-                incidents.filter(
-                  (i) => i.severity?.toLowerCase() === "critical",
-                ).length
-              }
-            </p>
-          </div>
+        <div className="mb-8 grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-4">
+          {statCards.map((card, index) => {
+            const Icon = card.icon;
+            return (
+              <motion.div
+                key={card.label}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{
+                  delay: index * 0.1,
+                  type: "spring",
+                  stiffness: 300,
+                  damping: 20,
+                }}
+                whileHover={{
+                  scale: 1.02,
+                  boxShadow: "0 8px 32px rgba(45, 212, 191, 0.15)",
+                }}
+                className="flex flex-col gap-1 rounded-[12px] border border-[rgba(255,255,255,0.12)] [background:rgba(255,255,255,0.06)] p-5 backdrop-blur-[8px]"
+              >
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-[#8B949E]">{card.label}</p>
+                  <Icon className={`h-5 w-5 ${card.iconClass}`} />
+                </div>
+                <p className="mt-2 text-3xl font-bold text-white">{card.value}</p>
+              </motion.div>
+            );
+          })}
         </div>
 
         {/* Table */}
@@ -462,7 +470,7 @@ export default function IncidentReportsPage() {
           </div>
         ) : (
           <div className="rounded-xl bg-white/5 border border-white/10 overflow-hidden">
-            <div className="overflow-x-auto">
+            <div style={{ overflowX: "auto", width: "100%" }}>
               <table className="w-full text-left">
                 <thead>
                   <tr className="bg-white/5 border-b border-white/10">

@@ -26,7 +26,14 @@ export default async function DashboardLayout({
       }}
     >
       <Sidebar />
-      <main className="relative z-10 ml-[300px] min-h-screen flex-1 p-4 md:p-6">
+      <main
+        className="relative z-10 min-h-screen flex-1 overflow-x-hidden p-4 md:p-6"
+        style={{
+          marginLeft: "var(--dashboard-sidebar-width, 64px)",
+          width: "calc(100vw - var(--dashboard-sidebar-width, 64px))",
+          minWidth: 0,
+        }}
+      >
         <DashboardErrorBoundary>{children}</DashboardErrorBoundary>
       </main>
     </div>

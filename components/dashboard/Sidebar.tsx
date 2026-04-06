@@ -1,24 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import {
-  Activity,
   AlertTriangle,
-  Boxes,
   CreditCard,
   Database,
   FileText,
-  FlaskConical,
   LayoutDashboard,
-  Link2,
+  Menu,
   Monitor,
   ScanLine,
   Settings,
   Shield,
   Terminal,
+  X,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -32,40 +30,45 @@ type SidebarItemProps = {
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
   { icon: ScanLine, label: "Threat Scanner", href: "/dashboard/scans" },
-  { icon: FlaskConical, label: "Sandbox Analysis", href: "/dashboard/sandbox" },
   { icon: Monitor, label: "Endpoint Fleet", href: "/dashboard/fleet" },
   { icon: AlertTriangle, label: "Incident Reports", href: "/dashboard/incidents" },
   { icon: Database, label: "Intel Vault", href: "/dashboard/intel" },
   { icon: Terminal, label: "AI Terminal", href: "/dashboard/terminal" },
-  { icon: Shield, label: "Protocols", href: "/dashboard/protocols" },
+  { icon: FileText, label: "Reports", href: "/dashboard/reports" },
   { icon: CreditCard, label: "Billing", href: "/dashboard/billing" },
   { icon: Settings, label: "Settings", href: "/dashboard/settings" },
-  { icon: Link2, label: "Identity Chain", href: "/dashboard/identity" },
-  { icon: Activity, label: "MTTR", href: "/dashboard/mttr" },
-  { icon: Boxes, label: "Admin", href: "/dashboard/admin" },
-  { icon: Boxes, label: "Agent Console", href: "/dashboard/agent" },
-  { icon: Boxes, label: "Agent Fleet Ops", href: "/dashboard/agents" },
-  { icon: Boxes, label: "API Keys", href: "/dashboard/apikeys" },
-  { icon: Boxes, label: "Audit", href: "/dashboard/audit" },
-  { icon: Boxes, label: "Profile", href: "/dashboard/profile" },
-  { icon: Boxes, label: "Support", href: "/dashboard/support" },
-  { icon: Boxes, label: "Threat Analysis", href: "/dashboard/threats" },
 ];
 
-function SidebarItem({ icon: Icon, label, href, active }: SidebarItemProps) {
+function SidebarItem({
+  icon: Icon,
+  label,
+  href,
+  active,
+  expanded,
+}: SidebarItemProps & { expanded: boolean }) {
   return (
     <motion.div whileTap={{ scale: 0.98 }}>
       <Link
         href={href}
-        className={`group relative flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left font-medium [transition:all_0.2s_ease] ${
+        className={`group relative flex w-full items-center rounded-xl py-3 text-left font-medium [transition:all_0.2s_ease] ${
           active
             ? "border-l-[3px] border-l-[#2DD4BF] bg-[rgba(45,212,191,0.15)] text-[#2DD4BF]"
             : "text-white/90 hover:bg-[rgba(255,255,255,0.07)]"
         }`}
-        style={{ cursor: "pointer" }}
+        style={{
+          justifyContent: expanded ? "flex-start" : "center",
+          paddingLeft: expanded ? "1rem" : "0",
+          paddingRight: expanded ? "1rem" : "0",
+        }}
       >
-        <Icon className="w-5 h-5 z-10" />
-        <span className="z-10">{label}</span>
+        <Icon className="h-5 w-5 shrink-0" />
+        <span
+          className={`ml-3 overflow-hidden whitespace-nowrap text-sm [transition:all_0.2s_ease] ${
+            expanded ? "max-w-[160px] opacity-100" : "max-w-0 opacity-0"
+          }`}
+        >
+          {label}
+        </span>
       </Link>
     </motion.div>
   );
@@ -73,10 +76,17 @@ function SidebarItem({ icon: Icon, label, href, active }: SidebarItemProps) {
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const [expanded, setExpanded] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [profile, setProfile] = useState({
     fullName: "Authenticated user",
     email: "authenticated@phish-slayer.local",
   });
+
+  const isMobile = useMemo(() => {
+    if (typeof window === "undefined") return false;
+    return window.innerWidth < 768;
+  }, []);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -101,21 +111,68 @@ export default function Sidebar() {
     void loadProfile();
   }, []);
 
+  useEffect(() => {
+    const width =
+      typeof window !== "undefined" && window.innerWidth < 768
+        ? mobileOpen
+          ? "256px"
+          : "0px"
+        : expanded
+          ? "256px"
+          : "64px";
+
+    document.documentElement.style.setProperty("--dashboard-sidebar-width", width);
+  }, [expanded, mobileOpen]);
+
+  useEffect(() => {
+    const onResize = () => {
+      if (window.innerWidth >= 768) {
+        setMobileOpen(false);
+      }
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  const showExpanded = (typeof window !== "undefined" && window.innerWidth < 768)
+    ? mobileOpen
+    : expanded;
+
   return (
-    <aside
-      className="fixed top-4 bottom-4 left-4 z-20 flex w-[280px] flex-col rounded-2xl border border-white/10 backdrop-blur-[12px]"
-      style={{ background: "rgba(30, 20, 60, 0.85)" }}
-    >
-      <div className="p-6 flex items-center gap-3 border-b border-white/10">
-        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#A78BFA] to-[#2DD4BF] flex items-center justify-center">
-          <Shield className="w-4 h-4 text-black" />
+    <>
+      <button
+        onClick={() => setMobileOpen((v) => !v)}
+        className="fixed left-3 top-3 z-40 flex h-10 w-10 items-center justify-center rounded-lg border border-white/20 bg-[rgba(30,20,60,0.85)] text-white backdrop-blur-[12px] md:hidden"
+        aria-label="Toggle sidebar"
+      >
+        {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+      </button>
+
+      <aside
+        onMouseEnter={() => !isMobile && setExpanded(true)}
+        onMouseLeave={() => !isMobile && setExpanded(false)}
+        className={`fixed left-0 top-0 z-30 flex h-screen flex-col border-r border-white/10 backdrop-blur-[12px] [transition:width_0.25s_ease,transform_0.25s_ease] ${mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}
+        style={{
+          width: showExpanded ? "256px" : "64px",
+          background: "rgba(30, 20, 60, 0.85)",
+          overflow: "hidden",
+        }}
+      >
+      <div className="flex items-center gap-3 border-b border-white/10 p-4">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#A78BFA] to-[#2DD4BF]">
+          <Shield className="h-4 w-4 text-black" />
         </div>
-        <span className="font-space-grotesk font-bold text-xl tracking-tight">
+        <span
+          className={`font-space-grotesk overflow-hidden whitespace-nowrap text-xl font-bold tracking-tight [transition:all_0.2s_ease] ${
+            showExpanded ? "max-w-[170px] opacity-100" : "max-w-0 opacity-0"
+          }`}
+        >
           Phish-Slayer
         </span>
       </div>
 
-      <nav className="flex-1 p-4 flex flex-col gap-2">
+      <nav className="flex-1 overflow-y-auto p-2 [max-height:100vh]">
+        <div className="flex flex-col gap-2">
         {navItems.map((item) => {
           const active =
             pathname === item.href ||
@@ -128,24 +185,34 @@ export default function Sidebar() {
               label={item.label}
               href={item.href}
               active={Boolean(active)}
+              expanded={showExpanded}
             />
           );
         })}
+        </div>
       </nav>
 
       <div className="p-4 border-t border-white/10">
-        <div className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 transition-colors cursor-pointer">
-          <div className="w-8 h-8 rounded-full bg-white/10 border border-white/20" />
-          <div className="flex flex-col min-w-0">
-            <span className="text-sm font-medium truncate">
+        <div
+          className="flex items-center rounded-xl px-2 py-2 hover:bg-white/5"
+          style={{ justifyContent: showExpanded ? "flex-start" : "center" }}
+        >
+          <div className="h-8 w-8 rounded-full border border-white/20 bg-white/10" />
+          <div
+            className={`ml-3 min-w-0 overflow-hidden whitespace-nowrap [transition:all_0.2s_ease] ${
+              showExpanded ? "max-w-[150px] opacity-100" : "max-w-0 opacity-0"
+            }`}
+          >
+            <span className="block truncate text-sm font-medium">
               {profile.fullName}
             </span>
-            <span className="text-xs text-white/50 truncate">
+            <span className="block truncate text-xs text-white/50">
               {profile.email}
             </span>
           </div>
         </div>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }

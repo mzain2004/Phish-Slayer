@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { Key, Loader2, Lock, Save, User } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -127,16 +128,30 @@ export default function SettingsClient({
     });
   };
 
+  const hoverProps = {
+    whileHover: {
+      scale: 1.02,
+      boxShadow: "0 8px 32px rgba(45, 212, 191, 0.15)",
+    },
+    transition: { type: "spring" as const, stiffness: 300, damping: 20 },
+  };
+
   return (
     <div className="flex flex-col gap-6 text-white">
-      <header className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-3xl">
+      <motion.header
+        {...hoverProps}
+        className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-3xl"
+      >
         <h1 className="text-3xl font-bold">Platform Settings</h1>
         <p className="mt-2 text-sm text-white/60">
           Manage profile information, account security, and API access.
         </p>
-      </header>
+      </motion.header>
 
-      <section className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-3xl">
+      <motion.section
+        {...hoverProps}
+        className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-3xl"
+      >
         <div className="mb-4 flex items-center gap-2 text-lg font-semibold">
           <User className="h-5 w-5 text-[#2DD4BF]" /> Profile
         </div>
@@ -195,9 +210,12 @@ export default function SettingsClient({
           )}{" "}
           Save Profile
         </button>
-      </section>
+      </motion.section>
 
-      <section className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-3xl">
+      <motion.section
+        {...hoverProps}
+        className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-3xl"
+      >
         <div className="mb-4 flex items-center gap-2 text-lg font-semibold">
           <Lock className="h-5 w-5 text-[#A78BFA]" /> Password
         </div>
@@ -229,9 +247,12 @@ export default function SettingsClient({
           )}{" "}
           Update Password
         </button>
-      </section>
+      </motion.section>
 
-      <section className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-3xl">
+      <motion.section
+        {...hoverProps}
+        className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-3xl"
+      >
         <div className="mb-4 flex items-center gap-2 text-lg font-semibold">
           <Key className="h-5 w-5 text-[#2DD4BF]" /> API Key
         </div>
@@ -250,7 +271,7 @@ export default function SettingsClient({
           )}{" "}
           Regenerate API Key
         </button>
-      </section>
+      </motion.section>
     </div>
   );
 }
