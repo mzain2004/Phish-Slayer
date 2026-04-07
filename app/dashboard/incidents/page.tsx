@@ -354,7 +354,7 @@ export default function IncidentReportsPage() {
 
   return (
     <div className="text-slate-100 font-sans min-h-screen flex w-full flex-col overflow-x-hidden">
-      <main className="flex-1 px-4 sm:px-8 py-8 w-full max-w-7xl mx-auto">
+      <main data-stagger-container className="flex-1 px-4 sm:px-8 py-8 w-full max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center gap-2 text-sm text-[#8B949E] mb-4">

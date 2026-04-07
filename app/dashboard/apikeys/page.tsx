@@ -121,7 +121,7 @@ export default function ApiKeysPage() {
             Production Key
           </h3>
           {!apiKey && (
-            <button
+            <motion.button
               onClick={handleGenerate}
               disabled={isPending}
               className="rounded-full flex items-center gap-2 px-4 py-2 bg-[#2dd4bf] hover:bg-teal-400 text-black font-bold text-sm rounded-lg transition-colors disabled:opacity-50"
@@ -132,7 +132,7 @@ export default function ApiKeysPage() {
                 <RefreshCw className="w-4 h-4" />
               )}
               Generate Key
-            </button>
+            </motion.button>
           )}
         </div>
 
@@ -151,7 +151,7 @@ export default function ApiKeysPage() {
                       readOnly
                       className="w-full pl-4 pr-12 py-3 bg-black border border-[rgba(48,54,61,0.9)] rounded-lg text-teal-400 font-mono text-sm tracking-wider focus:outline-none focus:ring-2 focus:ring-teal-500"
                     />
-                    <button
+                    <motion.button
                       onClick={() => setShowKey(!showKey)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8B949E] hover:text-slate-300"
                       title={showKey ? "Hide key" : "Show key"}
@@ -161,15 +161,15 @@ export default function ApiKeysPage() {
                       ) : (
                         <Eye className="w-4 h-4" />
                       )}
-                    </button>
+                    </motion.button>
                   </div>
-                  <button
+                  <motion.button
                     onClick={handleCopy}
                     className="rounded-full px-4 py-3 liquid-glass hover:bg-[#1c2128] text-[#e6edf3] font-semibold rounded-lg shadow-sm transition-colors flex justify-center items-center"
                     title="Copy to clipboard"
                   >
                     <Copy className="w-4 h-4" />
-                  </button>
+                  </motion.button>
                 </div>
                 <p className="text-xs text-amber-600 mt-2 bg-amber-50 px-3 py-2 rounded border border-amber-100 italic">
                   Warning: Do not share this key or commit it to version
@@ -178,7 +178,7 @@ export default function ApiKeysPage() {
               </div>
 
               <div className="flex items-center gap-3 pt-4 border-t border-white/10">
-                <button
+                <motion.button
                   onClick={handleGenerate}
                   disabled={isPending}
                   className="rounded-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-[#e6edf3] liquid-glass hover:bg-[#1c2128] rounded-lg transition-colors disabled:opacity-50"
@@ -189,15 +189,15 @@ export default function ApiKeysPage() {
                     <RefreshCw className="w-4 h-4" />
                   )}
                   Regenerate Key
-                </button>
-                <button
+                </motion.button>
+                <motion.button
                   onClick={handleRevoke}
                   disabled={isPending}
                   className="rounded-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg hover:bg-red-500/20 transition-colors disabled:opacity-50"
                 >
                   <Trash2 className="w-4 h-4" />
                   Revoke Key
-                </button>
+                </motion.button>
               </div>
             </div>
           ) : (
@@ -210,7 +210,7 @@ export default function ApiKeysPage() {
                 Generate an API key to integrate Phish-Slayer scanning natively
                 into your CI/CD pipelines or SOAR playbook.
               </p>
-              <button
+              <motion.button
                 onClick={handleGenerate}
                 disabled={isPending}
                 className="rounded-full inline-flex items-center gap-2 px-6 py-2.5 bg-[#2dd4bf] hover:bg-teal-400 text-black font-bold text-sm rounded-lg transition-colors disabled:opacity-50"
@@ -221,7 +221,7 @@ export default function ApiKeysPage() {
                   <RefreshCw className="w-4 h-4" />
                 )}
                 Generate API Key
-              </button>
+              </motion.button>
             </div>
           )}
         </div>

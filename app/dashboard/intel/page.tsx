@@ -137,7 +137,7 @@ export default function IntelVaultPage() {
   /* ── Page ─────────────────────────────────────────────────────────── */
   return (
     <div className="text-white font-sans min-h-screen flex flex-col w-full overflow-x-hidden">
-      <main className="flex-1 w-full max-w-7xl mx-auto p-6 md:p-10">
+      <main data-stagger-container className="flex-1 w-full max-w-7xl mx-auto p-6 md:p-10">
         {/* Page Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-white tracking-tight flex items-center gap-3">
@@ -267,14 +267,14 @@ export default function IntelVaultPage() {
                       </span>
                     </div>
                     {isManager && (
-                      <button
+                      <motion.button
                         onClick={() => handleRemoveWhitelist(item.id)}
                         disabled={isPending}
                         aria-label={`Remove ${item.target} from whitelist`}
                         className="p-1.5 rounded-md text-[#8B949E] hover:text-red-400 hover:bg-red-500/10 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 disabled:opacity-50"
                       >
                         <Trash2 className="w-4 h-4" />
-                      </button>
+                      </motion.button>
                     )}
                   </li>
                 ))}
@@ -364,14 +364,14 @@ export default function IntelVaultPage() {
                     {/* Action */}
                     <div className="col-span-1 flex justify-end">
                       {isManager && (
-                        <button
+                        <motion.button
                           onClick={() => handleRemoveIndicator(item.id)}
                           disabled={isPending}
                           aria-label={`Remove indicator ${item.indicator}`}
                           className="p-1.5 rounded-md text-[#8B949E] hover:text-red-400 hover:bg-red-500/10 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 disabled:opacity-50"
                         >
                           <Trash2 className="w-4 h-4" />
-                        </button>
+                        </motion.button>
                       )}
                     </div>
                   </li>
@@ -435,7 +435,7 @@ export default function IntelVaultPage() {
                 <h3 className="text-sm font-bold text-white uppercase tracking-wide">
                   cURL Example
                 </h3>
-                <button
+                <motion.button
                   onClick={() => {
                     navigator.clipboard.writeText(
                       `curl -X GET "https://your-domain.com/api/v1/scan?target=example.com" -H "x-api-key: YOUR_API_KEY"`,
@@ -445,7 +445,7 @@ export default function IntelVaultPage() {
                   className="flex items-center gap-1.5 text-xs font-semibold text-teal-400 hover:text-teal-300 transition-colors"
                 >
                   <Copy className="w-3.5 h-3.5" /> Copy
-                </button>
+                </motion.button>
               </div>
               <pre className="bg-black text-slate-300 rounded-lg p-4 text-xs font-mono overflow-x-auto leading-relaxed border border-[rgba(48,54,61,0.9)]">
                 {`curl -X GET \\

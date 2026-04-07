@@ -297,7 +297,7 @@ export default function IdentityDashboardPage() {
             <option value={24}>Last 24 hours</option>
             <option value={72}>Last 72 hours</option>
           </select>
-          <button
+          <motion.button
             onClick={downloadReport}
             disabled={downloading}
             style={{
@@ -312,12 +312,12 @@ export default function IdentityDashboardPage() {
             }}
           >
             {downloading ? "Exporting..." : "Export PDF"}
-          </button>
+          </motion.button>
         </div>
       </div>
 
       <div style={{ display: "flex", gap: "8px", marginBottom: "24px" }}>
-        <button
+        <motion.button
           type="button"
           onClick={() => setActiveTab("chains")}
           style={{
@@ -332,8 +332,8 @@ export default function IdentityDashboardPage() {
           }}
         >
           Identity Chains
-        </button>
-        <button
+        </motion.button>
+        <motion.button
           type="button"
           onClick={() => setActiveTab("anomalies")}
           style={{
@@ -348,8 +348,8 @@ export default function IdentityDashboardPage() {
           }}
         >
           Anomalies
-        </button>
-        <button
+        </motion.button>
+        <motion.button
           type="button"
           onClick={() => setActiveTab("lifecycle")}
           style={{
@@ -364,7 +364,7 @@ export default function IdentityDashboardPage() {
           }}
         >
           Service Identities
-        </button>
+        </motion.button>
       </div>
 
       {activeTab === "chains" && summary ? (
@@ -910,7 +910,7 @@ export default function IdentityDashboardPage() {
                     </span>
                   </div>
 
-                  <button
+                  <motion.button
                     type="button"
                     onClick={() =>
                       toggleIdentityExpansion(summaryItem.identityId)
@@ -926,7 +926,7 @@ export default function IdentityDashboardPage() {
                     }}
                   >
                     {isExpanded ? "Hide Events" : "View Events"}
-                  </button>
+                  </motion.button>
                 </div>
 
                 <div

@@ -174,14 +174,14 @@ export default function UserProfilePage() {
             Manage your identity and account security
           </p>
         </div>
-        <button
+        <motion.button
           onClick={handleSave}
           disabled={isPending}
           className="rounded-full px-6 py-2 bg-teal-500 hover:bg-teal-400 text-white text-sm font-semibold rounded-lg transition-colors flex items-center gap-2 shadow-lg shadow-teal-500/10 disabled:opacity-50"
         >
           {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
           {isPending ? "Saving..." : "Save Changes"}
-        </button>
+        </motion.button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -361,13 +361,13 @@ export default function UserProfilePage() {
                   placeholder="••••••••"
                 />
               </div>
-              <button
+              <motion.button
                 onClick={handlePasswordChange}
                 disabled={isPending || !newPassword}
                 className="rounded-full w-full py-2 bg-[#1c2128] border border-[rgba(48,54,61,0.9)] text-[#e6edf3] hover:bg-[#21262d] text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
               >
                 Update Password
-              </button>
+              </motion.button>
             </div>
           </div>
 
@@ -396,7 +396,7 @@ export default function UserProfilePage() {
               </p>
             )}
             <div className="mt-6 flex flex-col gap-3">
-              <button
+              <motion.button
                 onClick={async () => {
                   const supabase = createClient();
                   await supabase.auth.signOut({ scope: "local" });
@@ -405,8 +405,8 @@ export default function UserProfilePage() {
                 className="flex items-center justify-center gap-2 w-full py-2 bg-transparent border border-[rgba(48,54,61,0.9)] text-[#e6edf3] hover:border-[#8b949e] text-sm font-medium rounded-lg transition-colors"
               >
                 <LogOut className="w-4 h-4" /> Sign Out
-              </button>
-              <button
+              </motion.button>
+              <motion.button
                 onClick={async () => {
                   const supabase = createClient();
                   await supabase.auth.signOut({ scope: "global" });
@@ -415,7 +415,7 @@ export default function UserProfilePage() {
                 className="flex items-center justify-center gap-2 w-full py-2 bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500/20 text-sm font-medium rounded-lg transition-colors"
               >
                 <Ban className="w-4 h-4" /> Global Sign Out
-              </button>
+              </motion.button>
             </div>
           </div>
         </div>
@@ -433,14 +433,14 @@ export default function UserProfilePage() {
               extreme caution.
             </p>
           </div>
-          <button
+          <motion.button
             onClick={() =>
               toast.error("Account removal protected. Contact Security Ops.")
             }
             className="px-4 py-2 bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500/20 text-sm font-medium rounded-lg transition-colors"
           >
             Delete Account
-          </button>
+          </motion.button>
         </div>
       </div>
     </div>

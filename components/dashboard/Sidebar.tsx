@@ -33,7 +33,11 @@ const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
   { icon: ScanLine, label: "Threat Scanner", href: "/dashboard/scans" },
   { icon: Monitor, label: "Agents & Fleet", href: "/dashboard/agents" },
-  { icon: AlertTriangle, label: "Incident Reports", href: "/dashboard/incidents" },
+  {
+    icon: AlertTriangle,
+    label: "Incident Reports",
+    href: "/dashboard/incidents",
+  },
   { icon: Database, label: "Intel Vault", href: "/dashboard/intel" },
   { icon: LinkIcon, label: "Identity Chain", href: "/dashboard/identity" },
   { icon: Activity, label: "MTTR", href: "/dashboard/mttr" },
@@ -74,7 +78,11 @@ function SidebarItem({
   }
 
   return (
-    <motion.div whileHover={{ background: "rgba(255,255,255,0.08)", x: 3 }} whileTap={{ scale: 0.97 }} className="my-[1px] rounded-full">
+    <motion.div
+      whileHover={{ background: "rgba(255,255,255,0.08)", x: 3 }}
+      whileTap={{ scale: 0.97 }}
+      className="my-[1px] rounded-full"
+    >
       <Link
         href={href}
         className={`flex h-10 w-full items-center gap-[10px] rounded-full px-3 text-left ${baseTransition} ${
@@ -156,18 +164,18 @@ export default function Sidebar() {
 
   return (
     <>
-      <button
+      <motion.button
         onClick={() => setMobileOpen((v) => !v)}
         className="fixed left-3 top-3 z-40 flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-[rgba(255,255,255,0.08)] text-white backdrop-blur-[20px] md:hidden"
         aria-label="Toggle sidebar"
       >
         {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-      </button>
+      </motion.button>
 
       <aside
         onMouseEnter={() => setExpanded(true)}
         onMouseLeave={() => setExpanded(false)}
-        className={`z-30 flex shrink-0 flex-col [transition:width_0.25s_cubic-bezier(0.4,0,0.2,1)] md:relative ${mobileOpen ? "fixed inset-y-3 left-3 w-[240px]" : "fixed inset-y-3 left-3 w-0 md:w-16"} ${expanded ? "md:w-[240px]" : "md:w-16"}`}
+        className={`z-30 flex h-full shrink-0 flex-col [transition:width_0.25s_cubic-bezier(0.4,0,0.2,1)] ${mobileOpen ? "fixed left-3 top-3 bottom-3 w-[240px]" : "hidden md:flex md:w-16"} ${expanded ? "md:w-[240px]" : "md:w-16"}`}
         style={{
           background: "rgba(255,255,255,0.04)",
           backdropFilter: "blur(20px)",
@@ -175,7 +183,7 @@ export default function Sidebar() {
           border: "1px solid rgba(255,255,255,0.08)",
           borderRadius: "20px",
           boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
-          height: "calc(100vh - 24px)",
+          height: "100%",
           overflow: "hidden",
         }}
       >

@@ -17,6 +17,7 @@ import {
   User,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { motion } from "framer-motion";
 
 type DashboardShellProps = {
   children: React.ReactNode;
@@ -197,10 +198,10 @@ export default function DashboardShell({ children }: DashboardShellProps) {
               />
             </div>
 
-            <button className="rounded-full relative text-white/70 hover:text-white transition-colors">
+            <motion.button className="rounded-full relative text-white/70 hover:text-white transition-colors">
               <Bell className="w-5 h-5" />
               <span className="absolute -top-1 -right-1 w-2 h-2 bg-[#2DD4BF] rounded-full" />
-            </button>
+            </motion.button>
 
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/20">
               <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />

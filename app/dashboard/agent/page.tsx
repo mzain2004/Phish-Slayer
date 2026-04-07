@@ -210,7 +210,7 @@ export default function AgentDashboardPage() {
 
   return (
     <div className="text-white font-sans min-h-screen flex flex-col w-full">
-      <main className="flex-1 px-4 sm:px-8 py-8 w-full max-w-7xl mx-auto">
+      <main data-stagger-container className="flex-1 px-4 sm:px-8 py-8 w-full max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center gap-2 text-sm text-[#8B949E] mb-4">
@@ -546,7 +546,7 @@ export default function AgentDashboardPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        <button
+                        <motion.button
                           onClick={() => handleBlockIp(e.remote_address)}
                           disabled={
                             isPending && blockingIp === e.remote_address
@@ -559,7 +559,7 @@ export default function AgentDashboardPage() {
                             <Ban className="w-3 h-3" />
                           )}
                           Block
-                        </button>
+                        </motion.button>
                       </td>
                     </tr>
                   ))
@@ -574,20 +574,20 @@ export default function AgentDashboardPage() {
                 {filtered.length} events · Page {page + 1} of {totalPages}
               </span>
               <div className="flex gap-2">
-                <button
+                <motion.button
                   onClick={() => setPage(Math.max(0, page - 1))}
                   disabled={page === 0}
                   className="px-3 py-1 rounded border border-[rgba(48,54,61,0.9)] text-xs font-semibold text-slate-300 hover:bg-white/10 disabled:opacity-40"
                 >
                   Prev
-                </button>
-                <button
+                </motion.button>
+                <motion.button
                   onClick={() => setPage(Math.min(totalPages - 1, page + 1))}
                   disabled={page >= totalPages - 1}
                   className="px-3 py-1 rounded border border-[rgba(48,54,61,0.9)] text-xs font-semibold text-slate-300 hover:bg-white/10 disabled:opacity-40"
                 >
                   Next
-                </button>
+                </motion.button>
               </div>
             </div>
           )}

@@ -161,7 +161,7 @@ export default function UserManagementPage() {
 
   return (
     <div className="text-white font-sans min-h-screen flex flex-col w-full">
-      <main className="flex-1 px-4 sm:px-8 py-8 w-full max-w-7xl mx-auto">
+      <main data-stagger-container className="flex-1 px-4 sm:px-8 py-8 w-full max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
           <div>
@@ -173,13 +173,13 @@ export default function UserManagementPage() {
               Manage organization members, assign roles, and control access.
             </p>
           </div>
-          <button
+          <motion.button
             onClick={() => setShowModal(true)}
             className="flex items-center gap-2 bg-teal-500 hover:bg-teal-400 text-white px-5 py-2.5 rounded-lg font-semibold transition-all"
           >
             <UserPlus className="w-4 h-4" />
             Invite User
-          </button>
+          </motion.button>
         </div>
 
         {/* KPI Strip */}
@@ -327,7 +327,7 @@ export default function UserManagementPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <button
+                      <motion.button
                         onClick={() => handleToggleStatus(u.id, u.is_active)}
                         disabled={isPending}
                         className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors ${
@@ -337,7 +337,7 @@ export default function UserManagementPage() {
                         }`}
                       >
                         {u.is_active ? "Deactivate" : "Activate"}
-                      </button>
+                      </motion.button>
                     </td>
                   </tr>
                 ))}
@@ -356,12 +356,12 @@ export default function UserManagementPage() {
                 <UserPlus className="w-5 h-5 text-teal-400" />
                 Invite New User
               </h2>
-              <button
+              <motion.button
                 onClick={() => setShowModal(false)}
                 className="text-[#8B949E] hover:text-slate-300 transition-colors"
               >
                 <XCircle className="w-5 h-5" />
-              </button>
+              </motion.button>
             </div>
             <div className="p-6 flex flex-col gap-4">
               <div>
@@ -393,13 +393,13 @@ export default function UserManagementPage() {
               </div>
             </div>
             <div className="p-6 bg-[rgba(22,27,34,0.85)] border-t border-white/10 flex justify-end gap-3">
-              <button
+              <motion.button
                 onClick={() => setShowModal(false)}
                 className="px-4 py-2 text-sm font-semibold text-[#8B949E] hover:text-white transition-colors"
               >
                 Cancel
-              </button>
-              <button
+              </motion.button>
+              <motion.button
                 onClick={handleInvite}
                 disabled={isPending || !inviteEmail}
                 className="rounded-full flex items-center gap-2 px-5 py-2 bg-teal-500 hover:bg-teal-400 text-white text-sm font-bold rounded-lg transition-colors disabled:opacity-50"
@@ -410,7 +410,7 @@ export default function UserManagementPage() {
                   <Plus className="w-4 h-4" />
                 )}
                 Send Invite
-              </button>
+              </motion.button>
             </div>
           </div>
         </div>

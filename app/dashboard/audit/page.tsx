@@ -327,23 +327,23 @@ export default function AuditLogPage() {
             entries
           </p>
           <div className="flex items-center gap-2">
-            <button
+            <motion.button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1 || loading}
               className="p-1.5 rounded border border-[rgba(48,54,61,0.9)] hover:bg-white/10 disabled:opacity-50 text-[#8B949E]"
             >
               <ChevronLeft className="w-5 h-5" />
-            </button>
+            </motion.button>
             <span className="text-sm font-medium px-4 py-1.5 bg-white/10 border border-[rgba(48,54,61,0.9)] rounded text-slate-300">
               {page} / {totalPages}
             </span>
-            <button
+            <motion.button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page === totalPages || loading}
               className="p-1.5 rounded border border-[rgba(48,54,61,0.9)] hover:bg-white/10 disabled:opacity-50 text-[#8B949E]"
             >
               <ChevronRight className="w-5 h-5" />
-            </button>
+            </motion.button>
           </div>
         </div>
       </motion.div>

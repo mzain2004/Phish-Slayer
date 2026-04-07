@@ -653,7 +653,7 @@ export default function ThreatIntelligencePage() {
                   </h1>
                   {allScans.length > 1 && (
                     <div className="relative">
-                      <button
+                      <motion.button
                         onClick={() => setSelectorOpen(!selectorOpen)}
                         className="flex items-center gap-1 px-2 py-1 rounded-md border border-[rgba(48,54,61,0.9)] bg-white/10 hover:bg-white/10 text-white transition-colors"
                         aria-label="Select scan"
@@ -661,7 +661,7 @@ export default function ThreatIntelligencePage() {
                         <ChevronDown
                           className={`w-4 h-4 transition-transform ${selectorOpen ? "rotate-180" : ""}`}
                         />
-                      </button>
+                      </motion.button>
                       {selectorOpen && (
                         <div className="absolute top-full left-0 mt-2 w-80 bg-[rgba(22,27,34,0.85)] border border-[rgba(48,54,61,0.9)] rounded-2xl shadow-xl z-50 overflow-hidden">
                           <div className="px-3 py-2 border-b border-white/10 bg-[rgba(22,27,34,0.85)]">
@@ -671,7 +671,7 @@ export default function ThreatIntelligencePage() {
                           </div>
                           <div className="max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700">
                             {allScans.map((s, i) => (
-                              <button
+                              <motion.button
                                 key={s.id || i}
                                 onClick={() => {
                                   setScan(s);
@@ -706,7 +706,7 @@ export default function ThreatIntelligencePage() {
                                     </span>
                                   </div>
                                 </div>
-                              </button>
+                              </motion.button>
                             ))}
                           </div>
                         </div>
@@ -727,7 +727,7 @@ export default function ThreatIntelligencePage() {
               </div>
             </div>
             <div className="flex items-center gap-2 w-full lg:w-auto mt-4 lg:mt-0 flex-wrap">
-              <button
+              <motion.button
                 onClick={generatePDF}
                 disabled={!limits.canExportPDF && !isSuperAdmin}
                 title={
@@ -739,16 +739,16 @@ export default function ThreatIntelligencePage() {
               >
                 <FileDown className="w-4 h-4 mr-1.5" />
                 Report
-              </button>
-              <button
+              </motion.button>
+              <motion.button
                 onClick={() => setTakedownOpen(true)}
                 disabled={!scan}
                 className="rounded-full flex items-center justify-center px-[30px] py-[14px] border border-[rgba(48,54,61,0.9)] bg-indigo-500/12 text-indigo-300 font-bold text-xs hover:bg-indigo-500/22 transition-all shadow-sm disabled:opacity-50"
               >
                 <Gavel className="w-4 h-4 mr-1.5" />
                 Takedown
-              </button>
-              <button
+              </motion.button>
+              <motion.button
                 onClick={handleWhitelist}
                 disabled={isPendingAction || isWhitelisted}
                 className="rounded-full flex items-center justify-center px-[30px] py-[14px] border border-[rgba(48,54,61,0.9)] bg-[rgba(22,27,34,0.92)] text-[#E6EDF3] font-bold text-xs hover:bg-[rgba(30,35,42,0.95)] transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
@@ -757,8 +757,8 @@ export default function ThreatIntelligencePage() {
                   className={`w-4 h-4 mr-1.5 ${isWhitelisted ? "text-[#3FB950]" : ""}`}
                 />
                 {isWhitelisted ? "Whitelisted" : "Whitelist"}
-              </button>
-              <button
+              </motion.button>
+              <motion.button
                 onClick={handleTakeAction}
                 disabled={isPendingAction}
                 className="rounded-full flex items-center justify-center px-[30px] py-[14px] border border-[#F85149]/40 bg-[#F85149] hover:bg-[#f26d66] text-white font-black text-xs transition-all shadow-lg disabled:opacity-50"
@@ -769,14 +769,14 @@ export default function ThreatIntelligencePage() {
                   <Ban className="w-4 h-4 mr-1.5 font-bold" />
                 )}
                 TAKE ACTION
-              </button>
+              </motion.button>
             </div>
           </div>
         </motion.section>
       </div>
 
       {/* Main Grid Content */}
-      <main className="flex-1 px-4 sm:px-6 py-8 w-full max-w-7xl mx-auto flex flex-col gap-6">
+      <main data-stagger-container className="flex-1 px-4 sm:px-6 py-8 w-full max-w-7xl mx-auto flex flex-col gap-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
           {/* Scan Summary Panel */}
           <div className="lg:col-span-1 flex flex-col">
@@ -883,7 +883,7 @@ export default function ThreatIntelligencePage() {
               <div className="flex items-center bg-[rgba(22,27,34,0.85)] border-b border-white/10 px-4 pt-2.5 overflow-x-auto">
                 <div className="flex gap-1">
                   {TABS.map((tab) => (
-                    <button
+                    <motion.button
                       key={tab.key}
                       onClick={() => setActiveTab(tab.key)}
                       className={`px-4 py-2.5 text-[11px] font-black tracking-wide whitespace-nowrap transition-colors ${
@@ -893,7 +893,7 @@ export default function ThreatIntelligencePage() {
                       }`}
                     >
                       {tab.label}
-                    </button>
+                    </motion.button>
                   ))}
                 </div>
                 <div className="flex-1"></div>

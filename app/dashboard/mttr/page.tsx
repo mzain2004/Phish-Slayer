@@ -180,7 +180,7 @@ export default function MTTRDashboardPage() {
             <option value={24}>Last 24 hours</option>
             <option value={72}>Last 72 hours</option>
           </select>
-          <button
+          <motion.button
             onClick={downloadReport}
             disabled={downloading}
             style={{
@@ -195,7 +195,7 @@ export default function MTTRDashboardPage() {
             }}
           >
             {downloading ? "Generating..." : "📄 Export PDF"}
-          </button>
+          </motion.button>
         </div>
       </div>
 

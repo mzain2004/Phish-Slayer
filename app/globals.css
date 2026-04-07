@@ -272,3 +272,168 @@ body {
     sans-serif;
   overflow-x: hidden;
 }
+
+/* Dashboard global theme */
+.dashboard-theme [data-card="stat"],
+.dashboard-theme .card-stat {
+  background: rgba(22, 27, 34, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(48, 54, 61, 0.9);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.dashboard-theme [data-card="large"],
+.dashboard-theme .card-large {
+  background: rgba(22, 27, 34, 0.9);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid rgba(48, 54, 61, 0.9);
+  border-radius: 16px;
+  padding: 24px;
+}
+
+.dashboard-theme [data-card="subtle"],
+.dashboard-theme .card-subtle {
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.dashboard-theme button,
+.dashboard-theme .btn-secondary {
+  border-radius: 9999px;
+  padding: 10px 20px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.08);
+  color: #e6edf3;
+  cursor: pointer;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
+}
+
+.dashboard-theme .btn-primary,
+.dashboard-theme button[data-variant="primary"] {
+  background: linear-gradient(135deg, #2dd4bf, #22c55e);
+  color: #000;
+  font-weight: 700;
+  border: none;
+  padding: 10px 24px;
+}
+
+.dashboard-theme .btn-danger,
+.dashboard-theme button[data-variant="danger"] {
+  background: rgba(248, 81, 73, 0.15);
+  color: #f85149;
+  border: 1px solid rgba(248, 81, 73, 0.3);
+}
+
+.dashboard-theme .btn-warning,
+.dashboard-theme button[data-variant="warning"] {
+  background: rgba(227, 179, 65, 0.15);
+  color: #e3b341;
+  border: 1px solid rgba(227, 179, 65, 0.3);
+}
+
+.dashboard-theme .btn-success,
+.dashboard-theme button[data-variant="success"] {
+  background: rgba(63, 185, 80, 0.15);
+  color: #3fb950;
+  border: 1px solid rgba(63, 185, 80, 0.3);
+}
+
+.dashboard-theme input,
+.dashboard-theme textarea,
+.dashboard-theme select {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #e6edf3;
+  outline: none;
+  padding: 10px 18px;
+}
+
+.dashboard-theme input {
+  border-radius: 9999px;
+}
+
+.dashboard-theme textarea,
+.dashboard-theme select {
+  border-radius: 12px;
+}
+
+.dashboard-theme input::placeholder,
+.dashboard-theme textarea::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.dashboard-theme input:focus,
+.dashboard-theme textarea:focus,
+.dashboard-theme select:focus {
+  border-color: #2dd4bf;
+  box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.15);
+}
+
+.dashboard-theme .badge,
+.dashboard-theme [data-badge] {
+  border-radius: 9999px;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+}
+
+.dashboard-theme .badge-risk,
+.dashboard-theme [data-badge="risk"] {
+  background: rgba(248, 81, 73, 0.2);
+  color: #f85149;
+}
+
+.dashboard-theme .badge-medium,
+.dashboard-theme [data-badge="medium"] {
+  background: rgba(227, 179, 65, 0.2);
+  color: #e3b341;
+}
+
+.dashboard-theme .badge-clean,
+.dashboard-theme [data-badge="clean"] {
+  background: rgba(63, 185, 80, 0.2);
+  color: #3fb950;
+}
+
+.dashboard-theme .badge-info,
+.dashboard-theme [data-badge="info"] {
+  background: rgba(45, 212, 191, 0.15);
+  color: #2dd4bf;
+}
+
+.dashboard-theme .badge-offline,
+.dashboard-theme [data-badge="offline"] {
+  background: rgba(139, 148, 158, 0.2);
+  color: #8b949e;
+}
+
+.dashboard-theme [data-stagger-container] > * {
+  opacity: 0;
+  transform: translateY(16px);
+  animation: dashboard-stagger 0.35s ease forwards;
+}
+
+.dashboard-theme [data-stagger-container] > *:nth-child(1) { animation-delay: 0.02s; }
+.dashboard-theme [data-stagger-container] > *:nth-child(2) { animation-delay: 0.1s; }
+.dashboard-theme [data-stagger-container] > *:nth-child(3) { animation-delay: 0.18s; }
+.dashboard-theme [data-stagger-container] > *:nth-child(4) { animation-delay: 0.26s; }
+.dashboard-theme [data-stagger-container] > *:nth-child(5) { animation-delay: 0.34s; }
+
+@keyframes dashboard-stagger {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

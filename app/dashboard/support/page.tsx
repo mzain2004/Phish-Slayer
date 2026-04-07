@@ -385,25 +385,25 @@ export default function SupportPage() {
                     accept=".png,.jpg,.jpeg,.pdf,.txt"
                     onChange={handleFileChange}
                   />
-                  <button
+                  <motion.button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-[rgba(48,54,61,0.9)] text-slate-300 text-sm hover:border-slate-500 hover:text-white transition-colors"
                   >
                     <Paperclip className="w-4 h-4" />
                     {attachedFile ? attachedFile.name : "Attach File (Max 5MB)"}
-                  </button>
+                  </motion.button>
                   {attachedFile && (
-                    <button
+                    <motion.button
                       type="button"
                       onClick={() => setAttachedFile(null)}
                       className="text-[#8B949E] hover:text-red-400 transition-colors ml-1"
                     >
                       <X className="w-4 h-4" />
-                    </button>
+                    </motion.button>
                   )}
                 </div>
-                <button
+                <motion.button
                   type="submit"
                   disabled={isSubmitting}
                   className="rounded-full flex items-center gap-2 px-6 py-2.5 bg-teal-500 hover:bg-teal-400 text-white rounded-lg text-sm font-bold transition-colors w-full sm:w-auto justify-center disabled:opacity-50"
@@ -414,7 +414,7 @@ export default function SupportPage() {
                     <Send className="w-4 h-4" />
                   )}
                   {isSubmitting ? "Submitting..." : "Submit Ticket"}
-                </button>
+                </motion.button>
               </div>
             </form>
           </div>
@@ -459,9 +459,9 @@ export default function SupportPage() {
               <span className="text-xs text-[#8B949E]">
                 Last checked: {currentTime}
               </span>
-              <button className="rounded-full text-xs font-semibold text-teal-400 hover:text-teal-300">
+              <motion.button className="rounded-full text-xs font-semibold text-teal-400 hover:text-teal-300">
                 View full status page &rarr;
-              </button>
+              </motion.button>
             </div>
           </div>
         </div>
@@ -480,7 +480,7 @@ export default function SupportPage() {
                 key={idx}
                 className="bg-[rgba(22,27,34,0.85)] border border-[rgba(48,54,61,0.9)] rounded-xl overflow-hidden transition-all duration-200"
               >
-                <button
+                <motion.button
                   onClick={() => toggleFaq(idx)}
                   className="w-full flex items-center justify-between p-4 text-left hover:bg-white/10 transition-colors"
                 >
@@ -488,7 +488,7 @@ export default function SupportPage() {
                   <ChevronDown
                     className={`w-5 h-5 text-[#8B949E] shrink-0 transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`}
                   />
-                </button>
+                </motion.button>
                 <div
                   className={`overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? "max-h-64 opacity-100" : "max-h-0 opacity-0"}`}
                 >

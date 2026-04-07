@@ -26,7 +26,10 @@ import {
 } from "recharts";
 import { toast } from "sonner";
 import AgentDashboard from "@/components/ui/agent-fleet/AgentDashboard";
-import { getEndpointEvents, getEndpointStats } from "@/lib/supabase/agentActions";
+import {
+  getEndpointEvents,
+  getEndpointStats,
+} from "@/lib/supabase/agentActions";
 import type { EndpointEvent, EndpointStats } from "@/lib/supabase/agentQueries";
 import { blockIp } from "@/lib/supabase/actions";
 import { createClient } from "@/lib/supabase/client";
@@ -59,8 +62,10 @@ function countryFlag(code: string | null): string {
 function threatBadge(level: string) {
   const l = level.toLowerCase();
   if (l === "critical") return "bg-red-500/10 text-red-500 border-red-500/20";
-  if (l === "high") return "bg-orange-500/10 text-orange-500 border-orange-500/20";
-  if (l === "medium") return "bg-yellow-500/10 text-yellow-500 border-yellow-500/20";
+  if (l === "high")
+    return "bg-orange-500/10 text-orange-500 border-orange-500/20";
+  if (l === "medium")
+    return "bg-yellow-500/10 text-yellow-500 border-yellow-500/20";
   return "bg-emerald-500/10 text-emerald-500 border-emerald-500/20";
 }
 
@@ -78,7 +83,10 @@ export default function AgentsPage() {
 
   const fetchData = async () => {
     try {
-      const [ev, st] = await Promise.all([getEndpointEvents(200), getEndpointStats()]);
+      const [ev, st] = await Promise.all([
+        getEndpointEvents(200),
+        getEndpointStats(),
+      ]);
       setEvents(ev);
       setStats(st);
     } catch {
@@ -182,7 +190,9 @@ export default function AgentsPage() {
       e.threat_score,
     ]);
 
-    const csv = [headers, ...rows].map((r) => r.map((v) => `"${v}"`).join(",")).join("\n");
+    const csv = [headers, ...rows]
+      .map((r) => r.map((v) => `"${v}"`).join(","))
+      .join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -206,10 +216,16 @@ export default function AgentsPage() {
   }, [events, filter]);
 
   const totalPages = Math.ceil(filtered.length / ROWS_PER_PAGE);
-  const paged = filtered.slice(page * ROWS_PER_PAGE, (page + 1) * ROWS_PER_PAGE);
+  const paged = filtered.slice(
+    page * ROWS_PER_PAGE,
+    (page + 1) * ROWS_PER_PAGE,
+  );
 
   const beaconingEvents = useMemo(
-    () => events.filter((e) => (e.raw_event as Record<string, unknown>)?.isBeaconing === true),
+    () =>
+      events.filter(
+        (e) => (e.raw_event as Record<string, unknown>)?.isBeaconing === true,
+      ),
     [events],
   );
 
@@ -223,7 +239,7 @@ export default function AgentsPage() {
 
   return (
     <div className="text-white font-sans min-h-screen flex flex-col w-full">
-      <main className="flex-1 px-4 sm:px-8 py-8 w-full max-w-7xl mx-auto flex flex-col gap-6">
+      <main data-stagger-container className="flex-1 px-4 sm:px-8 py-8 w-full max-w-7xl mx-auto flex flex-col gap-6">
         <div className="rounded-full p-1 border border-[rgba(48,54,61,0.9)] bg-[rgba(22,27,34,0.9)] w-full max-w-2xl">
           <div className="grid grid-cols-3 gap-2">
             <motion.button
@@ -268,8 +284,12 @@ export default function AgentsPage() {
           <>
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
               <div>
-                <h1 className="text-3xl font-bold text-white tracking-tight">Endpoint Monitor</h1>
-                <p className="text-[#8B949E] font-medium mt-1">Real-time endpoint anomaly detection</p>
+                <h1 className="text-3xl font-bold text-white tracking-tight">
+                  Endpoint Monitor
+                </h1>
+                <p className="text-[#8B949E] font-medium mt-1">
+                  Real-time endpoint anomaly detection
+                </p>
               </div>
               <div className="flex items-center gap-3 flex-wrap">
                 <div className="relative">
@@ -309,51 +329,95 @@ export default function AgentsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <motion.div {...cardHover} className={`${cardClass} p-5`}>
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium text-[#8B949E]">Total Events</p>
+                  <p className="text-sm font-medium text-[#8B949E]">
+                    Total Events
+                  </p>
                   <Shield className="text-teal-400 w-5 h-5" />
                 </div>
-                <p className="text-3xl font-bold text-white mt-2">{stats?.total ?? 0}</p>
+                <p className="text-3xl font-bold text-white mt-2">
+                  {stats?.total ?? 0}
+                </p>
               </motion.div>
               <motion.div {...cardHover} className={`${cardClass} p-5`}>
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium text-[#8B949E]">Critical / High</p>
+                  <p className="text-sm font-medium text-[#8B949E]">
+                    Critical / High
+                  </p>
                   <AlertTriangle className="text-red-400 w-5 h-5" />
                 </div>
-                <p className="text-3xl font-bold text-red-500 mt-2">{(stats?.critical ?? 0) + (stats?.high ?? 0)}</p>
+                <p className="text-3xl font-bold text-red-500 mt-2">
+                  {(stats?.critical ?? 0) + (stats?.high ?? 0)}
+                </p>
               </motion.div>
               <motion.div {...cardHover} className={`${cardClass} p-5`}>
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium text-[#8B949E]">Unique IPs</p>
+                  <p className="text-sm font-medium text-[#8B949E]">
+                    Unique IPs
+                  </p>
                   <Globe className="text-blue-400 w-5 h-5" />
                 </div>
-                <p className="text-3xl font-bold text-white mt-2">{stats?.uniqueIps ?? 0}</p>
+                <p className="text-3xl font-bold text-white mt-2">
+                  {stats?.uniqueIps ?? 0}
+                </p>
               </motion.div>
               <motion.div {...cardHover} className={`${cardClass} p-5`}>
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium text-[#8B949E]">Processes Flagged</p>
+                  <p className="text-sm font-medium text-[#8B949E]">
+                    Processes Flagged
+                  </p>
                   <Activity className="text-orange-400 w-5 h-5" />
                 </div>
-                <p className="text-3xl font-bold text-white mt-2">{stats?.topProcesses?.length ?? 0}</p>
+                <p className="text-3xl font-bold text-white mt-2">
+                  {stats?.topProcesses?.length ?? 0}
+                </p>
               </motion.div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <motion.div {...cardHover} className={`lg:col-span-2 ${cardClass} p-6`}>
+              <motion.div
+                {...cardHover}
+                className={`lg:col-span-2 ${cardClass} p-6`}
+              >
                 <div className="flex items-center gap-2 mb-4">
                   <Activity className="w-5 h-5 text-teal-400" />
-                  <h3 className="text-sm font-bold text-white uppercase tracking-wide">Top Processes</h3>
+                  <h3 className="text-sm font-bold text-white uppercase tracking-wide">
+                    Top Processes
+                  </h3>
                 </div>
                 {(stats?.topProcesses?.length ?? 0) === 0 ? (
                   <div className="flex flex-col items-center justify-center h-52 text-center">
                     <Activity className="w-8 h-8 text-slate-600 mb-2" />
-                    <p className="text-sm text-[#8B949E]">No process data yet.</p>
+                    <p className="text-sm text-[#8B949E]">
+                      No process data yet.
+                    </p>
                   </div>
                 ) : (
                   <ResponsiveContainer width="100%" height={240}>
-                    <BarChart data={stats!.topProcesses} margin={{ top: 0, right: 0, left: -10, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                      <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#64748b", fontWeight: 600 }} tickLine={false} axisLine={false} />
-                      <YAxis tick={{ fontSize: 11, fill: "#64748b" }} tickLine={false} axisLine={false} allowDecimals={false} />
+                    <BarChart
+                      data={stats!.topProcesses}
+                      margin={{ top: 0, right: 0, left: -10, bottom: 0 }}
+                    >
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="#1e293b"
+                        vertical={false}
+                      />
+                      <XAxis
+                        dataKey="name"
+                        tick={{
+                          fontSize: 11,
+                          fill: "#64748b",
+                          fontWeight: 600,
+                        }}
+                        tickLine={false}
+                        axisLine={false}
+                      />
+                      <YAxis
+                        tick={{ fontSize: 11, fill: "#64748b" }}
+                        tickLine={false}
+                        axisLine={false}
+                        allowDecimals={false}
+                      />
                       <Tooltip
                         contentStyle={{
                           background: "#0f172a",
@@ -366,7 +430,11 @@ export default function AgentsPage() {
                       />
                       <Bar dataKey="count" radius={[6, 6, 0, 0]} barSize={32}>
                         {stats!.topProcesses.map((_e, i) => (
-                          <Cell key={i} fill={BAR_COLORS[i % BAR_COLORS.length]} opacity={0.85} />
+                          <Cell
+                            key={i}
+                            fill={BAR_COLORS[i % BAR_COLORS.length]}
+                            opacity={0.85}
+                          />
                         ))}
                       </Bar>
                     </BarChart>
@@ -374,28 +442,46 @@ export default function AgentsPage() {
                 )}
               </motion.div>
 
-              <motion.div {...cardHover} className={`${cardClass} p-6 flex flex-col`}>
+              <motion.div
+                {...cardHover}
+                className={`${cardClass} p-6 flex flex-col`}
+              >
                 <div className="flex items-center gap-2 mb-4">
                   <AlertTriangle className="w-5 h-5 text-orange-500" />
-                  <h3 className="text-sm font-bold text-white uppercase tracking-wide">Beaconing Detection</h3>
+                  <h3 className="text-sm font-bold text-white uppercase tracking-wide">
+                    Beaconing Detection
+                  </h3>
                 </div>
                 {beaconingEvents.length === 0 ? (
                   <div className="flex-1 flex flex-col items-center justify-center text-center">
                     <Shield className="w-8 h-8 text-emerald-500/50 mb-2" />
-                    <p className="text-sm text-emerald-400 font-semibold">No beaconing detected</p>
-                    <p className="text-xs text-[#8B949E] mt-1">Monitoring for C2 patterns</p>
+                    <p className="text-sm text-emerald-400 font-semibold">
+                      No beaconing detected
+                    </p>
+                    <p className="text-xs text-[#8B949E] mt-1">
+                      Monitoring for C2 patterns
+                    </p>
                   </div>
                 ) : (
                   <div className="flex-1 flex flex-col gap-3">
                     <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
-                      <p className="text-xs font-black text-red-400 uppercase">BEACONING DETECTED - Possible C2 Communication</p>
+                      <p className="text-xs font-black text-red-400 uppercase">
+                        BEACONING DETECTED - Possible C2 Communication
+                      </p>
                     </div>
                     <ul className="space-y-2 overflow-y-auto max-h-40">
                       {beaconingEvents.map((e, i) => (
-                        <li key={i} className="text-xs bg-[rgba(22,27,34,0.85)] rounded p-2 border border-[rgba(48,54,61,0.9)]">
-                          <span className="font-mono font-bold text-red-400">{e.process_name}</span>
+                        <li
+                          key={i}
+                          className="text-xs bg-[rgba(22,27,34,0.85)] rounded p-2 border border-[rgba(48,54,61,0.9)]"
+                        >
+                          <span className="font-mono font-bold text-red-400">
+                            {e.process_name}
+                          </span>
                           <span className="text-[#8B949E]"> -&gt; </span>
-                          <span className="font-mono text-slate-300">{e.remote_address}:{e.remote_port}</span>
+                          <span className="font-mono text-slate-300">
+                            {e.remote_address}:{e.remote_port}
+                          </span>
                         </li>
                       ))}
                     </ul>
@@ -424,7 +510,10 @@ export default function AgentsPage() {
                       "Score",
                       "Actions",
                     ].map((h) => (
-                      <th key={h} className="px-4 py-3 text-[10px] font-bold text-[#8B949E] uppercase tracking-wider whitespace-nowrap">
+                      <th
+                        key={h}
+                        className="px-4 py-3 text-[10px] font-bold text-[#8B949E] uppercase tracking-wider whitespace-nowrap"
+                      >
                         {h}
                       </th>
                     ))}
@@ -433,13 +522,19 @@ export default function AgentsPage() {
                 <tbody className="divide-y divide-slate-800/50">
                   {paged.length === 0 ? (
                     <tr>
-                      <td colSpan={10} className="px-4 py-12 text-center text-sm text-[#8B949E]">
+                      <td
+                        colSpan={10}
+                        className="px-4 py-12 text-center text-sm text-[#8B949E]"
+                      >
                         No endpoint events found.
                       </td>
                     </tr>
                   ) : (
                     paged.map((e) => (
-                      <tr key={e.id} className="hover:bg-white/10 transition-colors">
+                      <tr
+                        key={e.id}
+                        className="hover:bg-white/10 transition-colors"
+                      >
                         <td className="px-4 py-3 text-xs text-[#8B949E] whitespace-nowrap">
                           {new Date(e.timestamp).toLocaleString("en-US", {
                             month: "short",
@@ -448,23 +543,37 @@ export default function AgentsPage() {
                             minute: "2-digit",
                           })}
                         </td>
-                        <td className="px-4 py-3 text-xs font-mono font-bold text-white">{e.process_name}</td>
-                        <td className="px-4 py-3 text-xs font-mono text-[#8B949E]">{e.pid}</td>
-                        <td className="px-4 py-3 text-xs font-mono text-white">{e.remote_address}</td>
-                        <td className="px-4 py-3 text-xs font-mono text-[#8B949E]">{e.remote_port}</td>
+                        <td className="px-4 py-3 text-xs font-mono font-bold text-white">
+                          {e.process_name}
+                        </td>
+                        <td className="px-4 py-3 text-xs font-mono text-[#8B949E]">
+                          {e.pid}
+                        </td>
+                        <td className="px-4 py-3 text-xs font-mono text-white">
+                          {e.remote_address}
+                        </td>
+                        <td className="px-4 py-3 text-xs font-mono text-[#8B949E]">
+                          {e.remote_port}
+                        </td>
                         <td className="px-4 py-3 text-xs text-[#8B949E] whitespace-nowrap">
                           {countryFlag(e.country_code)} {e.country || "-"}
                           {e.city ? `, ${e.city}` : ""}
                         </td>
-                        <td className="px-4 py-3 text-xs text-[#8B949E] truncate max-w-[120px]">{e.isp || "-"}</td>
+                        <td className="px-4 py-3 text-xs text-[#8B949E] truncate max-w-[120px]">
+                          {e.isp || "-"}
+                        </td>
                         <td className="px-4 py-3">
-                          <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-black uppercase border ${threatBadge(e.threat_level)}`}>
+                          <span
+                            className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-black uppercase border ${threatBadge(e.threat_level)}`}
+                          >
                             {e.threat_level}
                           </span>
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-white">{e.threat_score}</span>
+                            <span className="text-xs font-bold text-white">
+                              {e.threat_score}
+                            </span>
                             <div className="w-12 bg-white/10 rounded-full h-1.5">
                               <div
                                 className={`h-1.5 rounded-full ${
@@ -476,15 +585,19 @@ export default function AgentsPage() {
                                         ? "bg-yellow-400"
                                         : "bg-emerald-500"
                                 }`}
-                                style={{ width: `${Math.min(e.threat_score, 100)}%` }}
+                                style={{
+                                  width: `${Math.min(e.threat_score, 100)}%`,
+                                }}
                               />
                             </div>
                           </div>
                         </td>
                         <td className="px-4 py-3">
-                          <button
+                          <motion.button
                             onClick={() => handleBlockIp(e.remote_address)}
-                            disabled={isPending && blockingIp === e.remote_address}
+                            disabled={
+                              isPending && blockingIp === e.remote_address
+                            }
                             className="inline-flex items-center gap-1 rounded-full border border-orange-500/20 bg-orange-500/10 px-2.5 py-1 text-[10px] font-semibold text-orange-400 hover:bg-orange-500/20 transition-colors disabled:opacity-50"
                           >
                             {isPending && blockingIp === e.remote_address ? (
@@ -493,7 +606,7 @@ export default function AgentsPage() {
                               <Ban className="w-3 h-3" />
                             )}
                             Block
-                          </button>
+                          </motion.button>
                         </td>
                       </tr>
                     ))
@@ -508,20 +621,20 @@ export default function AgentsPage() {
                   {filtered.length} events - Page {page + 1} of {totalPages}
                 </span>
                 <div className="flex gap-2">
-                  <button
+                  <motion.button
                     onClick={() => setPage(Math.max(0, page - 1))}
                     disabled={page === 0}
                     className="rounded-full px-3 py-1 border border-[rgba(48,54,61,0.9)] text-xs font-semibold text-slate-300 hover:bg-white/10 disabled:opacity-40"
                   >
                     Prev
-                  </button>
-                  <button
+                  </motion.button>
+                  <motion.button
                     onClick={() => setPage(Math.min(totalPages - 1, page + 1))}
                     disabled={page >= totalPages - 1}
                     className="rounded-full px-3 py-1 border border-[rgba(48,54,61,0.9)] text-xs font-semibold text-slate-300 hover:bg-white/10 disabled:opacity-40"
                   >
                     Next
-                  </button>
+                  </motion.button>
                 </div>
               </div>
             )}
@@ -531,5 +644,3 @@ export default function AgentsPage() {
     </div>
   );
 }
-
-

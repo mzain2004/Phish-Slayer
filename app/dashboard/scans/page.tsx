@@ -164,7 +164,7 @@ function ScanManagerContent() {
 
   return (
     <div className="font-sans text-slate-100 antialiased min-h-screen flex flex-col w-full">
-      <main className="flex-1 px-4 sm:px-8 py-8 w-full max-w-5xl mx-auto flex flex-col gap-10">
+      <main data-stagger-container className="flex-1 px-4 sm:px-8 py-8 w-full max-w-5xl mx-auto flex flex-col gap-10">
         <section className="rounded-full border border-[rgba(48,54,61,0.9)] bg-[rgba(22,27,34,0.88)] p-1">
           <div className="grid grid-cols-2 gap-2">
             <motion.button
