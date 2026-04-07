@@ -9,7 +9,7 @@ export async function logAuditEvent(
 ) {
   try {
     const supabase = await createClient();
-    await supabase.from("audit_log").insert({
+    await supabase.from("audit_logs").insert({
       user_id: userId,
       action,
       resource,

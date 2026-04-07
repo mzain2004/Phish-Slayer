@@ -74,7 +74,7 @@ export async function GET(request: Request) {
 
         // Log the digest (actual email sending via Resend would go here)
         // For now, just log the event
-        await supabaseAdmin.from("audit_log").insert([
+        await supabaseAdmin.from("audit_logs").insert([
           {
             user_id: profile.id,
             user_email: profile.email,

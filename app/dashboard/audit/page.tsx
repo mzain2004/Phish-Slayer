@@ -57,7 +57,7 @@ export default function AuditLogPage() {
     setLoading(true);
     setFetchError(null);
     try {
-      let query = supabase.from("audit_log").select("*", { count: "exact" });
+      let query = supabase.from("audit_logs").select("*", { count: "exact" });
 
       if (actionFilter !== "all") {
         query = query.eq("action", actionFilter);

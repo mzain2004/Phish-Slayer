@@ -46,6 +46,7 @@ export async function POST(request: Request) {
       "kill_process",
       "quarantine_file",
       "ping",
+      "isolate",
     ];
     if (!validCommands.includes(command)) {
       return NextResponse.json({ error: "Invalid command" }, { status: 400 });
@@ -65,7 +66,7 @@ export async function POST(request: Request) {
     });
 
     // Log audit event
-    await supabase.from("audit_log").insert({
+    await supabase.from("audit_logs").insert({
       action: "agent_command_sent",
       user_id: user.id,
       details: { agentId, command, payload },

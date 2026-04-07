@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import { X, Send, Bot, User, Loader2 } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
 type Message = {
   role: "user" | "model";
@@ -13,6 +13,7 @@ type Message = {
 
 export default function GlobalSupportWidget() {
   const router = useRouter();
+  const supabase = createClientComponentClient();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -22,6 +23,10 @@ export default function GlobalSupportWidget() {
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [userContext, setUserContext] = useState<{
+    userId: string | null;
+    userEmail: string | null;
+  }>({ userId: null, userEmail: null });
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -32,8 +37,22 @@ export default function GlobalSupportWidget() {
     scrollToBottom();
   }, [messages]);
 
+  useEffect(() => {
+    const loadUserContext = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      setUserContext({
+        userId: user?.id ?? null,
+        userEmail: user?.email ?? null,
+      });
+    };
+
+    void loadUserContext();
+  }, [supabase]);
+
   const handleQuickAction = async (targetPath: string) => {
-    const supabase = createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -69,7 +88,11 @@ export default function GlobalSupportWidget() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ message: userText }),
+        body: JSON.stringify({
+          message: userText,
+          userId: userContext.userId,
+          userEmail: userContext.userEmail,
+        }),
       });
 
       const payload = await response.json();

@@ -61,6 +61,9 @@ export default function DashboardShell({ children }: DashboardShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [notifications, setNotifications] = useState<string[]>([]);
   const [profile, setProfile] = useState<SessionProfile>({
     email: "Authenticated user",
     fullName: "Authenticated user",
@@ -111,6 +114,34 @@ export default function DashboardShell({ children }: DashboardShellProps) {
 
     return tail.replace(/\b\w/g, (c) => c.toUpperCase()) || "Dashboard";
   }, [pathname]);
+
+  const handleNotificationsClick = async () => {
+    setNotificationsOpen((prev) => !prev);
+    setNotificationsLoading(true);
+
+    try {
+      const response = await fetch("/api/metrics", { method: "GET" });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error("Failed to load notifications");
+      }
+
+      const items = [
+        `Active WS Connections: ${data.active_ws_connections ?? 0}`,
+        `Rate Limited IPs: ${data.rate_limited_ips ?? 0}`,
+        `Memory Used (MB): ${data.memory_used_mb ?? 0}`,
+        `CPU Count: ${data.cpu_count ?? 0}`,
+        `Uptime (s): ${data.uptime_seconds ?? 0}`,
+      ];
+
+      setNotifications(items);
+    } catch {
+      setNotifications(["No notifications available"]);
+    } finally {
+      setNotificationsLoading(false);
+    }
+  };
 
   return (
     <div className="relative min-h-screen bg-black overflow-hidden flex text-white">
@@ -200,13 +231,37 @@ export default function DashboardShell({ children }: DashboardShellProps) {
               />
             </div>
 
-            <PhishButton
-              onClick={() => router.push("/dashboard/audit")}
-              className="rounded-full relative text-white/70 hover:text-white transition-colors"
-            >
-              <Bell className="w-5 h-5" />
-              <span className="absolute -top-1 -right-1 w-2 h-2 bg-[#2DD4BF] rounded-full" />
-            </PhishButton>
+            <div className="relative">
+              <PhishButton
+                onClick={handleNotificationsClick}
+                className="rounded-full relative text-white/70 hover:text-white transition-colors"
+              >
+                <Bell className="w-5 h-5" />
+                <span className="absolute -top-1 -right-1 w-2 h-2 bg-[#2DD4BF] rounded-full" />
+              </PhishButton>
+
+              {notificationsOpen && (
+                <div className="absolute right-0 mt-2 w-72 rounded-xl border border-[rgba(48,54,61,0.9)] bg-[rgba(23,28,35,0.98)] p-3 shadow-xl backdrop-blur-3xl">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    Notifications
+                  </p>
+                  {notificationsLoading ? (
+                    <p className="text-sm text-slate-300">Loading...</p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {notifications.map((item, index) => (
+                        <li
+                          key={`${item}-${index}`}
+                          className="rounded-lg border border-white/5 bg-white/5 px-2.5 py-2 text-xs text-slate-200"
+                        >
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </div>
 
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/20">
               <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
