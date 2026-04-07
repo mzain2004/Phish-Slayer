@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
 import {
   ShieldAlert,
   Mail,
@@ -9,12 +10,15 @@ import {
   Send,
   CheckCircle2,
   KeyRound,
+  Loader2,
 } from "lucide-react";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -52,8 +56,8 @@ export default function ForgotPasswordPage() {
           </div>
 
           <p className="text-xs text-[#8B949E] font-medium">
-            Â© {mounted ? new Date().getFullYear() : "-"} Phish-Slayer Enterprise
-            Security
+            Â© {mounted ? new Date().getFullYear() : "-"} Phish-Slayer
+            Enterprise Security
           </p>
         </div>
       </div>
@@ -93,10 +97,26 @@ export default function ForgotPasswordPage() {
               </div>
 
               <form
-                onSubmit={(e) => {
+                onSubmit={async (e) => {
                   e.preventDefault();
-                  // TODO: wire to Supabase password reset
+                  setErrorMessage(null);
+                  setIsSubmitting(true);
+                  const supabase = createClient();
+                  const { error } = await supabase.auth.resetPasswordForEmail(
+                    email,
+                    {
+                      redirectTo: `${window.location.origin}/auth/reset-password`,
+                    },
+                  );
+
+                  if (error) {
+                    setErrorMessage(error.message);
+                    setIsSubmitting(false);
+                    return;
+                  }
+
                   setSubmitted(true);
+                  setIsSubmitting(false);
                 }}
                 className="space-y-5"
               >
@@ -127,11 +147,20 @@ export default function ForgotPasswordPage() {
 
                 <button
                   type="submit"
+                  disabled={isSubmitting}
                   className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-teal-400 to-blue-500 px-4 py-3 text-sm font-bold text-white shadow-lg hover:shadow-cyan-500/25 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 transition-all border-none"
                 >
-                  <Send className="w-4 h-4" />
-                  Send reset link
+                  {isSubmitting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                  {isSubmitting ? "Sending..." : "Send reset link"}
                 </button>
+
+                {errorMessage && (
+                  <p className="text-sm text-red-600">{errorMessage}</p>
+                )}
               </form>
             </>
           ) : (
@@ -181,4 +210,3 @@ export default function ForgotPasswordPage() {
     </div>
   );
 }
-

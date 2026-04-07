@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Bell,
   CreditCard,
@@ -59,6 +59,7 @@ function displayInitials(nameOrEmail: string) {
 
 export default function DashboardShell({ children }: DashboardShellProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [profile, setProfile] = useState<SessionProfile>({
     email: "Authenticated user",
@@ -199,7 +200,10 @@ export default function DashboardShell({ children }: DashboardShellProps) {
               />
             </div>
 
-            <PhishButton className="rounded-full relative text-white/70 hover:text-white transition-colors">
+            <PhishButton
+              onClick={() => router.push("/dashboard/audit")}
+              className="rounded-full relative text-white/70 hover:text-white transition-colors"
+            >
               <Bell className="w-5 h-5" />
               <span className="absolute -top-1 -right-1 w-2 h-2 bg-[#2DD4BF] rounded-full" />
             </PhishButton>

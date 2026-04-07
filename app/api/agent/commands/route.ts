@@ -65,7 +65,7 @@ export async function POST(request: Request) {
     });
 
     // Log audit event
-    await supabase.from("audit_logs").insert({
+    await supabase.from("audit_log").insert({
       action: "agent_command_sent",
       user_id: user.id,
       details: { agentId, command, payload },

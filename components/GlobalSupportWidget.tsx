@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
-import { MessageCircle, X, Send, Bot, User, Loader2 } from "lucide-react";
+import { X, Send, Bot, User, Loader2 } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
 type Message = {
   role: "user" | "model";
@@ -10,6 +12,7 @@ type Message = {
 };
 
 export default function GlobalSupportWidget() {
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -28,6 +31,29 @@ export default function GlobalSupportWidget() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  const handleQuickAction = async (targetPath: string) => {
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "model",
+          text: "Please sign in to access dashboard support tools.",
+        },
+      ]);
+      setIsOpen(false);
+      router.push("/");
+      return;
+    }
+
+    setIsOpen(false);
+    router.push(targetPath);
+  };
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
@@ -142,10 +168,18 @@ export default function GlobalSupportWidget() {
 
             {/* Quick Actions */}
             <div className="grid grid-cols-2 gap-2 p-4 border-b border-white/10">
-              <button className="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-medium text-white transition-colors">
+              <button
+                type="button"
+                onClick={() => void handleQuickAction("/dashboard/support")}
+                className="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-medium text-white transition-colors"
+              >
                 Open Priority Ticket 🎫
               </button>
-              <button className="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-medium text-white transition-colors">
+              <button
+                type="button"
+                onClick={() => void handleQuickAction("/dashboard/audit")}
+                className="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-medium text-white transition-colors"
+              >
                 View Audit Logs 📜
               </button>
             </div>

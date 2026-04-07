@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
 import {
   ShieldAlert,
   Lock,
@@ -10,6 +11,7 @@ import {
   ArrowLeft,
   CheckCircle2,
   ShieldCheck,
+  Loader2,
 } from "lucide-react";
 
 export default function ResetPasswordPage() {
@@ -19,6 +21,8 @@ export default function ResetPasswordPage() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -79,8 +83,8 @@ export default function ResetPasswordPage() {
           </div>
 
           <p className="text-xs text-blue-200/70">
-            Â© {mounted ? new Date().getFullYear() : "-"} Phish-Slayer Enterprise
-            Security
+            Â© {mounted ? new Date().getFullYear() : "-"} Phish-Slayer
+            Enterprise Security
           </p>
         </div>
       </div>
@@ -119,11 +123,25 @@ export default function ResetPasswordPage() {
               </div>
 
               <form
-                onSubmit={(e) => {
+                onSubmit={async (e) => {
                   e.preventDefault();
                   if (!isValid) return;
-                  // TODO: wire to Supabase password update
+                  setErrorMessage(null);
+                  setIsSubmitting(true);
+
+                  const supabase = createClient();
+                  const { error } = await supabase.auth.updateUser({
+                    password,
+                  });
+
+                  if (error) {
+                    setErrorMessage(error.message);
+                    setIsSubmitting(false);
+                    return;
+                  }
+
                   setSubmitted(true);
+                  setIsSubmitting(false);
                 }}
                 className="space-y-5"
               >
@@ -249,12 +267,20 @@ export default function ResetPasswordPage() {
 
                 <button
                   type="submit"
-                  disabled={!isValid}
+                  disabled={!isValid || isSubmitting}
                   className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <ShieldCheck className="w-4 h-4" />
-                  Reset password
+                  {isSubmitting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <ShieldCheck className="w-4 h-4" />
+                  )}
+                  {isSubmitting ? "Updating..." : "Reset password"}
                 </button>
+
+                {errorMessage && (
+                  <p className="text-sm text-red-600">{errorMessage}</p>
+                )}
               </form>
             </>
           ) : (
@@ -283,4 +309,3 @@ export default function ResetPasswordPage() {
     </div>
   );
 }
-

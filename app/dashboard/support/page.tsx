@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 import {
   CheckCircle2,
   ChevronDown,
@@ -76,6 +77,7 @@ const FAQS = [
 ];
 
 export default function SupportPage() {
+  const router = useRouter();
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
   const [tier, setTier] = useState<string>("free");
   const [loading, setLoading] = useState(true);
@@ -407,7 +409,7 @@ export default function SupportPage() {
                 <PhishButton
                   type="submit"
                   disabled={isSubmitting}
-                  className="rounded-full flex items-center gap-2 px-6 py-2.5 bg-teal-500 hover:bg-teal-400 text-white rounded-lg text-sm font-bold transition-colors w-full sm:w-auto justify-center disabled:opacity-50"
+                  className="rounded-full flex items-center gap-2 px-6 py-2.5 bg-teal-500 hover:bg-teal-400 text-white text-sm font-bold transition-colors w-full sm:w-auto justify-center disabled:opacity-50"
                 >
                   {isSubmitting ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -460,7 +462,10 @@ export default function SupportPage() {
               <span className="text-xs text-[#8B949E]">
                 Last checked: {currentTime}
               </span>
-              <PhishButton className="rounded-full text-xs font-semibold text-teal-400 hover:text-teal-300">
+              <PhishButton
+                onClick={() => router.push("/dashboard/audit")}
+                className="rounded-full text-xs font-semibold text-teal-400 hover:text-teal-300"
+              >
                 View full status page &rarr;
               </PhishButton>
             </div>
