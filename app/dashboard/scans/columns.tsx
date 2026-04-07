@@ -3,6 +3,7 @@ import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ArrowUpDown, ExternalLink } from "lucide-react";
+import { motion } from "framer-motion";
 
 export type ScanRow = {
   id: string;

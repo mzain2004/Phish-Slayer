@@ -34,6 +34,18 @@ export default function MTTRDashboardPage() {
   const [hours, setHours] = useState(24);
   const [downloading, setDownloading] = useState(false);
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: { staggerChildren: 0.08 },
+    },
+  };
+  const itemVariants = {
+    hidden: { opacity: 0, y: 16 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.35 } },
+  };
+
   useEffect(() => {
     void fetchData();
   }, [hours]);
@@ -127,7 +139,10 @@ export default function MTTRDashboardPage() {
   }
 
   return (
-    <div
+    <motion.div
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
       style={{
         padding: "24px",
         minHeight: "100vh",
@@ -168,11 +183,11 @@ export default function MTTRDashboardPage() {
             value={hours}
             onChange={(event) => setHours(Number(event.target.value))}
             style={{
-              background: "rgba(255,255,255,0.05)",
-              border: "1px solid rgba(255,255,255,0.1)",
+              background: "rgba(255,255,255,0.06)",
+              border: "1px solid rgba(255,255,255,0.12)",
               color: "#E6EDF3",
-              padding: "8px 16px",
-              borderRadius: "6px",
+              padding: "10px 18px",
+              borderRadius: "12px",
               cursor: "pointer",
             }}
           >
@@ -183,14 +198,17 @@ export default function MTTRDashboardPage() {
           <motion.button
             onClick={downloadReport}
             disabled={downloading}
+            whileHover={{ scale: 1.05, boxShadow: "0 0 28px rgba(45,212,191,0.5)" }}
+            whileTap={{ scale: 0.96 }}
+            transition={{ type: "spring", stiffness: 400, damping: 17 }}
             style={{
-              background: "linear-gradient(135deg, #2DD4BF, #A78BFA)",
-              color: "white",
+              background: "linear-gradient(135deg,#2DD4BF,#22c55e)",
+              color: "#000",
               border: "none",
-              padding: "8px 20px",
-              borderRadius: "6px",
+              padding: "10px 24px",
+              borderRadius: "9999px",
               cursor: downloading ? "not-allowed" : "pointer",
-              fontWeight: "bold",
+              fontWeight: 700,
               opacity: downloading ? 0.7 : 1,
             }}
           >
@@ -236,15 +254,19 @@ export default function MTTRDashboardPage() {
           ].map((card) => (
             <motion.div
               key={card.label}
+              variants={itemVariants}
               whileHover={{
                 scale: 1.02,
-                boxShadow: "0 8px 32px rgba(45,212,191,0.15)",
+                background: "rgba(22,27,34,0.88)",
+                boxShadow: "0 8px 32px rgba(45,212,191,0.12)",
+                borderColor: "rgba(45,212,191,0.3)",
               }}
               transition={{ type: "spring", stiffness: 300, damping: 20 }}
               style={{
-                background: "rgba(255,255,255,0.05)",
-                border: "1px solid rgba(255,255,255,0.1)",
-                borderRadius: "8px",
+                background: "rgba(22,27,34,0.75)",
+                border: "1px solid rgba(48,54,61,0.7)",
+                backdropFilter: "blur(12px)",
+                borderRadius: "12px",
                 padding: "20px",
               }}
             >
@@ -284,11 +306,13 @@ export default function MTTRDashboardPage() {
       ) : null}
 
       <div
+        data-card="large"
         style={{
-          background: "rgba(255,255,255,0.05)",
-          border: "1px solid rgba(255,255,255,0.1)",
-          borderRadius: "8px",
-          padding: "20px",
+          background: "rgba(22,27,34,0.8)",
+          border: "1px solid rgba(48,54,61,0.7)",
+          backdropFilter: "blur(10px)",
+          borderRadius: "16px",
+          padding: "24px",
         }}
       >
         <h2
@@ -370,12 +394,13 @@ export default function MTTRDashboardPage() {
                   }}
                 />
 
-                <div
+                <motion.div
+                  variants={itemVariants}
                   title={event.explanation?.summary || ""}
                   style={{
                     background: "#09121E",
                     border: `1px solid ${getSeverityColor(event.severity)}33`,
-                    borderRadius: "6px",
+                    borderRadius: "12px",
                     padding: "12px 16px",
                   }}
                 >
@@ -483,7 +508,7 @@ export default function MTTRDashboardPage() {
                     {event.deviceName ? ` | Device: ${event.deviceName}` : ""}
                     {event.mfaMethod ? ` | MFA: ${event.mfaMethod}` : ""}
                   </p>
-                </div>
+                </motion.div>
               </div>
             ))}
           </div>
@@ -493,9 +518,10 @@ export default function MTTRDashboardPage() {
       <div
         style={{
           marginTop: "16px",
-          background: "rgba(255,255,255,0.05)",
-          border: "1px solid rgba(255,255,255,0.1)",
-          borderRadius: "8px",
+          background: "rgba(22,27,34,0.8)",
+          border: "1px solid rgba(48,54,61,0.7)",
+          backdropFilter: "blur(10px)",
+          borderRadius: "16px",
           padding: "16px",
         }}
       >
@@ -518,7 +544,7 @@ export default function MTTRDashboardPage() {
           down-weighted until revalidation refreshes confidence.
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 

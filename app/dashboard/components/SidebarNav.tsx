@@ -23,6 +23,7 @@ import {
   Activity,
 } from "lucide-react";
 import { type UserRole } from "@/lib/rbac/roles";
+import { motion } from "framer-motion";
 
 type SidebarNavProps = {
   profile: {
@@ -125,7 +126,7 @@ export default function SidebarNav({ profile }: SidebarNavProps) {
           </>
         </div>
 
-        <button
+        <motion.button transition={{ type: "spring", stiffness: 400, damping: 17 }}
           type="button"
           onClick={() => setInfraOpen((prev) => !prev)}
           className="text-xs uppercase tracking-widest text-[#8B949E] hover:text-[#E6EDF3] cursor-pointer flex items-center justify-between w-full py-2 px-3 mt-4"
@@ -137,7 +138,7 @@ export default function SidebarNav({ profile }: SidebarNavProps) {
             className={`transition-transform duration-200 ${!infraOpen ? "rotate-180" : ""} opacity-0 group-hover:opacity-100`}
             size={16}
           />
-        </button>
+        </motion.button>
         {infraOpen && (
           <>
             <NavItem
@@ -163,7 +164,7 @@ export default function SidebarNav({ profile }: SidebarNavProps) {
           </>
         )}
 
-        <button
+        <motion.button transition={{ type: "spring", stiffness: 400, damping: 17 }}
           type="button"
           onClick={() => setPlatformOpen((prev) => !prev)}
           className="text-xs uppercase tracking-widest text-[#8B949E] hover:text-[#E6EDF3] cursor-pointer flex items-center justify-between w-full py-2 px-3 mt-4"
@@ -175,7 +176,7 @@ export default function SidebarNav({ profile }: SidebarNavProps) {
             className={`transition-transform duration-200 ${!platformOpen ? "rotate-180" : ""} opacity-0 group-hover:opacity-100`}
             size={16}
           />
-        </button>
+        </motion.button>
         {platformOpen && (
           <>
             <NavItem

@@ -15,6 +15,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
+import { motion } from "framer-motion";
 
 interface AIHeuristicsPanelProps {
   target: string;
@@ -137,13 +138,13 @@ export default function AIHeuristicsPanel({
           <AlertTriangle className="w-7 h-7 text-red-400" />
         </div>
         <p className="text-sm font-semibold text-red-400">{error}</p>
-        <button
+        <motion.button transition={{ type: "spring", stiffness: 400, damping: 17 }}
           onClick={runAnalysis}
           className="rounded-full flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-400 text-white text-xs font-bold rounded-lg transition-colors"
         >
           <RefreshCw className="w-3.5 h-3.5" />
           Retry Analysis
-        </button>
+        </motion.button>
       </div>
     );
   }
@@ -161,13 +162,13 @@ export default function AIHeuristicsPanel({
             Deep behavioral analysis of page content using Gemini AI
           </p>
         </div>
-        <button
+        <motion.button transition={{ type: "spring", stiffness: 400, damping: 17 }}
           onClick={runAnalysis}
           className="rounded-full flex items-center gap-2 px-6 py-3 bg-violet-600 text-white font-bold text-sm rounded-xl hover:bg-violet-500 transition-all shadow-lg shadow-violet-500/20 hover:shadow-violet-500/40 hover:-translate-y-0.5"
         >
           <Sparkles className="w-4 h-4" />
           Run AI Analysis
-        </button>
+        </motion.button>
       </div>
     );
   }
@@ -186,13 +187,13 @@ export default function AIHeuristicsPanel({
             Powered by Gemini
           </span>
         </div>
-        <button
+        <motion.button transition={{ type: "spring", stiffness: 400, damping: 17 }}
           onClick={runAnalysis}
           className="rounded-full flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-violet-400 bg-violet-500/10 rounded-lg hover:bg-violet-500/20 border border-violet-500/20 transition-colors"
         >
           <RefreshCw className="w-3 h-3" />
           Re-analyze
-        </button>
+        </motion.button>
       </div>
 
       {/* Metric cards */}

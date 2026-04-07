@@ -276,20 +276,20 @@ body {
 /* Dashboard global theme */
 .dashboard-theme [data-card="stat"],
 .dashboard-theme .card-stat {
-  background: rgba(22, 27, 34, 0.85);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(48, 54, 61, 0.9);
+  background: rgba(22, 27, 34, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(48, 54, 61, 0.7);
   border-radius: 12px;
   padding: 20px;
 }
 
 .dashboard-theme [data-card="large"],
 .dashboard-theme .card-large {
-  background: rgba(22, 27, 34, 0.9);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  border: 1px solid rgba(48, 54, 61, 0.9);
+  background: rgba(22, 27, 34, 0.8);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(48, 54, 61, 0.7);
   border-radius: 16px;
   padding: 24px;
 }
@@ -318,6 +318,16 @@ body {
     background 0.2s ease;
 }
 
+.dashboard-theme button:hover,
+.dashboard-theme .btn-secondary:hover {
+  transform: scale(1.04);
+}
+
+.dashboard-theme button:active,
+.dashboard-theme .btn-secondary:active {
+  transform: scale(0.96);
+}
+
 .dashboard-theme .btn-primary,
 .dashboard-theme button[data-variant="primary"] {
   background: linear-gradient(135deg, #2dd4bf, #22c55e);
@@ -327,25 +337,46 @@ body {
   padding: 10px 24px;
 }
 
+.dashboard-theme .btn-primary:hover,
+.dashboard-theme button[data-variant="primary"]:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 28px rgba(45, 212, 191, 0.5);
+}
+
 .dashboard-theme .btn-danger,
 .dashboard-theme button[data-variant="danger"] {
-  background: rgba(248, 81, 73, 0.15);
+  background: rgba(248, 81, 73, 0.12);
   color: #f85149;
   border: 1px solid rgba(248, 81, 73, 0.3);
 }
 
+.dashboard-theme .btn-danger:hover,
+.dashboard-theme button[data-variant="danger"]:hover {
+  background: rgba(248, 81, 73, 0.22);
+}
+
 .dashboard-theme .btn-warning,
 .dashboard-theme button[data-variant="warning"] {
-  background: rgba(227, 179, 65, 0.15);
+  background: rgba(227, 179, 65, 0.12);
   color: #e3b341;
   border: 1px solid rgba(227, 179, 65, 0.3);
 }
 
+.dashboard-theme .btn-warning:hover,
+.dashboard-theme button[data-variant="warning"]:hover {
+  background: rgba(227, 179, 65, 0.22);
+}
+
 .dashboard-theme .btn-success,
 .dashboard-theme button[data-variant="success"] {
-  background: rgba(63, 185, 80, 0.15);
+  background: rgba(63, 185, 80, 0.12);
   color: #3fb950;
   border: 1px solid rgba(63, 185, 80, 0.3);
+}
+
+.dashboard-theme .btn-success:hover,
+.dashboard-theme button[data-variant="success"]:hover {
+  background: rgba(63, 185, 80, 0.22);
 }
 
 .dashboard-theme input,
@@ -425,11 +456,21 @@ body {
   animation: dashboard-stagger 0.35s ease forwards;
 }
 
-.dashboard-theme [data-stagger-container] > *:nth-child(1) { animation-delay: 0.02s; }
-.dashboard-theme [data-stagger-container] > *:nth-child(2) { animation-delay: 0.1s; }
-.dashboard-theme [data-stagger-container] > *:nth-child(3) { animation-delay: 0.18s; }
-.dashboard-theme [data-stagger-container] > *:nth-child(4) { animation-delay: 0.26s; }
-.dashboard-theme [data-stagger-container] > *:nth-child(5) { animation-delay: 0.34s; }
+.dashboard-theme [data-stagger-container] > *:nth-child(1) {
+  animation-delay: 0.02s;
+}
+.dashboard-theme [data-stagger-container] > *:nth-child(2) {
+  animation-delay: 0.1s;
+}
+.dashboard-theme [data-stagger-container] > *:nth-child(3) {
+  animation-delay: 0.18s;
+}
+.dashboard-theme [data-stagger-container] > *:nth-child(4) {
+  animation-delay: 0.26s;
+}
+.dashboard-theme [data-stagger-container] > *:nth-child(5) {
+  animation-delay: 0.34s;
+}
 
 @keyframes dashboard-stagger {
   to {

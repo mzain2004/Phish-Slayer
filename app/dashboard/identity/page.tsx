@@ -91,6 +91,18 @@ export default function IdentityDashboardPage() {
   const [hours, setHours] = useState(24);
   const [downloading, setDownloading] = useState(false);
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: { staggerChildren: 0.08 },
+    },
+  };
+  const itemVariants = {
+    hidden: { opacity: 0, y: 16 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.35 } },
+  };
+
   useEffect(() => {
     if (activeTab === "chains") {
       void fetchChains();
@@ -194,8 +206,8 @@ export default function IdentityDashboardPage() {
   function getSeverityColor(severity: Anomaly["severity"]): string {
     if (severity === "critical") return "#F85149";
     if (severity === "high") return "#E3B341";
-    if (severity === "medium") return "#C8A94A";
-    return "#8B949E";
+    if (severity === "medium") return "#E3B341";
+    return "#3FB950";
   }
 
   function getLifecycleRiskColor(
@@ -249,7 +261,10 @@ export default function IdentityDashboardPage() {
   }
 
   return (
-    <div
+    <motion.div
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
       style={{
         padding: "24px",
         minHeight: "100vh",
@@ -285,11 +300,11 @@ export default function IdentityDashboardPage() {
             value={hours}
             onChange={(event) => setHours(Number(event.target.value))}
             style={{
-              background: "rgba(255,255,255,0.05)",
-              border: "1px solid rgba(255,255,255,0.1)",
+              background: "rgba(255,255,255,0.06)",
+              border: "1px solid rgba(255,255,255,0.12)",
               color: "#E6EDF3",
-              padding: "8px 16px",
-              borderRadius: "6px",
+              padding: "10px 18px",
+              borderRadius: "12px",
               cursor: "pointer",
             }}
           >
@@ -300,14 +315,17 @@ export default function IdentityDashboardPage() {
           <motion.button
             onClick={downloadReport}
             disabled={downloading}
+            whileHover={{ scale: 1.05, boxShadow: "0 0 28px rgba(45,212,191,0.5)" }}
+            whileTap={{ scale: 0.96 }}
+            transition={{ type: "spring", stiffness: 400, damping: 17 }}
             style={{
-              background: "linear-gradient(135deg, #2DD4BF, #A78BFA)",
-              color: "white",
+              background: "linear-gradient(135deg,#2DD4BF,#22c55e)",
+              color: "#000",
               border: "none",
-              padding: "8px 16px",
-              borderRadius: "6px",
+              padding: "10px 24px",
+              borderRadius: "9999px",
               cursor: downloading ? "not-allowed" : "pointer",
-              fontWeight: "bold",
+              fontWeight: 700,
               opacity: downloading ? 0.7 : 1,
             }}
           >
@@ -316,18 +334,32 @@ export default function IdentityDashboardPage() {
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: "8px", marginBottom: "24px" }}>
+      <div
+        style={{
+          display: "inline-flex",
+          gap: "8px",
+          marginBottom: "24px",
+          background: "rgba(22,27,34,0.8)",
+          borderRadius: "9999px",
+          padding: "4px",
+        }}
+      >
         <motion.button
           type="button"
           onClick={() => setActiveTab("chains")}
+          whileHover={{ scale: 1.04 }}
+          whileTap={{ scale: 0.96 }}
+          transition={{ type: "spring", stiffness: 400, damping: 17 }}
           style={{
-            border: "1px solid rgba(255,255,255,0.1)",
-            borderRadius: "6px",
+            border: "none",
+            borderRadius: "9999px",
             padding: "8px 12px",
             cursor: "pointer",
             background:
-              activeTab === "chains" ? "#2DD4BF" : "rgba(255,255,255,0.05)",
-            color: activeTab === "chains" ? "#09121E" : "#E6EDF3",
+              activeTab === "chains"
+                ? "linear-gradient(135deg,#2DD4BF,#22c55e)"
+                : "transparent",
+            color: activeTab === "chains" ? "#000" : "rgba(255,255,255,0.5)",
             fontWeight: 700,
           }}
         >
@@ -336,14 +368,20 @@ export default function IdentityDashboardPage() {
         <motion.button
           type="button"
           onClick={() => setActiveTab("anomalies")}
+          whileHover={{ scale: 1.04 }}
+          whileTap={{ scale: 0.96 }}
+          transition={{ type: "spring", stiffness: 400, damping: 17 }}
           style={{
-            border: "1px solid rgba(255,255,255,0.1)",
-            borderRadius: "6px",
+            border: "none",
+            borderRadius: "9999px",
             padding: "8px 12px",
             cursor: "pointer",
             background:
-              activeTab === "anomalies" ? "#2DD4BF" : "rgba(255,255,255,0.05)",
-            color: activeTab === "anomalies" ? "#09121E" : "#E6EDF3",
+              activeTab === "anomalies"
+                ? "linear-gradient(135deg,#2DD4BF,#22c55e)"
+                : "transparent",
+            color:
+              activeTab === "anomalies" ? "#000" : "rgba(255,255,255,0.5)",
             fontWeight: 700,
           }}
         >
@@ -352,14 +390,20 @@ export default function IdentityDashboardPage() {
         <motion.button
           type="button"
           onClick={() => setActiveTab("lifecycle")}
+          whileHover={{ scale: 1.04 }}
+          whileTap={{ scale: 0.96 }}
+          transition={{ type: "spring", stiffness: 400, damping: 17 }}
           style={{
-            border: "1px solid rgba(255,255,255,0.1)",
-            borderRadius: "6px",
+            border: "none",
+            borderRadius: "9999px",
             padding: "8px 12px",
             cursor: "pointer",
             background:
-              activeTab === "lifecycle" ? "#2DD4BF" : "rgba(255,255,255,0.05)",
-            color: activeTab === "lifecycle" ? "#09121E" : "#E6EDF3",
+              activeTab === "lifecycle"
+                ? "linear-gradient(135deg,#2DD4BF,#22c55e)"
+                : "transparent",
+            color:
+              activeTab === "lifecycle" ? "#000" : "rgba(255,255,255,0.5)",
             fontWeight: 700,
           }}
         >
@@ -453,16 +497,20 @@ export default function IdentityDashboardPage() {
           ].map((stat) => (
             <motion.div
               key={stat.label}
+              variants={itemVariants}
               whileHover={{
                 scale: 1.02,
-                boxShadow: "0 8px 32px rgba(45,212,191,0.15)",
+                background: "rgba(22,27,34,0.88)",
+                boxShadow: "0 8px 32px rgba(45,212,191,0.12)",
+                borderColor: "rgba(45,212,191,0.3)",
               }}
               transition={{ type: "spring", stiffness: 300, damping: 20 }}
               style={{
-                background: "rgba(255,255,255,0.05)",
-                border: `1px solid ${stat.color}`,
-                borderRadius: "8px",
-                padding: "16px",
+                background: "rgba(22,27,34,0.75)",
+                border: "1px solid rgba(48,54,61,0.7)",
+                backdropFilter: "blur(12px)",
+                borderRadius: "12px",
+                padding: "20px",
               }}
             >
               <p
@@ -587,9 +635,9 @@ export default function IdentityDashboardPage() {
               <div
                 key={chain.chainId}
                 style={{
-                  background: "rgba(255,255,255,0.05)",
+                  background: "rgba(22,27,34,0.75)",
                   border: `1px solid ${chain.isPartialGraph ? "#E3B341" : "rgba(255,255,255,0.1)"}`,
-                  borderRadius: "8px",
+                  borderRadius: "12px",
                   padding: "20px",
                 }}
               >
@@ -607,8 +655,8 @@ export default function IdentityDashboardPage() {
                         background: getVerdictBg(chain.verdict),
                         color: "white",
                         fontSize: "11px",
-                        padding: "3px 8px",
-                        borderRadius: "4px",
+                        padding: "2px 10px",
+                        borderRadius: "9999px",
                         fontWeight: "bold",
                       }}
                     >
@@ -769,10 +817,10 @@ export default function IdentityDashboardPage() {
               <div
                 key={`${anomaly.type}-${anomaly.timestamp}-${index}`}
                 style={{
-                  background: "rgba(255,255,255,0.05)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  borderLeft: `4px solid ${getSeverityColor(anomaly.severity)}`,
-                  borderRadius: "8px",
+                  background: "rgba(22,27,34,0.75)",
+                  border: `1px solid ${anomaly.severity === "high" || anomaly.severity === "critical" ? "rgba(248,81,73,0.4)" : anomaly.severity === "medium" ? "rgba(227,179,65,0.3)" : "rgba(63,185,80,0.3)"}`,
+                  borderRadius: "12px",
+                  backdropFilter: "blur(12px)",
                   padding: "16px",
                 }}
               >
@@ -797,8 +845,8 @@ export default function IdentityDashboardPage() {
                         background: getSeverityColor(anomaly.severity),
                         color: "#fff",
                         fontSize: "11px",
-                        borderRadius: "4px",
-                        padding: "2px 8px",
+                        borderRadius: "9999px",
+                        padding: "2px 10px",
                         fontWeight: 700,
                         textTransform: "uppercase",
                       }}
@@ -915,12 +963,15 @@ export default function IdentityDashboardPage() {
                     onClick={() =>
                       toggleIdentityExpansion(summaryItem.identityId)
                     }
+                    whileHover={{ scale: 1.04 }}
+                    whileTap={{ scale: 0.96 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 17 }}
                     style={{
-                      border: "1px solid rgba(255,255,255,0.1)",
-                      background: "#09121E",
+                      border: "1px solid rgba(255,255,255,0.15)",
+                      background: "rgba(255,255,255,0.08)",
                       color: "#E6EDF3",
-                      borderRadius: "6px",
-                      padding: "6px 10px",
+                      borderRadius: "9999px",
+                      padding: "10px 20px",
                       cursor: "pointer",
                       fontSize: "12px",
                     }}
@@ -1040,7 +1091,7 @@ export default function IdentityDashboardPage() {
           })}
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }
 

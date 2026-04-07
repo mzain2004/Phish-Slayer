@@ -104,9 +104,14 @@ function SidebarItem({
   );
 }
 
-export default function Sidebar() {
+export default function Sidebar({
+  expanded,
+  setExpanded,
+}: {
+  expanded: boolean;
+  setExpanded: (expanded: boolean) => void;
+}) {
   const pathname = usePathname();
-  const [expanded, setExpanded] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profile, setProfile] = useState({
     fullName: "Authenticated user",
@@ -175,7 +180,7 @@ export default function Sidebar() {
       <aside
         onMouseEnter={() => setExpanded(true)}
         onMouseLeave={() => setExpanded(false)}
-        className={`z-30 flex h-full shrink-0 flex-col [transition:width_0.25s_cubic-bezier(0.4,0,0.2,1)] ${mobileOpen ? "fixed left-3 top-3 bottom-3 w-[240px]" : "hidden md:flex md:w-16"} ${expanded ? "md:w-[240px]" : "md:w-16"}`}
+        className={`z-30 flex h-full w-full shrink-0 flex-col`}
         style={{
           background: "rgba(255,255,255,0.04)",
           backdropFilter: "blur(20px)",
