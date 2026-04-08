@@ -15,6 +15,10 @@
     {
       "path": "/api/cron/l2-respond",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/l3-hunt",
+      "schedule": "*/30 * * * *"
     }
   ]
 }

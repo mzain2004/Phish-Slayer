@@ -57,13 +57,20 @@ function statusColor(status: AgentStatus): string {
 export default function AgentSwarmPanel() {
   const [l1Agent, setL1Agent] = useState<AgentRecord | null>(null);
   const [l2Agent, setL2Agent] = useState<AgentRecord | null>(null);
+  const [l3Agent, setL3Agent] = useState<AgentRecord | null>(null);
   const [loading, setLoading] = useState(false);
   const [triggeringL1, setTriggeringL1] = useState(false);
   const [triggeringL2, setTriggeringL2] = useState(false);
+  const [triggeringL3, setTriggeringL3] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
   const [l1DecisionCount, setL1DecisionCount] = useState(0);
   const [l2DecisionCount, setL2DecisionCount] = useState(0);
+  const [l3FindingCount, setL3FindingCount] = useState(0);
+  const [l3EscalatedCount, setL3EscalatedCount] = useState(0);
   const [l2LastRunOverride, setL2LastRunOverride] = useState<string | null>(
+    null,
+  );
+  const [l3LastRunOverride, setL3LastRunOverride] = useState<string | null>(
     null,
   );
 
@@ -87,21 +94,49 @@ export default function AgentSwarmPanel() {
     }
   }, []);
 
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem("l3_agent_last_run");
+      if (!stored) {
+        return;
+      }
+
+      const parsed = JSON.parse(stored) as LastRunSummary;
+      if (parsed.ranAt) {
+        setL3LastRunOverride(parsed.ranAt);
+      }
+    } catch {
+      window.localStorage.removeItem("l3_agent_last_run");
+    }
+  }, []);
+
   const fetchAgents = useCallback(async () => {
     setLoading(true);
     setErrorText(null);
 
     try {
-      const [agentsRes, l1CountPromise, l2CountPromise] = await Promise.all([
+      const sinceIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const supabase = createClient();
+
+      const [agentsRes, l1CountPromise, l2CountPromise, l3FindingsPromise, l3EscalatedPromise] = await Promise.all([
         fetch("/api/agent/list", { method: "GET", credentials: "include" }),
-        createClient()
+        supabase
           .from("audit_logs")
           .select("id", { count: "exact", head: true })
           .in("action", ["L1_AUTO_CLOSED", "ALERT_ESCALATED"]),
-        createClient()
+        supabase
           .from("audit_logs")
           .select("id", { count: "exact", head: true })
           .eq("action", "L2_DECISION"),
+        supabase
+          .from("hunt_findings")
+          .select("id", { count: "exact", head: true })
+          .gte("created_at", sinceIso),
+        supabase
+          .from("hunt_findings")
+          .select("id", { count: "exact", head: true })
+          .gte("created_at", sinceIso)
+          .eq("escalated", true),
       ]);
 
       const payload = (await agentsRes.json()) as AgentListResponse;
@@ -125,6 +160,8 @@ export default function AgentSwarmPanel() {
 
       const inferredL2Status = mapped[1]?.status || firstAgent.status || "idle";
       const inferredL2Run = l2LastRunOverride || mapped[1]?.last_run || null;
+      const inferredL3Status = mapped[2]?.status || "idle";
+      const inferredL3Run = l3LastRunOverride || mapped[2]?.last_run || null;
 
       setL1Agent({
         id: firstAgent.id,
@@ -140,20 +177,29 @@ export default function AgentSwarmPanel() {
         last_run: inferredL2Run,
       });
 
+      setL3Agent({
+        id: mapped[2]?.id || "l3-hunter-agent",
+        name: "L3 Threat Hunter",
+        status: inferredL3Status,
+        last_run: inferredL3Run,
+      });
+
       setL1DecisionCount(l1CountPromise.count || 0);
       setL2DecisionCount(l2CountPromise.count || 0);
+      setL3FindingCount(l3FindingsPromise.count || 0);
+      setL3EscalatedCount(l3EscalatedPromise.count || 0);
     } catch (error) {
       setErrorText(error instanceof Error ? error.message : "Unknown error");
     } finally {
       setLoading(false);
     }
-  }, [l2LastRunOverride]);
+  }, [l2LastRunOverride, l3LastRunOverride]);
 
   useEffect(() => {
     void fetchAgents();
   }, [fetchAgents]);
 
-  const totalAgents = useMemo(() => 2, []);
+  const totalAgents = useMemo(() => 3, []);
 
   const triggerL1Now = async () => {
     setTriggeringL1(true);
@@ -228,13 +274,53 @@ export default function AgentSwarmPanel() {
     }
   };
 
+  const triggerL3Now = async () => {
+    setTriggeringL3(true);
+    setErrorText(null);
+
+    try {
+      const supabase = createClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        throw new Error("You must be authenticated to trigger this agent.");
+      }
+
+      const response = await fetch("/api/agent/hunt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      });
+
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload?.error || "Failed to trigger L3 hunt.");
+      }
+
+      const ranAt = new Date().toISOString();
+      window.localStorage.setItem(
+        "l3_agent_last_run",
+        JSON.stringify({ ranAt, summary: payload }),
+      );
+      setL3LastRunOverride(ranAt);
+
+      await fetchAgents();
+    } catch (error) {
+      setErrorText(error instanceof Error ? error.message : "Unknown error");
+    } finally {
+      setTriggeringL3(false);
+    }
+  };
+
   return (
     <div className="p-6 bg-[rgba(23,28,35,0.85)] backdrop-blur-3xl border border-[rgba(48,54,61,0.9)] rounded-2xl flex flex-col gap-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h2 className="text-xl font-bold text-white">Agent Command Center</h2>
         <div className="text-xs text-white/60 uppercase tracking-[0.14em]">
           Agents: {totalAgents} | L1 Decisions: {l1DecisionCount} | L2
-          Decisions: {l2DecisionCount}
+          Decisions: {l2DecisionCount} | L3 Findings (24h): {l3FindingCount}
         </div>
       </div>
 
@@ -245,7 +331,7 @@ export default function AgentSwarmPanel() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {[l1Agent, l2Agent].filter(Boolean).map((agent, index) => (
+          {[l1Agent, l2Agent, l3Agent].filter(Boolean).map((agent, index) => (
             <div
               key={agent!.id}
               className="rounded-xl border border-[rgba(48,54,61,0.9)] bg-black/20 p-4 flex flex-col gap-3"
@@ -277,17 +363,38 @@ export default function AgentSwarmPanel() {
               </p>
 
               <p className="text-xs text-white/60">
-                Total decisions made:{" "}
-                {index === 0 ? l1DecisionCount : l2DecisionCount}
+                {index === 2
+                  ? `Findings (24h): ${l3FindingCount} | Escalated: ${l3EscalatedCount}`
+                  : `Total decisions made: ${index === 0 ? l1DecisionCount : l2DecisionCount}`}
               </p>
 
               <button
                 type="button"
-                onClick={index === 0 ? triggerL1Now : triggerL2Now}
-                disabled={index === 0 ? triggeringL1 : triggeringL2}
-                className="rounded-full px-4 py-2 text-sm font-semibold text-black bg-gradient-to-r from-[#2DD4BF] to-[#22c55e] disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
+                onClick={
+                  index === 0
+                    ? triggerL1Now
+                    : index === 1
+                      ? triggerL2Now
+                      : triggerL3Now
+                }
+                disabled={
+                  index === 0
+                    ? triggeringL1
+                    : index === 1
+                      ? triggeringL2
+                      : triggeringL3
+                }
+                className={`rounded-full px-4 py-2 text-sm font-semibold text-black disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 ${
+                  index === 2
+                    ? "bg-gradient-to-r from-[#c084fc] to-[#a855f7]"
+                    : "bg-gradient-to-r from-[#2DD4BF] to-[#22c55e]"
+                }`}
               >
-                {(index === 0 ? triggeringL1 : triggeringL2) ? (
+                {(index === 0
+                  ? triggeringL1
+                  : index === 1
+                    ? triggeringL2
+                    : triggeringL3) ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
                     Triggering...

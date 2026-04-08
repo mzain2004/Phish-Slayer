@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import {
   Activity,
   AlertTriangle,
+  Crosshair,
   CreditCard,
   Database,
   FileText,
@@ -41,6 +42,7 @@ const navItems = [
     href: "/dashboard/incidents",
   },
   { icon: AlertTriangle, label: "Escalations", href: "/dashboard/escalations" },
+  { icon: Crosshair, label: "Threat Hunts", href: "/dashboard/hunt" },
   { icon: Database, label: "Intel Vault", href: "/dashboard/intel" },
   { icon: LinkIcon, label: "Identity Chain", href: "/dashboard/identity" },
   { icon: Activity, label: "MTTR", href: "/dashboard/mttr" },
@@ -133,6 +135,7 @@ export default function Sidebar({
     avatarUrl: "",
   });
   const [pendingEscalations, setPendingEscalations] = useState(0);
+  const [recentHunts, setRecentHunts] = useState(0);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -182,21 +185,30 @@ export default function Sidebar({
   useEffect(() => {
     let mounted = true;
 
-    const loadPendingEscalations = async () => {
+    const loadLiveBadges = async () => {
       const supabase = createClient();
-      const { count } = await supabase
-        .from("escalations")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "pending");
+      const sinceIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+      const [pendingEscalationsResult, huntsResult] = await Promise.all([
+        supabase
+          .from("escalations")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "pending"),
+        supabase
+          .from("hunt_findings")
+          .select("id", { count: "exact", head: true })
+          .gte("created_at", sinceIso),
+      ]);
 
       if (mounted) {
-        setPendingEscalations(count || 0);
+        setPendingEscalations(pendingEscalationsResult.count || 0);
+        setRecentHunts(huntsResult.count || 0);
       }
     };
 
-    void loadPendingEscalations();
+    void loadLiveBadges();
     const intervalId = window.setInterval(() => {
-      void loadPendingEscalations();
+      void loadLiveBadges();
     }, 60000);
 
     return () => {
@@ -264,7 +276,9 @@ export default function Sidebar({
                   badgeCount={
                     item.href === "/dashboard/escalations"
                       ? pendingEscalations
-                      : undefined
+                      : item.href === "/dashboard/hunt"
+                        ? recentHunts
+                        : undefined
                   }
                 />
               );
