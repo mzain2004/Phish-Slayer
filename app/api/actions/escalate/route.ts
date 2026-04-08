@@ -23,12 +23,13 @@ const EscalatePayloadSchema = z.object({
   telemetrySnapshot: z.record(z.string(), z.unknown()).optional(),
 });
 
-const severityColorMap: Record<"low" | "medium" | "high" | "critical", number> = {
-  critical: 16711680,
-  high: 16744272,
-  medium: 16776960,
-  low: 3329330,
-};
+const severityColorMap: Record<"low" | "medium" | "high" | "critical", number> =
+  {
+    critical: 16711680,
+    high: 16744272,
+    medium: 16776960,
+    low: 3329330,
+  };
 
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies();
@@ -61,7 +62,10 @@ export async function POST(request: NextRequest) {
     } = await callerClient.auth.getUser();
 
     if (authError || !callerUser) {
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 },
+      );
     }
 
     const { data: callerProfile, error: profileError } = await callerClient
@@ -77,7 +81,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!(["admin", "manager", "super_admin"] as const).includes(callerProfile.role)) {
+    if (
+      !(["admin", "manager", "super_admin"] as const).includes(
+        callerProfile.role,
+      )
+    ) {
       return NextResponse.json(
         { success: false, error: "Forbidden: insufficient privileges" },
         { status: 403 },
@@ -91,13 +99,20 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ success: false, error: "Invalid JSON body" }, { status: 400 });
+    return NextResponse.json(
+      { success: false, error: "Invalid JSON body" },
+      { status: 400 },
+    );
   }
 
   const parsed = EscalatePayloadSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { success: false, error: "Validation failed", details: parsed.error.flatten() },
+      {
+        success: false,
+        error: "Validation failed",
+        details: parsed.error.flatten(),
+      },
       { status: 400 },
     );
   }
@@ -108,7 +123,11 @@ export async function POST(request: NextRequest) {
   let discordNotified = false;
 
   if (webhookUrl) {
-    const embedFields: Array<{ name: string; value: string; inline?: boolean }> = [
+    const embedFields: Array<{
+      name: string;
+      value: string;
+      inline?: boolean;
+    }> = [
       { name: "Alert ID", value: payload.alertId, inline: true },
       { name: "Severity", value: payload.severity.toUpperCase(), inline: true },
       { name: "Title", value: payload.title },
@@ -141,7 +160,8 @@ export async function POST(request: NextRequest) {
     ) {
       embedFields.push({
         name: "⚠️ Warning",
-        value: "⚠️ L2 Agent recommends automated execution. Awaiting human approval.",
+        value:
+          "⚠️ L2 Agent recommends automated execution. Awaiting human approval.",
       });
     }
 

@@ -416,7 +416,11 @@ export default function QuickActionsPanel() {
                   value={blockThreatLevel}
                   onChange={(event) =>
                     setBlockThreatLevel(
-                      event.target.value as "low" | "medium" | "high" | "critical",
+                      event.target.value as
+                        | "low"
+                        | "medium"
+                        | "high"
+                        | "critical",
                     )
                   }
                   className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white focus:border-[#2DD4BF]/60 focus:outline-none"

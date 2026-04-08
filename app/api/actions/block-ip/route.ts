@@ -9,16 +9,16 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 const BlockIpPayloadSchema = z.object({
-  ip: z
-    .string()
-    .refine((value) => isIP(value) !== 0, {
-      message: "ip must be a valid IPv4 or IPv6",
-    }),
+  ip: z.string().refine((value) => isIP(value) !== 0, {
+    message: "ip must be a valid IPv4 or IPv6",
+  }),
   reason: z.string().min(1, { message: "reason is required" }),
   threatLevel: z.enum(["low", "medium", "high", "critical"]),
 });
 
-function mapThreatToAuditSeverity(threatLevel: "low" | "medium" | "high" | "critical") {
+function mapThreatToAuditSeverity(
+  threatLevel: "low" | "medium" | "high" | "critical",
+) {
   if (threatLevel === "critical" || threatLevel === "high") {
     return "critical";
   }
@@ -48,7 +48,10 @@ export async function POST(request: NextRequest) {
   } = await callerClient.auth.getUser();
 
   if (authError || !callerUser) {
-    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { success: false, error: "Unauthorized" },
+      { status: 401 },
+    );
   }
 
   const { data: callerProfile, error: profileError } = await callerClient
@@ -64,7 +67,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (!(["admin", "manager", "super_admin"] as const).includes(callerProfile.role)) {
+  if (
+    !(["admin", "manager", "super_admin"] as const).includes(callerProfile.role)
+  ) {
     return NextResponse.json(
       { success: false, error: "Forbidden: insufficient privileges" },
       { status: 403 },
@@ -75,13 +80,20 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ success: false, error: "Invalid JSON body" }, { status: 400 });
+    return NextResponse.json(
+      { success: false, error: "Invalid JSON body" },
+      { status: 400 },
+    );
   }
 
   const parsed = BlockIpPayloadSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { success: false, error: "Validation failed", details: parsed.error.flatten() },
+      {
+        success: false,
+        error: "Validation failed",
+        details: parsed.error.flatten(),
+      },
       { status: 400 },
     );
   }
@@ -123,7 +135,9 @@ export async function POST(request: NextRequest) {
 
       if (firewallSuccess) {
         cloudflareRuleId =
-          firewallPayload?.result?.[0]?.id ?? firewallPayload?.result?.id ?? null;
+          firewallPayload?.result?.[0]?.id ??
+          firewallPayload?.result?.id ??
+          null;
         cloudflareBlocked = true;
       }
     } catch {
@@ -168,14 +182,16 @@ export async function POST(request: NextRequest) {
     { auth: { autoRefreshToken: false, persistSession: false } },
   );
 
-  const { error: blockedIpInsertError } = await adminClient.from("blocked_ips").insert({
-    ip,
-    reason,
-    threat_level: threatLevel,
-    blocked_by: callerUser.id,
-    cloudflare_rule_id: cloudflareRuleId,
-    created_at: new Date().toISOString(),
-  });
+  const { error: blockedIpInsertError } = await adminClient
+    .from("blocked_ips")
+    .insert({
+      ip,
+      reason,
+      threat_level: threatLevel,
+      blocked_by: callerUser.id,
+      cloudflare_rule_id: cloudflareRuleId,
+      created_at: new Date().toISOString(),
+    });
 
   if (blockedIpInsertError) {
     return NextResponse.json(

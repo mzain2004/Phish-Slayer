@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { scanTarget } from "@/lib/scanners/threatScanner";
 import { scoreCtiFinding } from "@/lib/ai/analyzer";
 import { scanTargetSchema, normalizeTarget } from "@/lib/security/sanitize";
+import { runTier0Prevention } from "@/lib/prevention/tier0Engine";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -265,6 +266,80 @@ async function handleScan(request: NextRequest) {
 
     // ── Gate 3: External Scan (VirusTotal → Gemini) ──────────────
     const finding = await scanTarget(validTarget);
+
+    const tier0Input = {
+      url: validTarget,
+      vt_positives: finding.maliciousCount,
+      domain_age_days:
+        (finding as any)?.domainAgeDays ??
+        (finding as any)?.domain_age_days ??
+        null,
+      ai_threat_score:
+        typeof (finding as any)?.ai_threat_score === "number"
+          ? (finding as any).ai_threat_score
+          : 0,
+      ai_classification:
+        ((finding as any)?.ai_classification as string | null | undefined) ||
+        null,
+    };
+
+    const tier0Result = await runTier0Prevention(tier0Input);
+
+    if (tier0Result.verdict === "BLOCKED") {
+      await supabaseAdmin.from("scans").insert([
+        {
+          target: validTarget,
+          status: "tier0_blocked",
+          tier0_blocked: true,
+          rule_triggered: tier0Result.rule_triggered,
+          date,
+          verdict: "malicious",
+          malicious_count: finding.maliciousCount,
+          total_engines: finding.totalEngines,
+          ai_summary: tier0Result.reason,
+          risk_score: 100,
+          threat_category: "Tier0 Prevention",
+          payload: finding,
+          user_id: profile.id,
+        },
+      ]);
+
+      await supabaseAdmin.from("audit_logs").insert({
+        action: "TIER0_BLOCK",
+        severity: "high",
+        metadata: {
+          rule_triggered: tier0Result.rule_triggered,
+          reason: tier0Result.reason,
+          scan_url: validTarget,
+        },
+        created_at: new Date().toISOString(),
+      });
+
+      apiCallsToday++;
+      await supabaseAdmin
+        .from("profiles")
+        .update({ api_calls_today: apiCallsToday })
+        .eq("id", profile.id);
+
+      headers["X-RateLimit-Limit"] = "1000";
+      headers["X-RateLimit-Remaining"] =
+        tier === "command_control"
+          ? "Unlimited"
+          : String(Math.max(0, 1000 - apiCallsToday));
+
+      return NextResponse.json(
+        {
+          success: true,
+          tier0_blocked: true,
+          rule_triggered: tier0Result.rule_triggered,
+          reason: tier0Result.reason,
+          threat_score: 1.0,
+          verdict: "MALICIOUS",
+        },
+        { headers },
+      );
+    }
+
     const aiData = await scoreCtiFinding(finding.summary);
 
     const result = {
