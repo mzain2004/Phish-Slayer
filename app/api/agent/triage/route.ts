@@ -36,6 +36,7 @@ const GeminiApiResponseSchema = z.object({
 });
 
 type ScanRecord = {
+  source: "scans";
   id: string;
   target: string | null;
   status: string | null;
@@ -53,12 +54,39 @@ type ScanRecord = {
   reviewed_at: string | null;
 };
 
+type AlertRecord = {
+  source: "wazuh";
+  id: string;
+  status: string | null;
+  rule_level: number | null;
+  rule_id: string | null;
+  rule_description: string | null;
+  rule_groups: string[] | null;
+  agent_id: string | null;
+  agent_name: string | null;
+  agent_ip: string | null;
+  src_ip: string | null;
+  dest_ip: string | null;
+  process_name: string | null;
+  process_id: string | null;
+  file_path: string | null;
+  file_hash_sha256: string | null;
+  mitre_technique_id: string | null;
+  mitre_tactic: string | null;
+  full_payload: unknown;
+  created_at: string;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+};
+
+type QueueRecord = ScanRecord | AlertRecord;
+
 type Decision = z.infer<typeof DecisionSchema>;
 
 const SYSTEM_PROMPT = `You are an autonomous Tier 1 SOC analyst for Phish-Slayer,
 a cybersecurity platform. Your job is to triage phishing and
-malware alerts. You will receive a JSON alert payload. Analyze
-it and respond ONLY with a valid JSON object in this exact format:
+malware alerts. You will receive a JSON object with a source field.
+Analyze it and respond ONLY with a valid JSON object in this exact format:
 {
   'decision': 'CLOSE' or 'ESCALATE',
   'confidence': float between 0.0 and 1.0,
@@ -67,9 +95,14 @@ it and respond ONLY with a valid JSON object in this exact format:
   'recommended_action': 'CLOSE' or 'ISOLATE_IDENTITY' or 'BLOCK_IP' or 'MANUAL_REVIEW'
 }
 Rules:
-- ESCALATE if risk_score >= 70 OR malicious_count >= 3
-- ESCALATE if verdict is 'malicious' or 'phishing'
-- CLOSE if risk_score < 30 AND malicious_count <= 1
+- If source is 'wazuh':
+  - ESCALATE when rule_level >= 12
+  - ESCALATE if rule_description or rule_groups indicate credential theft, malware, ransomware, C2, privilege escalation, lateral movement, suspicious PowerShell, or persistence
+  - CLOSE if rule_level <= 8 and indicators are benign/expected
+- If source is 'scans':
+  - ESCALATE if risk_score >= 70 OR malicious_count >= 3
+  - ESCALATE if verdict is 'malicious' or 'phishing'
+  - CLOSE if risk_score < 30 AND malicious_count <= 1
 - If uncertain, always ESCALATE. Never CLOSE a borderline case.
 - Respond with raw JSON only. No markdown. No explanation.`;
 
@@ -120,10 +153,10 @@ async function hasPrivilegedRole(): Promise<boolean> {
 
 async function fetchUnreviewedScans(
   adminClient: ReturnType<typeof getAdminClient>,
-) {
+): Promise<{ data: ScanRecord[] | null; error: { message: string } | null }> {
   const sinceIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-  return adminClient
+  const result = await adminClient
     .from("scans")
     .select(
       "id, target, status, risk_score, verdict, threat_category, total_engines, malicious_count, ai_summary, ai_heuristic, payload, user_id, created_at, reviewed_by, reviewed_at",
@@ -132,9 +165,57 @@ async function fetchUnreviewedScans(
     .gte("created_at", sinceIso)
     .order("created_at", { ascending: true })
     .limit(20);
+
+  if (result.error || !result.data) {
+    return {
+      data: null,
+      error: result.error ? { message: result.error.message } : null,
+    };
+  }
+
+  return {
+    data: result.data.map((scan) => ({
+      ...scan,
+      source: "scans" as const,
+    })),
+    error: null,
+  };
 }
 
-async function runGeminiTriage(scan: ScanRecord): Promise<Decision> {
+async function fetchPendingWazuhAlerts(
+  adminClient: ReturnType<typeof getAdminClient>,
+): Promise<{ data: AlertRecord[] | null; error: { message: string } | null }> {
+  const sinceIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+  const result = await adminClient
+    .from("alerts")
+    .select(
+      "id, status, source, rule_level, rule_id, rule_description, rule_groups, agent_id, agent_name, agent_ip, src_ip, dest_ip, process_name, process_id, file_path, file_hash_sha256, mitre_technique_id, mitre_tactic, full_payload, created_at, reviewed_by, reviewed_at",
+    )
+    .eq("status", "pending")
+    .eq("source", "wazuh")
+    .gte("created_at", sinceIso)
+    .order("rule_level", { ascending: false })
+    .order("created_at", { ascending: true })
+    .limit(20);
+
+  if (result.error || !result.data) {
+    return {
+      data: null,
+      error: result.error ? { message: result.error.message } : null,
+    };
+  }
+
+  return {
+    data: result.data.map((alert) => ({
+      ...alert,
+      source: "wazuh" as const,
+    })),
+    error: null,
+  };
+}
+
+async function runGeminiTriage(record: QueueRecord): Promise<Decision> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     throw new Error("Missing GEMINI_API_KEY");
@@ -154,7 +235,7 @@ async function runGeminiTriage(scan: ScanRecord): Promise<Decision> {
         contents: [
           {
             role: "user",
-            parts: [{ text: JSON.stringify(scan) }],
+            parts: [{ text: JSON.stringify(record) }],
           },
         ],
       }),
@@ -199,10 +280,22 @@ async function runGeminiTriage(scan: ScanRecord): Promise<Decision> {
 }
 
 async function escalateScan(
-  scan: ScanRecord,
+  record: QueueRecord,
   decision: Decision,
   baseUrl: string,
 ) {
+  const title =
+    record.source === "wazuh"
+      ? `L1 Agent Escalation: ${record.rule_description || record.rule_id || record.id}`
+      : `L1 Agent Escalation: ${record.target || record.id}`;
+
+  const affectedIp =
+    record.source === "wazuh"
+      ? record.src_ip || record.dest_ip || record.agent_ip || null
+      : null;
+
+  const affectedUserId = record.source === "scans" ? record.user_id || undefined : undefined;
+
   const response = await fetch(`${baseUrl}/api/actions/escalate`, {
     method: "POST",
     headers: {
@@ -210,14 +303,14 @@ async function escalateScan(
       AGENT_SECRET: process.env.AGENT_SECRET || "",
     },
     body: JSON.stringify({
-      alertId: scan.id,
+      alertId: record.id,
       severity: decision.severity,
-      title: `L1 Agent Escalation: ${scan.target || scan.id}`,
+      title,
       description: decision.reasoning,
-      affectedUserId: scan.user_id || undefined,
-      affectedIp: null,
+      affectedUserId,
+      affectedIp,
       recommendedAction: decision.recommended_action,
-      telemetrySnapshot: scan,
+      telemetrySnapshot: record,
     }),
   });
 
@@ -233,10 +326,15 @@ async function processBatch(request: NextRequest) {
   const adminClient = getAdminClient();
   const { data: scans, error: scansError } =
     await fetchUnreviewedScans(adminClient);
+  const { data: alerts, error: alertsError } =
+    await fetchPendingWazuhAlerts(adminClient);
 
-  if (scansError) {
+  if (scansError || alertsError) {
     return NextResponse.json(
-      { success: false, error: scansError.message },
+      {
+        success: false,
+        error: scansError?.message || alertsError?.message || "Failed to fetch queue",
+      },
       { status: 500 },
     );
   }
@@ -247,7 +345,8 @@ async function processBatch(request: NextRequest) {
   let errors = 0;
 
   const results: Array<{
-    scan_id: string;
+    item_id: string;
+    source: QueueRecord["source"];
     decision: Decision["decision"];
     confidence: number;
     severity: Decision["severity"];
@@ -255,45 +354,49 @@ async function processBatch(request: NextRequest) {
   }> = [];
 
   const baseUrl = request.nextUrl.origin;
+  const queue: QueueRecord[] = [...(alerts || []), ...(scans || [])];
 
-  for (const scan of (scans || []) as ScanRecord[]) {
+  for (const item of queue) {
     try {
-      const decision = await runGeminiTriage(scan);
+      const decision = await runGeminiTriage(item);
+      const reviewedAt = new Date().toISOString();
 
       if (decision.decision === "CLOSE") {
-        const reviewedAt = new Date().toISOString();
-        // MCP SCHEMA CHECK: verify table 'scans' has columns:
-        // [status, reviewed_by, reviewed_at]
-        // Run in Supabase SQL Editor before deploying:
-        // SELECT column_name FROM information_schema.columns
-        // WHERE table_name = 'scans';
-        const { error: updateError } = await adminClient
-          .from("scans")
-          .update({
-            status: "auto_closed",
-            reviewed_by: "l1_agent",
-            reviewed_at: reviewedAt,
-          })
-          .eq("id", scan.id);
+        const updateQuery =
+          item.source === "wazuh"
+            ? adminClient
+                .from("alerts")
+                .update({
+                  status: "auto_closed",
+                  reviewed_by: "l1_agent",
+                  reviewed_at: reviewedAt,
+                })
+                .eq("id", item.id)
+            : adminClient
+                .from("scans")
+                .update({
+                  status: "auto_closed",
+                  reviewed_by: "l1_agent",
+                  reviewed_at: reviewedAt,
+                })
+                .eq("id", item.id);
+
+        const { error: updateError } = await updateQuery;
 
         if (updateError) {
           throw new Error(
-            `Failed to auto-close scan ${scan.id}: ${updateError.message}`,
+            `Failed to auto-close ${item.source} record ${item.id}: ${updateError.message}`,
           );
         }
 
-        // MCP SCHEMA CHECK: verify table 'audit_logs' has columns:
-        // [action, severity, metadata, reviewed_by, created_at]
-        // Run in Supabase SQL Editor before deploying:
-        // SELECT column_name FROM information_schema.columns
-        // WHERE table_name = 'audit_logs';
         const { error: auditError } = await adminClient
           .from("audit_logs")
           .insert({
             action: "L1_AUTO_CLOSED",
             severity: decision.severity,
             metadata: {
-              scan_id: scan.id,
+              source: item.source,
+              record_id: item.id,
               reasoning: decision.reasoning,
               confidence: decision.confidence,
             },
@@ -303,32 +406,38 @@ async function processBatch(request: NextRequest) {
 
         if (auditError) {
           throw new Error(
-            `Failed to write auto-close audit log for scan ${scan.id}: ${auditError.message}`,
+            `Failed to write auto-close audit log for ${item.source} record ${item.id}: ${auditError.message}`,
           );
         }
 
         closed += 1;
       } else {
-        await escalateScan(scan, decision, baseUrl);
+        await escalateScan(item, decision, baseUrl);
 
-        const reviewedAt = new Date().toISOString();
-        // MCP SCHEMA CHECK: verify table 'scans' has columns:
-        // [status, reviewed_by, reviewed_at]
-        // Run in Supabase SQL Editor before deploying:
-        // SELECT column_name FROM information_schema.columns
-        // WHERE table_name = 'scans';
-        const { error: updateError } = await adminClient
-          .from("scans")
-          .update({
-            status: "escalated",
-            reviewed_by: "l1_agent",
-            reviewed_at: reviewedAt,
-          })
-          .eq("id", scan.id);
+        const updateQuery =
+          item.source === "wazuh"
+            ? adminClient
+                .from("alerts")
+                .update({
+                  status: "escalated",
+                  reviewed_by: "l1_agent",
+                  reviewed_at: reviewedAt,
+                })
+                .eq("id", item.id)
+            : adminClient
+                .from("scans")
+                .update({
+                  status: "escalated",
+                  reviewed_by: "l1_agent",
+                  reviewed_at: reviewedAt,
+                })
+                .eq("id", item.id);
+
+        const { error: updateError } = await updateQuery;
 
         if (updateError) {
           throw new Error(
-            `Failed to mark scan ${scan.id} escalated: ${updateError.message}`,
+            `Failed to mark ${item.source} record ${item.id} escalated: ${updateError.message}`,
           );
         }
 
@@ -337,7 +446,8 @@ async function processBatch(request: NextRequest) {
 
       processed += 1;
       results.push({
-        scan_id: scan.id,
+        item_id: item.id,
+        source: item.source,
         decision: decision.decision,
         confidence: decision.confidence,
         severity: decision.severity,
@@ -345,8 +455,9 @@ async function processBatch(request: NextRequest) {
       });
     } catch (error) {
       errors += 1;
-      console.error("[L1 triage] Failed to process scan", {
-        scan_id: scan.id,
+      console.error("[L1 triage] Failed to process record", {
+        source: item.source,
+        record_id: item.id,
         error,
       });
     }

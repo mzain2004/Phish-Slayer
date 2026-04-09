@@ -1,0 +1,232 @@
+import { NextRequest, NextResponse } from "next/server";
+import { createClient as createSupabaseAdminClient } from "@supabase/supabase-js";
+import { z } from "zod";
+
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
+const WazuhAlertSchema = z
+  .object({
+    id: z.union([z.string(), z.number()]),
+    timestamp: z.union([z.string(), z.number()]),
+    rule: z
+      .object({
+        id: z.union([z.string(), z.number()]).optional(),
+        level: z.coerce.number().int().min(0).max(15).optional(),
+        description: z.string().optional(),
+        groups: z.array(z.string()).optional(),
+        mitre: z
+          .object({
+            technique: z.array(z.string()).optional(),
+            tactic: z.array(z.string()).optional(),
+          })
+          .optional(),
+      })
+      .optional(),
+    agent: z
+      .object({
+        id: z.union([z.string(), z.number()]).optional(),
+        name: z.string().optional(),
+        ip: z.string().optional(),
+      })
+      .optional(),
+    data: z
+      .object({
+        srcip: z.string().optional(),
+        dstip: z.string().optional(),
+        process: z
+          .object({
+            name: z.string().optional(),
+            pid: z.union([z.string(), z.number()]).optional(),
+          })
+          .optional(),
+        process_name: z.string().optional(),
+      })
+      .passthrough()
+      .optional(),
+    syscheck: z
+      .object({
+        path: z.string().optional(),
+        sha256_after: z.string().optional(),
+      })
+      .optional(),
+  })
+  .passthrough();
+
+type WazuhAlert = z.infer<typeof WazuhAlertSchema>;
+
+function getAdminClient() {
+  return createSupabaseAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } },
+  );
+}
+
+function normalizeTimestamp(value: string | number): string {
+  if (typeof value === "number") {
+    return new Date(value).toISOString();
+  }
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString();
+}
+
+function toText(value: string | number | undefined): string | null {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  return String(value);
+}
+
+function withTimeout<T>(promise: PromiseLike<T>, timeoutMs: number, message: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => {
+      setTimeout(() => reject(new Error(message)), timeoutMs);
+    }),
+  ]);
+}
+
+async function triggerL1Triage(baseUrl: string): Promise<void> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 1200);
+
+  try {
+    await fetch(`${baseUrl}/api/agent/triage`, {
+      method: "POST",
+      headers: {
+        AGENT_SECRET: process.env.AGENT_SECRET || "",
+      },
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function queueAlert(alert: WazuhAlert): Promise<boolean> {
+  const adminClient = getAdminClient();
+  const ruleLevel = alert.rule?.level ?? null;
+
+  const insertResult = (await withTimeout(
+    adminClient.from("alerts").insert({
+      source: "wazuh",
+      rule_level: ruleLevel,
+      rule_id: toText(alert.rule?.id),
+      rule_description: alert.rule?.description ?? null,
+      rule_groups: alert.rule?.groups ?? [],
+      agent_id: toText(alert.agent?.id),
+      agent_name: alert.agent?.name ?? null,
+      agent_ip: alert.agent?.ip ?? null,
+      src_ip: alert.data?.srcip ?? null,
+      dest_ip: alert.data?.dstip ?? null,
+      process_name: alert.data?.process?.name ?? alert.data?.process_name ?? null,
+      process_id: toText(alert.data?.process?.pid),
+      file_path: alert.syscheck?.path ?? null,
+      file_hash_sha256: alert.syscheck?.sha256_after ?? null,
+      mitre_technique_id: alert.rule?.mitre?.technique?.[0] ?? null,
+      mitre_tactic: alert.rule?.mitre?.tactic?.[0] ?? null,
+      full_payload: alert,
+      status: "pending",
+      created_at: new Date().toISOString(),
+    }),
+    2200,
+    "Timed out while inserting alert",
+  )) as { error: { message: string } | null };
+
+  if (insertResult.error) {
+    throw new Error(insertResult.error.message);
+  }
+
+  return true;
+}
+
+export async function POST(request: NextRequest) {
+  const expectedSecret = process.env.WAZUH_WEBHOOK_SECRET;
+  const authHeader = request.headers.get("authorization") || "";
+
+  if (!expectedSecret || authHeader !== `Bearer ${expectedSecret}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    let payload: unknown;
+    try {
+      payload = await request.json();
+    } catch (error) {
+      console.error("[wazuh webhook] Invalid JSON payload", error);
+      return NextResponse.json({
+        received: true,
+        level: null,
+        queued: false,
+        triggered_l1: false,
+      });
+    }
+
+    const parsed = WazuhAlertSchema.safeParse(payload);
+    if (!parsed.success) {
+      console.error("[wazuh webhook] Payload validation failed", parsed.error.flatten());
+      return NextResponse.json({
+        received: true,
+        level: null,
+        queued: false,
+        triggered_l1: false,
+      });
+    }
+
+    const alert = parsed.data;
+    const normalizedAlert: WazuhAlert = {
+      ...alert,
+      timestamp: normalizeTimestamp(alert.timestamp),
+    };
+
+    const ruleLevel = normalizedAlert.rule?.level ?? null;
+    if ((ruleLevel ?? 0) < 7) {
+      return NextResponse.json({
+        received: true,
+        level: ruleLevel,
+        queued: false,
+        triggered_l1: false,
+      });
+    }
+
+    let queued = false;
+    let triggeredL1 = false;
+
+    try {
+      queued = await queueAlert(normalizedAlert);
+    } catch (error) {
+      console.error("[wazuh webhook] Failed to insert alert", error);
+    }
+
+    if ((ruleLevel ?? 0) >= 12) {
+      try {
+        await withTimeout(
+          triggerL1Triage(request.nextUrl.origin),
+          2600,
+          "Timed out while triggering L1 triage",
+        );
+        triggeredL1 = true;
+      } catch (error) {
+        console.error("[wazuh webhook] Failed to trigger L1 triage", error);
+      }
+    }
+
+    return NextResponse.json({
+      received: true,
+      level: ruleLevel,
+      queued,
+      triggered_l1: triggeredL1,
+    });
+  } catch (error) {
+    console.error("[wazuh webhook] Unexpected error", error);
+    return NextResponse.json({
+      received: true,
+      level: null,
+      queued: false,
+      triggered_l1: false,
+    });
+  }
+}
