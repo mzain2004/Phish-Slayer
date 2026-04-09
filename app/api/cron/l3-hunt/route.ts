@@ -64,7 +64,11 @@ async function invokeStep<T>(
     throw new Error(`Invalid response shape from ${path}`);
   }
 
-  if (!response.ok || !parsed.data || !(parsed.data as { success?: boolean }).success) {
+  if (
+    !response.ok ||
+    !parsed.data ||
+    !(parsed.data as { success?: boolean }).success
+  ) {
     throw new Error(`Step failed: ${path}`);
   }
 

@@ -211,7 +211,9 @@ async function callInternalAction(
 
   if (!response.ok) {
     const details = await response.text();
-    throw new Error(`Internal action ${path} failed (${response.status}): ${details}`);
+    throw new Error(
+      `Internal action ${path} failed (${response.status}): ${details}`,
+    );
   }
 
   return response;
@@ -277,6 +279,11 @@ export async function GET(request: NextRequest) {
           reason: `L2 Auto-Response: ${escalation.description}`,
         });
 
+        // MCP SCHEMA CHECK: verify table 'escalations' has columns:
+        // [status, resolved_by, resolved_at]
+        // Run in Supabase SQL Editor before deploying:
+        // SELECT column_name FROM information_schema.columns
+        // WHERE table_name = 'escalations';
         const { error: updateError } = await adminClient
           .from("escalations")
           .update({
@@ -287,7 +294,9 @@ export async function GET(request: NextRequest) {
           .eq("id", escalation.id);
 
         if (updateError) {
-          throw new Error(`Failed to update escalation status: ${updateError.message}`);
+          throw new Error(
+            `Failed to update escalation status: ${updateError.message}`,
+          );
         }
 
         autoResolved += 1;
@@ -298,6 +307,11 @@ export async function GET(request: NextRequest) {
           threatLevel: escalation.severity,
         });
 
+        // MCP SCHEMA CHECK: verify table 'escalations' has columns:
+        // [status, resolved_by, resolved_at]
+        // Run in Supabase SQL Editor before deploying:
+        // SELECT column_name FROM information_schema.columns
+        // WHERE table_name = 'escalations';
         const { error: updateError } = await adminClient
           .from("escalations")
           .update({
@@ -308,11 +322,18 @@ export async function GET(request: NextRequest) {
           .eq("id", escalation.id);
 
         if (updateError) {
-          throw new Error(`Failed to update escalation status: ${updateError.message}`);
+          throw new Error(
+            `Failed to update escalation status: ${updateError.message}`,
+          );
         }
 
         autoResolved += 1;
       } else {
+        // MCP SCHEMA CHECK: verify table 'escalations' has columns:
+        // [status, resolved_by, resolved_at]
+        // Run in Supabase SQL Editor before deploying:
+        // SELECT column_name FROM information_schema.columns
+        // WHERE table_name = 'escalations';
         const { error: updateError } = await adminClient
           .from("escalations")
           .update({
@@ -323,7 +344,9 @@ export async function GET(request: NextRequest) {
           .eq("id", escalation.id);
 
         if (updateError) {
-          throw new Error(`Failed to mark escalation awaiting_human: ${updateError.message}`);
+          throw new Error(
+            `Failed to mark escalation awaiting_human: ${updateError.message}`,
+          );
         }
 
         await callInternalAction(baseUrl, "/api/actions/escalate", {
@@ -344,6 +367,11 @@ export async function GET(request: NextRequest) {
         manualReview += 1;
       }
 
+      // MCP SCHEMA CHECK: verify table 'audit_logs' has columns:
+      // [action, severity, metadata]
+      // Run in Supabase SQL Editor before deploying:
+      // SELECT column_name FROM information_schema.columns
+      // WHERE table_name = 'audit_logs';
       await adminClient.from("audit_logs").insert({
         action: decision.execute
           ? "L2_AUTO_RESOLVED"

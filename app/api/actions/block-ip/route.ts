@@ -198,6 +198,11 @@ export async function POST(request: NextRequest) {
     { auth: { autoRefreshToken: false, persistSession: false } },
   );
 
+  // MCP SCHEMA CHECK: verify table 'blocked_ips' has columns:
+  // [ip, reason, threat_level, blocked_by, cloudflare_rule_id, created_at]
+  // Run in Supabase SQL Editor before deploying:
+  // SELECT column_name FROM information_schema.columns
+  // WHERE table_name = 'blocked_ips';
   const { error: blockedIpInsertError } = await adminClient
     .from("blocked_ips")
     .insert({
@@ -220,6 +225,11 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // MCP SCHEMA CHECK: verify table 'audit_logs' has columns:
+  // [action, severity, metadata, actor_id, created_at]
+  // Run in Supabase SQL Editor before deploying:
+  // SELECT column_name FROM information_schema.columns
+  // WHERE table_name = 'audit_logs';
   const { error: auditError } = await adminClient.from("audit_logs").insert({
     action: "IP_BLOCKED",
     severity: mapThreatToAuditSeverity(threatLevel),

@@ -75,7 +75,10 @@ function stripCodeFence(text: string): string {
     .trim();
 }
 
-function normalizeDecision(count: number, decision: ReviewDecision): ReviewDecision {
+function normalizeDecision(
+  count: number,
+  decision: ReviewDecision,
+): ReviewDecision {
   let expectedVerdict: "NORMAL" | "SUSPICIOUS" | "STORM" = "NORMAL";
   if (count > 10) {
     expectedVerdict = "STORM";
@@ -93,7 +96,10 @@ function normalizeDecision(count: number, decision: ReviewDecision): ReviewDecis
     recommended = "THROTTLE";
   }
 
-  if (expectedVerdict === "STORM" && (decision.confidence <= 0.9 || recommended !== "HALT")) {
+  if (
+    expectedVerdict === "STORM" &&
+    (decision.confidence <= 0.9 || recommended !== "HALT")
+  ) {
     recommended = "THROTTLE";
   }
 
@@ -104,7 +110,9 @@ function normalizeDecision(count: number, decision: ReviewDecision): ReviewDecis
   };
 }
 
-async function callGemini(escalationsLastHour: number): Promise<ReviewDecision> {
+async function callGemini(
+  escalationsLastHour: number,
+): Promise<ReviewDecision> {
   if (!process.env.GEMINI_API_KEY) {
     throw new Error("Missing GEMINI_API_KEY");
   }
@@ -139,7 +147,9 @@ async function callGemini(escalationsLastHour: number): Promise<ReviewDecision> 
 
   if (!response.ok) {
     const details = await response.text();
-    throw new Error(`Gemini reviewer request failed (${response.status}): ${details}`);
+    throw new Error(
+      `Gemini reviewer request failed (${response.status}): ${details}`,
+    );
   }
 
   const payload = await response.json();

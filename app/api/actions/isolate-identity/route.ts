@@ -144,6 +144,11 @@ export async function POST(request: NextRequest) {
   // ── 7. KILL CHAIN — execute atomically ───────────────────────────────────
 
   // Step 7a: Lock the profile row
+  // MCP SCHEMA CHECK: verify table 'profiles' has columns:
+  // [status, risk_score, updated_at]
+  // Run in Supabase SQL Editor before deploying:
+  // SELECT column_name FROM information_schema.columns
+  // WHERE table_name = 'profiles';
   const { error: profileUpdateError } = await adminClient
     .from("profiles")
     .update({
@@ -194,6 +199,11 @@ export async function POST(request: NextRequest) {
   }
 
   // ── 8. Write critical audit log ──────────────────────────────────────────
+  // MCP SCHEMA CHECK: verify table 'audit_logs' has columns:
+  // [actor_id, target_id, action, severity, reason, metadata, created_at]
+  // Run in Supabase SQL Editor before deploying:
+  // SELECT column_name FROM information_schema.columns
+  // WHERE table_name = 'audit_logs';
   const { error: auditError } = await adminClient.from("audit_logs").insert({
     actor_id: callerUserId,
     target_id: targetUserId,

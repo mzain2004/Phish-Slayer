@@ -1,0 +1,42 @@
+name: L3 Hunter Swarm - Every 6 Hours
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+jobs:
+  run-l3-hunt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Trigger L3 Hunter Swarm
+        run: |
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.NEXT_PUBLIC_APP_URL }}/api/cron/l3-hunt")
+          echo "HTTP Status: $RESPONSE"
+          if [ "$RESPONSE" != "200" ]; then
+            echo "L3 Hunter Swarm returned non-200: $RESPONSE"
+            exit 1
+          fi
+
+      - name: Notify Discord on failure
+        if: failure()
+        run: |
+          curl -s -X POST "${{ secrets.DISCORD_ESCALATION_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "embeds": [{
+                "title": "🚨 GitHub Actions: L3 Hunter Swarm FAILED",
+                "color": 16711680,
+                "fields": [
+                  { "name": "Workflow", "value": "l3-hunt.yml", "inline": true },
+                  { "name": "Schedule", "value": "Every 6 hours", "inline": true },
+                  { "name": "Action", "value": "Check /api/cron/l3-hunt logs immediately" }
+                ],
+                "footer": { "text": "Phish-Slayer SOC | GitHub Actions Monitor" },
+                "timestamp": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"
+              }]
+            }'

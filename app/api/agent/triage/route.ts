@@ -262,6 +262,11 @@ async function processBatch(request: NextRequest) {
 
       if (decision.decision === "CLOSE") {
         const reviewedAt = new Date().toISOString();
+        // MCP SCHEMA CHECK: verify table 'scans' has columns:
+        // [status, reviewed_by, reviewed_at]
+        // Run in Supabase SQL Editor before deploying:
+        // SELECT column_name FROM information_schema.columns
+        // WHERE table_name = 'scans';
         const { error: updateError } = await adminClient
           .from("scans")
           .update({
@@ -277,6 +282,11 @@ async function processBatch(request: NextRequest) {
           );
         }
 
+        // MCP SCHEMA CHECK: verify table 'audit_logs' has columns:
+        // [action, severity, metadata, reviewed_by, created_at]
+        // Run in Supabase SQL Editor before deploying:
+        // SELECT column_name FROM information_schema.columns
+        // WHERE table_name = 'audit_logs';
         const { error: auditError } = await adminClient
           .from("audit_logs")
           .insert({
@@ -302,6 +312,11 @@ async function processBatch(request: NextRequest) {
         await escalateScan(scan, decision, baseUrl);
 
         const reviewedAt = new Date().toISOString();
+        // MCP SCHEMA CHECK: verify table 'scans' has columns:
+        // [status, reviewed_by, reviewed_at]
+        // Run in Supabase SQL Editor before deploying:
+        // SELECT column_name FROM information_schema.columns
+        // WHERE table_name = 'scans';
         const { error: updateError } = await adminClient
           .from("scans")
           .update({

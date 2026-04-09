@@ -1,0 +1,42 @@
+name: L2 Responder Agent - Every 15 Minutes
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+jobs:
+  run-l2-respond:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Trigger L2 Responder Agent
+        run: |
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.NEXT_PUBLIC_APP_URL }}/api/cron/l2-respond")
+          echo "HTTP Status: $RESPONSE"
+          if [ "$RESPONSE" != "200" ]; then
+            echo "L2 Responder Agent returned non-200: $RESPONSE"
+            exit 1
+          fi
+
+      - name: Notify Discord on failure
+        if: failure()
+        run: |
+          curl -s -X POST "${{ secrets.DISCORD_ESCALATION_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "embeds": [{
+                "title": "🚨 GitHub Actions: L2 Responder Agent FAILED",
+                "color": 16711680,
+                "fields": [
+                  { "name": "Workflow", "value": "l2-respond.yml", "inline": true },
+                  { "name": "Schedule", "value": "Every 15 minutes", "inline": true },
+                  { "name": "Action", "value": "Check /api/cron/l2-respond logs immediately" }
+                ],
+                "footer": { "text": "Phish-Slayer SOC | GitHub Actions Monitor" },
+                "timestamp": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"
+              }]
+            }'

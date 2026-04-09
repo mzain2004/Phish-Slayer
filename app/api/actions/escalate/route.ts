@@ -196,6 +196,11 @@ export async function POST(request: NextRequest) {
     { auth: { autoRefreshToken: false, persistSession: false } },
   );
 
+  // MCP SCHEMA CHECK: verify table 'escalations' has columns:
+  // [alert_id, severity, title, description, affected_user_id, affected_ip, recommended_action, telemetry_snapshot, discord_notified, status, created_at]
+  // Run in Supabase SQL Editor before deploying:
+  // SELECT column_name FROM information_schema.columns
+  // WHERE table_name = 'escalations';
   const { data: escalationRow, error: escalationError } = await adminClient
     .from("escalations")
     .insert({
@@ -225,6 +230,11 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // MCP SCHEMA CHECK: verify table 'audit_logs' has columns:
+  // [action, severity, metadata, actor_id, created_at]
+  // Run in Supabase SQL Editor before deploying:
+  // SELECT column_name FROM information_schema.columns
+  // WHERE table_name = 'audit_logs';
   const { error: auditError } = await adminClient.from("audit_logs").insert({
     action: "ALERT_ESCALATED",
     severity: payload.severity,

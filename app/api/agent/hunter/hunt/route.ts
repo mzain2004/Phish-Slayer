@@ -178,7 +178,9 @@ async function callGemini(
 
   if (!response.ok) {
     const details = await response.text();
-    throw new Error(`Gemini hunter request failed (${response.status}): ${details}`);
+    throw new Error(
+      `Gemini hunter request failed (${response.status}): ${details}`,
+    );
   }
 
   const payload = await response.json();
@@ -223,7 +225,9 @@ export async function GET(request: NextRequest) {
 
   const { data: intelRows, error: intelError } = await adminClient
     .from("threat_intel")
-    .select("id, ioc_type, ioc_value, threat_type, source, tags, malware, raw_data")
+    .select(
+      "id, ioc_type, ioc_value, threat_type, source, tags, malware, raw_data",
+    )
     .eq("hunted", false)
     .limit(50);
 
@@ -247,7 +251,11 @@ export async function GET(request: NextRequest) {
 
   for (const ioc of iocs) {
     try {
-      const scans = await queryMatchingScans(adminClient, ioc.ioc_type, ioc.ioc_value);
+      const scans = await queryMatchingScans(
+        adminClient,
+        ioc.ioc_type,
+        ioc.ioc_value,
+      );
       scansCrossReferenced += scans.length;
 
       for (const scan of scans) {
@@ -265,26 +273,29 @@ export async function GET(request: NextRequest) {
               ? scan.user_id
               : undefined;
 
-          const escalationResponse = await fetch(`${baseUrl}/api/actions/escalate`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              AGENT_SECRET: process.env.AGENT_SECRET || "",
-            },
-            body: JSON.stringify({
-              alertId: `L3-HUNT-${scanId}`,
-              severity: decision.severity,
-              title: `L3 Hunter: Retroactive IOC Match - ${ioc.ioc_value}`,
-              description: decision.reasoning,
-              affectedUserId,
-              recommendedAction: decision.recommended_action,
-              telemetrySnapshot: {
-                ioc,
-                scan,
-                hunter_confidence: decision.confidence,
+          const escalationResponse = await fetch(
+            `${baseUrl}/api/actions/escalate`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                AGENT_SECRET: process.env.AGENT_SECRET || "",
               },
-            }),
-          });
+              body: JSON.stringify({
+                alertId: `L3-HUNT-${scanId}`,
+                severity: decision.severity,
+                title: `L3 Hunter: Retroactive IOC Match - ${ioc.ioc_value}`,
+                description: decision.reasoning,
+                affectedUserId,
+                recommendedAction: decision.recommended_action,
+                telemetrySnapshot: {
+                  ioc,
+                  scan,
+                  hunter_confidence: decision.confidence,
+                },
+              }),
+            },
+          );
 
           if (!escalationResponse.ok) {
             const details = await escalationResponse.text();
