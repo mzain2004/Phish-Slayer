@@ -1,3 +1,5 @@
+# Required secrets: AGENT_SECRET, WAZUH_WEBHOOK_SECRET,
+# CLOUDFLARE_API_TOKEN, CLOUDFLARE_ZONE_ID
 name: Deploy to Production
 
 on:
@@ -60,18 +62,18 @@ jobs:
       - name: Setup SSH agent
         uses: webfactory/ssh-agent@v0.9.0
         with:
-          ssh-private-key: ${{ secrets.AZURE_SSH_PRIVATE_KEY }}
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY != '' && secrets.SSH_PRIVATE_KEY || secrets.AZURE_SSH_PRIVATE_KEY }}
 
       - name: Add Azure VM to known hosts
         run: |
-          ssh-keyscan -H ${{ secrets.AZURE_VM_IP }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts
 
       - name: Deploy to Azure VM
         run: |
-          ssh root@${{ secrets.AZURE_VM_IP }} << 'ENDSSH'
+          ssh ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} << 'ENDSSH'
             set -e
             echo "=== Starting Phish-Slayer deployment ==="
-            cd /root/phish-slayer || cd /app || cd ~/app
+            cd /home/mzain2004/Phish-Slayer
 
             echo "=== Pulling latest code ==="
             git fetch origin main
@@ -86,13 +88,18 @@ jobs:
           CRON_SECRET=${{ secrets.CRON_SECRET }}
           AGENT_SECRET=${{ secrets.AGENT_SECRET }}
           WAZUH_WEBHOOK_SECRET=${{ secrets.WAZUH_WEBHOOK_SECRET }}
-          WAZUH_MANAGER_IP=${{ secrets.WAZUH_MANAGER_IP }}
+          WAZUH_MANAGER_IP=167.172.85.62
           WAZUH_API_TOKEN=${{ secrets.WAZUH_API_TOKEN }}
           DO_SSH_PRIVATE_KEY=${{ secrets.DO_SSH_PRIVATE_KEY }}
           CLOUDFLARE_API_TOKEN=${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ZONE_ID=${{ secrets.CLOUDFLARE_ZONE_ID }}
           DISCORD_ESCALATION_WEBHOOK_URL=${{ secrets.DISCORD_ESCALATION_WEBHOOK_URL }}
           NEXT_PUBLIC_SITE_URL=https://phishslayer.tech
+          NEXT_PUBLIC_APP_URL=https://phishslayer.tech
+          VIRUS_TOTAL_API_KEY=${{ secrets.VIRUS_TOTAL_API_KEY }}
+          NEXT_PUBLIC_PADDLE_CLIENT_TOKEN=${{ secrets.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN }}
+          NEXT_PUBLIC_PADDLE_CC_PRICE_ID=${{ secrets.NEXT_PUBLIC_PADDLE_CC_PRICE_ID }}
+          NEXT_PUBLIC_PADDLE_SOC_PRO_PRICE_ID=${{ secrets.NEXT_PUBLIC_PADDLE_SOC_PRO_PRICE_ID }}
           ENVEOF
 
             echo "=== Rebuilding Docker container ==="
