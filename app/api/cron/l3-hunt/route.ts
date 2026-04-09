@@ -4,14 +4,38 @@ import { z } from "zod";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const L3HuntResponseSchema = z.object({
+const ReaderResponseSchema = z.object({
   success: z.boolean(),
-  processed_hunts: z.number().int().nonnegative().optional(),
-  findings_generated: z.number().int().nonnegative().optional(),
-  findings_saved: z.number().int().nonnegative().optional(),
-  escalated: z.number().int().nonnegative().optional(),
-  signal_count: z.number().int().nonnegative().optional(),
-  errors: z.array(z.string()).optional(),
+  total_iocs: z.number().int().nonnegative().optional(),
+  by_source: z
+    .object({
+      urlhaus: z.number().int().nonnegative(),
+      threatfox: z.number().int().nonnegative(),
+      openphish: z.number().int().nonnegative(),
+    })
+    .optional(),
+  inserted: z.number().int().nonnegative().optional(),
+  deduplicated: z.number().int().nonnegative().optional(),
+  error: z.string().optional(),
+});
+
+const HunterResponseSchema = z.object({
+  success: z.boolean(),
+  iocs_processed: z.number().int().nonnegative().optional(),
+  scans_cross_referenced: z.number().int().nonnegative().optional(),
+  hits_found: z.number().int().nonnegative().optional(),
+  escalations_created: z.number().int().nonnegative().optional(),
+  errors: z.number().int().nonnegative().optional(),
+  error: z.string().optional(),
+});
+
+const ReviewerResponseSchema = z.object({
+  success: z.boolean(),
+  verdict: z.enum(["NORMAL", "SUSPICIOUS", "STORM"]).optional(),
+  recommended: z.enum(["CONTINUE", "THROTTLE", "HALT"]).optional(),
+  escalations_reviewed: z.number().int().nonnegative().optional(),
+  action_taken: z.string().optional(),
+  reasoning: z.string().optional(),
   error: z.string().optional(),
 });
 
@@ -22,6 +46,31 @@ function isAuthorized(request: NextRequest): boolean {
   );
 }
 
+async function invokeStep<T>(
+  request: NextRequest,
+  path: string,
+  schema: z.ZodSchema<T>,
+) {
+  const response = await fetch(`${request.nextUrl.origin}${path}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${process.env.CRON_SECRET}`,
+    },
+  });
+
+  const payload = await response.json();
+  const parsed = schema.safeParse(payload);
+  if (!parsed.success) {
+    throw new Error(`Invalid response shape from ${path}`);
+  }
+
+  if (!response.ok || !parsed.data || !(parsed.data as { success?: boolean }).success) {
+    throw new Error(`Step failed: ${path}`);
+  }
+
+  return parsed.data;
+}
+
 export async function GET(request: NextRequest) {
   if (!isAuthorized(request)) {
     return NextResponse.json(
@@ -30,25 +79,42 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const response = await fetch(`${request.nextUrl.origin}/api/agent/hunt`, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${process.env.CRON_SECRET}`,
-    },
-  });
+  try {
+    const reader = await invokeStep(
+      request,
+      "/api/agent/hunter/reader",
+      ReaderResponseSchema,
+    );
 
-  const payload = await response.json();
-  const parsed = L3HuntResponseSchema.safeParse(payload);
+    const hunter = await invokeStep(
+      request,
+      "/api/agent/hunter/hunt",
+      HunterResponseSchema,
+    );
 
-  if (!parsed.success) {
+    const reviewer = await invokeStep(
+      request,
+      "/api/agent/hunter/review",
+      ReviewerResponseSchema,
+    );
+
+    const halted = reviewer.recommended === "HALT";
+
+    return NextResponse.json({
+      success: true,
+      reader,
+      hunter,
+      reviewer,
+      halted,
+    });
+  } catch (error) {
     return NextResponse.json(
       {
         success: false,
-        error: "Invalid L3 hunt response payload",
+        error: error instanceof Error ? error.message : "L3 pipeline failed",
+        halted: false,
       },
-      { status: 502 },
+      { status: 500 },
     );
   }
-
-  return NextResponse.json(parsed.data, { status: response.status });
 }
