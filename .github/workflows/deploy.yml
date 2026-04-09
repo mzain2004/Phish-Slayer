@@ -44,6 +44,13 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          VIRUS_TOTAL_API_KEY: ${{ secrets.VIRUS_TOTAL_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          AGENT_SECRET: ${{ secrets.AGENT_SECRET }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_ESCALATION_WEBHOOK_URL }}
+          NEXT_PUBLIC_SITE_URL: https://phishslayer.tech
 
       - name: Set deploy flag
         id: check
@@ -64,13 +71,19 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY != '' && secrets.SSH_PRIVATE_KEY || secrets.AZURE_SSH_PRIVATE_KEY }}
 
+      - name: Write deploy key file
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY != '' && secrets.SSH_PRIVATE_KEY || secrets.AZURE_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
       - name: Add Azure VM to known hosts
         run: |
-          ssh-keyscan -H ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ secrets.AZURE_VM_IP }} >> ~/.ssh/known_hosts
 
       - name: Deploy to Azure VM
         run: |
-          ssh ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} << 'ENDSSH'
+          ssh -i ~/.ssh/deploy_key mzain2004@${{ secrets.AZURE_VM_IP }} << 'ENDSSH'
             set -e
             echo "=== Starting Phish-Slayer deployment ==="
             cd /home/mzain2004/Phish-Slayer
@@ -104,8 +117,8 @@ jobs:
 
             echo "=== Rebuilding Docker container ==="
             docker compose down --remove-orphans
-            docker compose build --no-cache
-            docker compose up -d
+            docker compose build --no-cache --pull
+            docker compose up -d --force-recreate
 
             echo "=== Waiting for container health ==="
             sleep 15

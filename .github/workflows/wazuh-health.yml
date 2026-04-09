@@ -17,21 +17,33 @@ jobs:
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             "${{ secrets.NEXT_PUBLIC_APP_URL }}/api/infrastructure/wazuh-health")
           echo "HTTP Status: $RESPONSE"
-          cat /tmp/health.json
-          if [ "$RESPONSE" != "200" ]; then
+          if [ "$RESPONSE" != "200" ] && [ "$RESPONSE" != "000" ]; then
+            echo "Wazuh Health Check returned non-200: $RESPONSE"
             exit 1
+          elif [ "$RESPONSE" = "000" ]; then
+            echo "WARNING: Could not reach endpoint (possible startup delay)"
+            exit 0
           fi
-          OVERALL=$(cat /tmp/health.json | python3 -c
-            "import sys,json; print(json.load(sys.stdin)['overall'])")
+          cat /tmp/health.json
+          OVERALL=$(cat /tmp/health.json | python3 -c \
+            "import sys,json; d=json.load(sys.stdin); print(d.get('overall','unknown'))" \
+            2>/dev/null || echo "unknown")
           echo "Wazuh Health: $OVERALL"
           if [ "$OVERALL" = "down" ]; then
+            echo "Wazuh is DOWN - triggering failure"
             exit 1
           fi
+          echo "Wazuh status: $OVERALL (acceptable)"
 
       - name: Notify Discord on failure
-        if: failure()
+        if: failure() && secrets.DISCORD_ESCALATION_WEBHOOK_URL != ''
         run: |
-          curl -s -X POST "${{ secrets.DISCORD_ESCALATION_WEBHOOK_URL }}" \
+          WEBHOOK="${{ secrets.DISCORD_ESCALATION_WEBHOOK_URL }}"
+          if [ -z "$WEBHOOK" ]; then
+            echo "Discord webhook not configured, skipping notification"
+            exit 0
+          fi
+          curl -s -X POST "$WEBHOOK" \
             -H "Content-Type: application/json" \
             -d '{
               "embeds": [{

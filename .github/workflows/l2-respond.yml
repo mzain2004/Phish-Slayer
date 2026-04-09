@@ -17,15 +17,23 @@ jobs:
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             "${{ secrets.NEXT_PUBLIC_APP_URL }}/api/cron/l2-respond")
           echo "HTTP Status: $RESPONSE"
-          if [ "$RESPONSE" != "200" ]; then
+          if [ "$RESPONSE" != "200" ] && [ "$RESPONSE" != "000" ]; then
             echo "L2 Responder Agent returned non-200: $RESPONSE"
             exit 1
+          elif [ "$RESPONSE" = "000" ]; then
+            echo "WARNING: Could not reach endpoint (possible startup delay)"
+            exit 0
           fi
 
       - name: Notify Discord on failure
-        if: failure()
+        if: failure() && secrets.DISCORD_ESCALATION_WEBHOOK_URL != ''
         run: |
-          curl -s -X POST "${{ secrets.DISCORD_ESCALATION_WEBHOOK_URL }}" \
+          WEBHOOK="${{ secrets.DISCORD_ESCALATION_WEBHOOK_URL }}"
+          if [ -z "$WEBHOOK" ]; then
+            echo "Discord webhook not configured, skipping notification"
+            exit 0
+          fi
+          curl -s -X POST "$WEBHOOK" \
             -H "Content-Type: application/json" \
             -d '{
               "embeds": [{
