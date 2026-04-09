@@ -32,8 +32,10 @@ type SeverityFilter = "all" | "critical" | "high" | "medium" | "low";
 function getSeverityClasses(severity: EscalationSeverity): string {
   const key = severity.toLowerCase();
   if (key === "critical") return "bg-red-500/20 text-red-200 border-red-400/40";
-  if (key === "high") return "bg-orange-500/20 text-orange-200 border-orange-400/40";
-  if (key === "medium") return "bg-yellow-500/20 text-yellow-200 border-yellow-400/40";
+  if (key === "high")
+    return "bg-orange-500/20 text-orange-200 border-orange-400/40";
+  if (key === "medium")
+    return "bg-yellow-500/20 text-yellow-200 border-yellow-400/40";
   return "bg-emerald-500/20 text-emerald-200 border-emerald-400/40";
 }
 
@@ -46,8 +48,10 @@ function getStatusClasses(status: EscalationStatus): string {
   if (key === "l2_auto_resolved") {
     return "bg-emerald-500/20 text-emerald-200 border-emerald-400/40";
   }
-  if (key === "dismissed") return "bg-slate-500/20 text-slate-200 border-slate-400/40";
-  if (key === "approved") return "bg-cyan-500/20 text-cyan-200 border-cyan-400/40";
+  if (key === "dismissed")
+    return "bg-slate-500/20 text-slate-200 border-slate-400/40";
+  if (key === "approved")
+    return "bg-cyan-500/20 text-cyan-200 border-cyan-400/40";
   return "bg-white/10 text-white border-white/20";
 }
 
@@ -110,8 +114,10 @@ export default function EscalationsDashboardPage() {
 
       const statusMatch =
         statusFilter === "all" ||
-        (statusFilter === "pending" && (status === "pending" || status === "l2_pending_approval")) ||
-        (statusFilter === "approved" && (status === "approved" || status === "l2_auto_resolved")) ||
+        (statusFilter === "pending" &&
+          (status === "pending" || status === "l2_pending_approval")) ||
+        (statusFilter === "approved" &&
+          (status === "approved" || status === "l2_auto_resolved")) ||
         (statusFilter === "dismissed" && status === "dismissed");
 
       const severityMatch =
@@ -169,27 +175,43 @@ export default function EscalationsDashboardPage() {
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div className="rounded-xl border border-[rgba(48,54,61,0.9)] bg-black/20 px-3 py-2">
-            <p className="text-[10px] uppercase tracking-[0.14em] text-white/50">Total</p>
+            <p className="text-[10px] uppercase tracking-[0.14em] text-white/50">
+              Total
+            </p>
             <p className="text-lg font-semibold">{summary.total}</p>
           </div>
           <div className="rounded-xl border border-[rgba(48,54,61,0.9)] bg-black/20 px-3 py-2">
-            <p className="text-[10px] uppercase tracking-[0.14em] text-white/50">Pending</p>
-            <p className="text-lg font-semibold text-sky-300">{summary.pending}</p>
+            <p className="text-[10px] uppercase tracking-[0.14em] text-white/50">
+              Pending
+            </p>
+            <p className="text-lg font-semibold text-sky-300">
+              {summary.pending}
+            </p>
           </div>
           <div className="rounded-xl border border-[rgba(48,54,61,0.9)] bg-black/20 px-3 py-2">
-            <p className="text-[10px] uppercase tracking-[0.14em] text-white/50">Critical</p>
-            <p className="text-lg font-semibold text-red-300">{summary.critical}</p>
+            <p className="text-[10px] uppercase tracking-[0.14em] text-white/50">
+              Critical
+            </p>
+            <p className="text-lg font-semibold text-red-300">
+              {summary.critical}
+            </p>
           </div>
           <div className="rounded-xl border border-[rgba(48,54,61,0.9)] bg-black/20 px-3 py-2">
-            <p className="text-[10px] uppercase tracking-[0.14em] text-white/50">L2 Auto-Resolved</p>
-            <p className="text-lg font-semibold text-emerald-300">{summary.autoResolved}</p>
+            <p className="text-[10px] uppercase tracking-[0.14em] text-white/50">
+              L2 Auto-Resolved
+            </p>
+            <p className="text-lg font-semibold text-emerald-300">
+              {summary.autoResolved}
+            </p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <select
             value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
+            onChange={(event) =>
+              setStatusFilter(event.target.value as StatusFilter)
+            }
             className="rounded-xl border border-[rgba(48,54,61,0.9)] bg-black/30 px-3 py-2 text-sm"
           >
             <option value="all">All Statuses</option>
@@ -200,7 +222,9 @@ export default function EscalationsDashboardPage() {
 
           <select
             value={severityFilter}
-            onChange={(event) => setSeverityFilter(event.target.value as SeverityFilter)}
+            onChange={(event) =>
+              setSeverityFilter(event.target.value as SeverityFilter)
+            }
             className="rounded-xl border border-[rgba(48,54,61,0.9)] bg-black/30 px-3 py-2 text-sm"
           >
             <option value="all">All Severities</option>
@@ -235,12 +259,18 @@ export default function EscalationsDashboardPage() {
                 className="p-5 bg-[rgba(23,28,35,0.85)] backdrop-blur-3xl border border-[rgba(48,54,61,0.9)] rounded-2xl flex flex-col gap-3"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <h2 className="text-lg font-semibold leading-tight">{row.title}</h2>
+                  <h2 className="text-lg font-semibold leading-tight">
+                    {row.title}
+                  </h2>
                   <div className="flex flex-col gap-2 items-end">
-                    <span className={`text-[10px] uppercase tracking-[0.14em] border rounded-full px-2 py-1 ${getSeverityClasses(row.severity)}`}>
+                    <span
+                      className={`text-[10px] uppercase tracking-[0.14em] border rounded-full px-2 py-1 ${getSeverityClasses(row.severity)}`}
+                    >
                       {row.severity}
                     </span>
-                    <span className={`text-[10px] uppercase tracking-[0.14em] border rounded-full px-2 py-1 ${getStatusClasses(row.status)}`}>
+                    <span
+                      className={`text-[10px] uppercase tracking-[0.14em] border rounded-full px-2 py-1 ${getStatusClasses(row.status)}`}
+                    >
                       {row.status}
                     </span>
                   </div>

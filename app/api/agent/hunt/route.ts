@@ -121,7 +121,9 @@ async function runCampaignClusterHunt(
 ): Promise<HuntSignal> {
   const { data, error } = await adminClient
     .from("scans")
-    .select("id, target, risk_score, verdict, malicious_count, threat_category, created_at")
+    .select(
+      "id, target, risk_score, verdict, malicious_count, threat_category, created_at",
+    )
     .gte("created_at", sinceIso)
     .order("created_at", { ascending: false })
     .limit(120);
@@ -177,7 +179,9 @@ async function runIdentityTakeoverPatternHunt(
 ): Promise<HuntSignal> {
   const { data, error } = await adminClient
     .from("escalations")
-    .select("id, title, severity, status, affected_user_id, affected_ip, created_at")
+    .select(
+      "id, title, severity, status, affected_user_id, affected_ip, created_at",
+    )
     .gte("created_at", sinceIso)
     .order("created_at", { ascending: false })
     .limit(150);
@@ -198,7 +202,10 @@ async function runIdentityTakeoverPatternHunt(
       );
     }
     if (row.affected_ip) {
-      ipFrequency.set(row.affected_ip, (ipFrequency.get(row.affected_ip) || 0) + 1);
+      ipFrequency.set(
+        row.affected_ip,
+        (ipFrequency.get(row.affected_ip) || 0) + 1,
+      );
     }
   }
 
@@ -230,7 +237,9 @@ async function runEscalationBurstHunt(
 ): Promise<HuntSignal> {
   const { data, error } = await adminClient
     .from("escalations")
-    .select("id, title, severity, status, affected_ip, affected_user_id, created_at")
+    .select(
+      "id, title, severity, status, affected_ip, affected_user_id, created_at",
+    )
     .gte("created_at", sinceIso)
     .order("created_at", { ascending: false })
     .limit(200);
@@ -245,7 +254,9 @@ async function runEscalationBurstHunt(
   );
 
   const pending = rows.filter((row) =>
-    ["pending", "l2_pending_approval"].includes((row.status || "").toLowerCase()),
+    ["pending", "l2_pending_approval"].includes(
+      (row.status || "").toLowerCase(),
+    ),
   );
 
   return {
@@ -312,8 +323,7 @@ function buildFallbackFindings(signals: HuntSignal[]): HuntFinding[] {
           title: "Identity takeover pattern surfaced",
           description: signal.summary,
           severity: repeatedUsers >= 2 || repeatedIps >= 2 ? "high" : "medium",
-          confidence:
-            repeatedUsers >= 2 || repeatedIps >= 2 ? 0.8 : 0.62,
+          confidence: repeatedUsers >= 2 || repeatedIps >= 2 ? 0.8 : 0.62,
           indicators: signal.telemetry,
           source_records: signal.source_records,
         });
@@ -347,7 +357,9 @@ function buildFallbackFindings(signals: HuntSignal[]): HuntFinding[] {
   return findings;
 }
 
-async function runGeminiHuntAnalysis(signals: HuntSignal[]): Promise<HuntFinding[]> {
+async function runGeminiHuntAnalysis(
+  signals: HuntSignal[],
+): Promise<HuntFinding[]> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return buildFallbackFindings(signals);
@@ -474,11 +486,16 @@ async function processBatch(request: NextRequest) {
   ]);
 
   const huntErrors = hunts
-    .filter((result): result is PromiseRejectedResult => result.status === "rejected")
+    .filter(
+      (result): result is PromiseRejectedResult => result.status === "rejected",
+    )
     .map((result) => String(result.reason));
 
   const signals = hunts
-    .filter((result): result is PromiseFulfilledResult<HuntSignal> => result.status === "fulfilled")
+    .filter(
+      (result): result is PromiseFulfilledResult<HuntSignal> =>
+        result.status === "fulfilled",
+    )
     .map((result) => result.value);
 
   if (signals.length === 0) {

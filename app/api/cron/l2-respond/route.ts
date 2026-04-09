@@ -1,35 +1,220 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient as createSupabaseAdminClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const L2ResponseSchema = z.object({
-  success: z.boolean(),
-  processed: z.number().int().nonnegative().optional(),
-  hitl_mode: z.boolean().optional(),
-  results: z
+const GeminiDecisionSchema = z.object({
+  execute: z.boolean(),
+  action: z.enum(["ISOLATE_IDENTITY", "BLOCK_IP", "MANUAL_REVIEW"]),
+  confidence: z.number().min(0).max(1),
+  reasoning: z.string().min(1),
+});
+
+const GeminiApiResponseSchema = z.object({
+  candidates: z
     .array(
       z.object({
-        escalation_id: z.string(),
-        function_called: z.enum([
-          "isolate_identity",
-          "block_ip",
-          "escalate_for_review",
-        ]),
-        args: z.record(z.string(), z.unknown()),
-        action_fired: z.boolean(),
+        content: z.object({
+          parts: z.array(
+            z.object({
+              text: z.string().optional(),
+            }),
+          ),
+        }),
       }),
     )
     .optional(),
-  error: z.string().optional(),
 });
+
+type EscalationRow = {
+  id: string;
+  alert_id: string | null;
+  severity: "low" | "medium" | "high" | "critical";
+  title: string;
+  description: string;
+  affected_user_id: string | null;
+  affected_ip: string | null;
+  recommended_action: string | null;
+  telemetry_snapshot: unknown;
+  discord_notified: boolean;
+  status: string;
+  created_at: string;
+};
+
+type Decision = z.infer<typeof GeminiDecisionSchema>;
+
+const L2_PROMPT = `You are an autonomous Tier 2 SOC responder for Phish-Slayer.
+A human analyst was notified but has not acted within 15 minutes.
+You must now decide whether to execute an automated response.
+You will receive an escalation JSON payload.
+Respond ONLY with a valid JSON object in this exact format:
+{
+  'execute': true or false,
+  'action': 'ISOLATE_IDENTITY' or 'BLOCK_IP' or 'MANUAL_REVIEW',
+  'confidence': float between 0.0 and 1.0,
+  'reasoning': 'one sentence max'
+}
+Rules:
+- Only set execute: true if confidence >= 0.85
+- ISOLATE_IDENTITY if affected_user_id exists and
+  severity is critical or high
+- BLOCK_IP if affected_ip exists and severity is
+  critical or high
+- MANUAL_REVIEW if confidence < 0.85 or severity
+  is low or medium
+- If uncertain, always set execute: false
+- Respond with raw JSON only. No markdown.`;
+
+function getAdminClient() {
+  return createSupabaseAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } },
+  );
+}
+
+function stripCodeFence(text: string): string {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith("```") || !trimmed.endsWith("```")) {
+    return trimmed;
+  }
+
+  return trimmed
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/, "")
+    .trim();
+}
+
+function normalizeDecision(raw: Decision, escalation: EscalationRow): Decision {
+  const isHighSeverity = ["critical", "high"].includes(escalation.severity);
+  if (raw.confidence < 0.85 || !isHighSeverity) {
+    return {
+      execute: false,
+      action: "MANUAL_REVIEW",
+      confidence: raw.confidence,
+      reasoning: raw.reasoning,
+    };
+  }
+
+  if (raw.action === "ISOLATE_IDENTITY" && !escalation.affected_user_id) {
+    return {
+      execute: false,
+      action: "MANUAL_REVIEW",
+      confidence: raw.confidence,
+      reasoning: "Missing affected_user_id required for isolate action.",
+    };
+  }
+
+  if (raw.action === "BLOCK_IP" && !escalation.affected_ip) {
+    return {
+      execute: false,
+      action: "MANUAL_REVIEW",
+      confidence: raw.confidence,
+      reasoning: "Missing affected_ip required for block action.",
+    };
+  }
+
+  if (!raw.execute) {
+    return {
+      execute: false,
+      action: "MANUAL_REVIEW",
+      confidence: raw.confidence,
+      reasoning: raw.reasoning,
+    };
+  }
+
+  return raw;
+}
+
+async function getDecision(escalation: EscalationRow): Promise<Decision> {
+  if (!process.env.GEMINI_API_KEY) {
+    throw new Error("Missing GEMINI_API_KEY");
+  }
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        systemInstruction: {
+          parts: [{ text: L2_PROMPT }],
+        },
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: JSON.stringify(escalation) }],
+          },
+        ],
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    const details = await response.text();
+    throw new Error(`Gemini failed (${response.status}): ${details}`);
+  }
+
+  const body = await response.json();
+  const parsedGemini = GeminiApiResponseSchema.safeParse(body);
+  if (!parsedGemini.success) {
+    throw new Error("Gemini response schema invalid");
+  }
+
+  const text =
+    parsedGemini.data.candidates?.[0]?.content.parts
+      .map((part) => part.text || "")
+      .join("")
+      .trim() || "";
+
+  const cleaned = stripCodeFence(text);
+
+  let parsedJson: unknown;
+  try {
+    parsedJson = JSON.parse(cleaned);
+  } catch {
+    throw new Error("Gemini returned non-JSON response");
+  }
+
+  const parsedDecision = GeminiDecisionSchema.safeParse(parsedJson);
+  if (!parsedDecision.success) {
+    throw new Error("Gemini decision failed validation");
+  }
+
+  return normalizeDecision(parsedDecision.data, escalation);
+}
 
 function isAuthorized(request: NextRequest): boolean {
   return (
     Boolean(process.env.CRON_SECRET) &&
     request.headers.get("authorization") === `Bearer ${process.env.CRON_SECRET}`
   );
+}
+
+async function callInternalAction(
+  baseUrl: string,
+  path: string,
+  payload: Record<string, unknown>,
+) {
+  const response = await fetch(`${baseUrl}${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      AGENT_SECRET: process.env.AGENT_SECRET || "",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const details = await response.text();
+    throw new Error(`Internal action ${path} failed (${response.status}): ${details}`);
+  }
+
+  return response;
 }
 
 export async function GET(request: NextRequest) {
@@ -40,21 +225,162 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const response = await fetch(`${request.nextUrl.origin}/api/agent/respond`, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${process.env.CRON_SECRET}`,
-    },
-  });
+  const adminClient = getAdminClient();
+  const now = Date.now();
+  const olderThan15 = new Date(now - 15 * 60 * 1000).toISOString();
+  const since24h = new Date(now - 24 * 60 * 60 * 1000).toISOString();
+  const baseUrl = request.nextUrl.origin;
 
-  const payload = await response.json();
-  const parsed = L2ResponseSchema.safeParse(payload);
-  if (!parsed.success) {
+  const { data, error } = await adminClient
+    .from("escalations")
+    .select(
+      "id, alert_id, severity, title, description, affected_user_id, affected_ip, recommended_action, telemetry_snapshot, discord_notified, status, created_at",
+    )
+    .eq("status", "pending")
+    .eq("discord_notified", true)
+    .lte("created_at", olderThan15)
+    .gte("created_at", since24h)
+    .order("created_at", { ascending: true })
+    .limit(10);
+
+  if (error) {
     return NextResponse.json(
-      { success: false, error: "Invalid L2 response payload" },
-      { status: 502 },
+      {
+        success: false,
+        error: `Failed to query escalations: ${error.message}`,
+      },
+      { status: 500 },
     );
   }
 
-  return NextResponse.json(parsed.data, { status: response.status });
+  const escalations = (data || []) as EscalationRow[];
+  let processed = 0;
+  let autoResolved = 0;
+  let manualReview = 0;
+  let errors = 0;
+
+  const results: Array<{
+    escalation_id: string;
+    execute: boolean;
+    action: "ISOLATE_IDENTITY" | "BLOCK_IP" | "MANUAL_REVIEW";
+    confidence: number;
+    reasoning: string;
+  }> = [];
+
+  for (const escalation of escalations) {
+    try {
+      const decision = await getDecision(escalation);
+
+      if (decision.execute && decision.action === "ISOLATE_IDENTITY") {
+        await callInternalAction(baseUrl, "/api/actions/isolate-identity", {
+          targetUserId: escalation.affected_user_id,
+          reason: `L2 Auto-Response: ${escalation.description}`,
+        });
+
+        const { error: updateError } = await adminClient
+          .from("escalations")
+          .update({
+            status: "auto_resolved",
+            resolved_by: "l2_agent",
+            resolved_at: new Date().toISOString(),
+          })
+          .eq("id", escalation.id);
+
+        if (updateError) {
+          throw new Error(`Failed to update escalation status: ${updateError.message}`);
+        }
+
+        autoResolved += 1;
+      } else if (decision.execute && decision.action === "BLOCK_IP") {
+        await callInternalAction(baseUrl, "/api/actions/block-ip", {
+          ip: escalation.affected_ip,
+          reason: `L2 Auto-Response: ${escalation.description}`,
+          threatLevel: escalation.severity,
+        });
+
+        const { error: updateError } = await adminClient
+          .from("escalations")
+          .update({
+            status: "auto_resolved",
+            resolved_by: "l2_agent",
+            resolved_at: new Date().toISOString(),
+          })
+          .eq("id", escalation.id);
+
+        if (updateError) {
+          throw new Error(`Failed to update escalation status: ${updateError.message}`);
+        }
+
+        autoResolved += 1;
+      } else {
+        const { error: updateError } = await adminClient
+          .from("escalations")
+          .update({
+            status: "awaiting_human",
+            resolved_by: null,
+            resolved_at: null,
+          })
+          .eq("id", escalation.id);
+
+        if (updateError) {
+          throw new Error(`Failed to mark escalation awaiting_human: ${updateError.message}`);
+        }
+
+        await callInternalAction(baseUrl, "/api/actions/escalate", {
+          alertId: escalation.alert_id || escalation.id,
+          severity: escalation.severity,
+          title: `⚠️ L2 UNRESOLVED - HUMAN REQUIRED: ${escalation.title}`,
+          description: escalation.description,
+          affectedUserId: escalation.affected_user_id || undefined,
+          affectedIp: escalation.affected_ip || undefined,
+          recommendedAction: "MANUAL_REVIEW",
+          telemetrySnapshot: {
+            source_escalation_id: escalation.id,
+            l2_decision: decision,
+            original_telemetry_snapshot: escalation.telemetry_snapshot,
+          },
+        });
+
+        manualReview += 1;
+      }
+
+      await adminClient.from("audit_logs").insert({
+        action: decision.execute
+          ? "L2_AUTO_RESOLVED"
+          : "L2_MANUAL_REVIEW_REQUIRED",
+        severity: escalation.severity,
+        metadata: {
+          escalation_id: escalation.id,
+          action_taken: decision.action,
+          confidence: decision.confidence,
+          reasoning: decision.reasoning,
+          execute: decision.execute,
+        },
+      });
+
+      processed += 1;
+      results.push({
+        escalation_id: escalation.id,
+        execute: decision.execute,
+        action: decision.action,
+        confidence: decision.confidence,
+        reasoning: decision.reasoning,
+      });
+    } catch (batchError) {
+      errors += 1;
+      console.error("[L2 responder] escalation processing failed", {
+        escalation_id: escalation.id,
+        error: batchError,
+      });
+    }
+  }
+
+  return NextResponse.json({
+    success: true,
+    processed,
+    auto_resolved: autoResolved,
+    manual_review: manualReview,
+    errors,
+    results,
+  });
 }

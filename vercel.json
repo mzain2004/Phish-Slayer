@@ -1,24 +1,12 @@
 {
   "crons": [
     {
-      "path": "/api/intel/sync",
-      "schedule": "0 */12 * * *"
-    },
-    {
-      "path": "/api/digest/weekly",
-      "schedule": "0 9 * * 1"
-    },
-    {
       "path": "/api/cron/l1-triage",
       "schedule": "0 * * * *"
     },
     {
       "path": "/api/cron/l2-respond",
       "schedule": "*/15 * * * *"
-    },
-    {
-      "path": "/api/cron/l3-hunt",
-      "schedule": "*/30 * * * *"
     }
   ]
 }

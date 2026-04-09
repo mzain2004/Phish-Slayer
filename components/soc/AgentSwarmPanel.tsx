@@ -118,7 +118,13 @@ export default function AgentSwarmPanel() {
       const sinceIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
       const supabase = createClient();
 
-      const [agentsRes, l1CountPromise, l2CountPromise, l3FindingsPromise, l3EscalatedPromise] = await Promise.all([
+      const [
+        agentsRes,
+        l1CountPromise,
+        l2CountPromise,
+        l3FindingsPromise,
+        l3EscalatedPromise,
+      ] = await Promise.all([
         fetch("/api/agent/list", { method: "GET", credentials: "include" }),
         supabase
           .from("audit_logs")
@@ -390,11 +396,13 @@ export default function AgentSwarmPanel() {
                     : "bg-gradient-to-r from-[#2DD4BF] to-[#22c55e]"
                 }`}
               >
-                {(index === 0
-                  ? triggeringL1
-                  : index === 1
-                    ? triggeringL2
-                    : triggeringL3) ? (
+                {(
+                  index === 0
+                    ? triggeringL1
+                    : index === 1
+                      ? triggeringL2
+                      : triggeringL3
+                ) ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
                     Triggering...

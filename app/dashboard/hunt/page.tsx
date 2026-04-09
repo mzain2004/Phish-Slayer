@@ -20,9 +20,12 @@ type EscalationFilter = "all" | "escalated" | "not_escalated";
 
 function severityClasses(severity: string): string {
   const value = severity.toLowerCase();
-  if (value === "critical") return "bg-red-500/20 text-red-200 border-red-400/40";
-  if (value === "high") return "bg-orange-500/20 text-orange-200 border-orange-400/40";
-  if (value === "medium") return "bg-yellow-500/20 text-yellow-200 border-yellow-400/40";
+  if (value === "critical")
+    return "bg-red-500/20 text-red-200 border-red-400/40";
+  if (value === "high")
+    return "bg-orange-500/20 text-orange-200 border-orange-400/40";
+  if (value === "medium")
+    return "bg-yellow-500/20 text-yellow-200 border-yellow-400/40";
   return "bg-emerald-500/20 text-emerald-200 border-emerald-400/40";
 }
 
@@ -138,19 +141,25 @@ export default function ThreatHuntsPage() {
             <p className="text-[10px] uppercase tracking-[0.14em] text-white/50">
               Last 24h
             </p>
-            <p className="text-lg font-semibold text-violet-300">{summary.last24h}</p>
+            <p className="text-lg font-semibold text-violet-300">
+              {summary.last24h}
+            </p>
           </div>
           <div className="rounded-xl border border-[rgba(48,54,61,0.9)] bg-black/20 px-3 py-2">
             <p className="text-[10px] uppercase tracking-[0.14em] text-white/50">
               Escalated
             </p>
-            <p className="text-lg font-semibold text-cyan-300">{summary.escalated}</p>
+            <p className="text-lg font-semibold text-cyan-300">
+              {summary.escalated}
+            </p>
           </div>
           <div className="rounded-xl border border-[rgba(48,54,61,0.9)] bg-black/20 px-3 py-2">
             <p className="text-[10px] uppercase tracking-[0.14em] text-white/50">
               Critical
             </p>
-            <p className="text-lg font-semibold text-red-300">{summary.critical}</p>
+            <p className="text-lg font-semibold text-red-300">
+              {summary.critical}
+            </p>
           </div>
         </div>
 
@@ -202,7 +211,9 @@ export default function ThreatHuntsPage() {
               className="p-5 bg-[rgba(23,28,35,0.85)] backdrop-blur-3xl border border-[rgba(48,54,61,0.9)] rounded-2xl flex flex-col gap-3"
             >
               <div className="flex items-start justify-between gap-3">
-                <h2 className="text-lg font-semibold leading-tight">{row.title}</h2>
+                <h2 className="text-lg font-semibold leading-tight">
+                  {row.title}
+                </h2>
                 <span
                   className={`text-[10px] uppercase tracking-[0.14em] border rounded-full px-2 py-1 ${severityClasses(row.severity)}`}
                 >
