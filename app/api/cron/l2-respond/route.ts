@@ -231,7 +231,7 @@ export async function GET(request: NextRequest) {
   const now = Date.now();
   const olderThan15 = new Date(now - 15 * 60 * 1000).toISOString();
   const since24h = new Date(now - 24 * 60 * 60 * 1000).toISOString();
-  const baseUrl = request.nextUrl.origin;
+  const baseUrl = process.env.INTERNAL_API_URL ?? "";
 
   const { data, error } = await adminClient
     .from("escalations")

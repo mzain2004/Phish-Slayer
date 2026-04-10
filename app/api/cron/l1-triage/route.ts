@@ -40,12 +40,15 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const response = await fetch(`${request.nextUrl.origin}/api/agent/triage`, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${process.env.CRON_SECRET}`,
+  const response = await fetch(
+    `${process.env.INTERNAL_API_URL}/api/agent/triage`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${process.env.CRON_SECRET}`,
+      },
     },
-  });
+  );
 
   const payload = await response.json();
   const parsed = TriageSummarySchema.safeParse(payload);

@@ -51,7 +51,7 @@ async function invokeStep<T>(
   path: string,
   schema: z.ZodSchema<T>,
 ) {
-  const response = await fetch(`${request.nextUrl.origin}${path}`, {
+  const response = await fetch(`${process.env.INTERNAL_API_URL}${path}`, {
     method: "GET",
     headers: {
       Authorization: `Bearer ${process.env.CRON_SECRET}`,
