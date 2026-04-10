@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { buildL3ReasoningPrompt, saveReasoningChain } from "@/lib/reasoning-chain";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -96,11 +97,39 @@ export async function GET(request: NextRequest) {
       HunterResponseSchema,
     );
 
+    const reviewerStartedAt = Date.now();
     const reviewer = await invokeStep(
       request,
       "/api/agent/hunter/review",
       ReviewerResponseSchema,
     );
+    const executionTimeMs = Date.now() - reviewerStartedAt;
+
+    const huntSummary = {
+      reader,
+      hunter,
+      reviewer,
+    };
+
+    await saveReasoningChain({
+      agent_level: "L3",
+      decision: reviewer.recommended || reviewer.verdict || "NEEDS_INVESTIGATION",
+      confidence_score: undefined,
+      reasoning_text:
+        reviewer.reasoning ||
+        "L3 reviewer completed circuit-breaker check without detailed reasoning.",
+      iocs_considered: [
+        {
+          total_iocs: reader.total_iocs || 0,
+          by_source: reader.by_source || null,
+          hits_found: hunter.hits_found || 0,
+          prompt_context: buildL3ReasoningPrompt([huntSummary]),
+        },
+      ],
+      actions_taken: [reviewer.action_taken || reviewer.recommended || "CONTINUE"],
+      model_used: "gemini-2.5-flash",
+      execution_time_ms: executionTimeMs,
+    });
 
     const halted = reviewer.recommended === "HALT";
 

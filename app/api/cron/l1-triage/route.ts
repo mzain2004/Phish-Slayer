@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { buildL1ReasoningPrompt, saveReasoningChain } from "@/lib/reasoning-chain";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -13,10 +14,12 @@ const TriageSummarySchema = z.object({
   results: z
     .array(
       z.object({
-        scan_id: z.string(),
+        scan_id: z.string().optional(),
+        item_id: z.string().optional(),
+        source: z.enum(["wazuh", "scans"]).optional(),
         decision: z.enum(["CLOSE", "ESCALATE"]),
         confidence: z.number(),
-        severity: z.enum(["low", "medium", "high", "critical"]),
+        severity: z.enum(["low", "medium", "high", "critical"]).optional(),
         reasoning: z.string(),
       }),
     )
@@ -40,6 +43,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  const startedAt = Date.now();
   const response = await fetch(
     `${process.env.INTERNAL_API_URL}/api/agent/triage`,
     {
@@ -51,6 +55,7 @@ export async function GET(request: NextRequest) {
   );
 
   const payload = await response.json();
+  const executionTimeMs = Date.now() - startedAt;
   const parsed = TriageSummarySchema.safeParse(payload);
 
   if (!parsed.success) {
@@ -61,6 +66,37 @@ export async function GET(request: NextRequest) {
       },
       { status: 502 },
     );
+  }
+
+  if (parsed.data.results?.length) {
+    const saves = parsed.data.results.map((result) => {
+      const recordId = result.item_id || result.scan_id;
+      return saveReasoningChain({
+        alert_id: result.source === "wazuh" ? recordId : undefined,
+        agent_level: "L1",
+        decision: result.decision,
+        confidence_score: result.confidence,
+        reasoning_text: result.reasoning,
+        iocs_considered: [
+          {
+            source: result.source || "unknown",
+            severity: result.severity || "unknown",
+            prompt_context: buildL1ReasoningPrompt({
+              rule_description: payload?.rule_description,
+              level: result.severity,
+              source_ip: payload?.source_ip,
+              agent_name: payload?.agent_name,
+              timestamp: payload?.timestamp,
+              full_log: payload,
+            }),
+          },
+        ],
+        model_used: "gemini-2.5-flash",
+        execution_time_ms: executionTimeMs,
+      });
+    });
+
+    await Promise.allSettled(saves);
   }
 
   return NextResponse.json(parsed.data, { status: response.status });

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createSupabaseAdminClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import { buildL2ReasoningPrompt, saveReasoningChain } from "@/lib/reasoning-chain";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -271,13 +272,18 @@ export async function GET(request: NextRequest) {
 
   for (const escalation of escalations) {
     try {
+      const decisionStartedAt = Date.now();
       const decision = await getDecision(escalation);
+      const executionTimeMs = Date.now() - decisionStartedAt;
+
+      const actionsTaken: string[] = [];
 
       if (decision.execute && decision.action === "ISOLATE_IDENTITY") {
         await callInternalAction(baseUrl, "/api/actions/isolate-identity", {
           targetUserId: escalation.affected_user_id,
           reason: `L2 Auto-Response: ${escalation.description}`,
         });
+        actionsTaken.push("ISOLATE_IDENTITY");
 
         // MCP SCHEMA CHECK: verify table 'escalations' has columns:
         // [status, resolved_by, resolved_at]
@@ -306,6 +312,7 @@ export async function GET(request: NextRequest) {
           reason: `L2 Auto-Response: ${escalation.description}`,
           threatLevel: escalation.severity,
         });
+        actionsTaken.push("BLOCK_IP");
 
         // MCP SCHEMA CHECK: verify table 'escalations' has columns:
         // [status, resolved_by, resolved_at]
@@ -363,9 +370,38 @@ export async function GET(request: NextRequest) {
             original_telemetry_snapshot: escalation.telemetry_snapshot,
           },
         });
+        actionsTaken.push("ESCALATE_TO_HUMAN");
 
         manualReview += 1;
       }
+
+      await saveReasoningChain({
+        escalation_id: escalation.id,
+        agent_level: "L2",
+        decision:
+          actionsTaken[0] === "ESCALATE_TO_HUMAN"
+            ? "ESCALATE_TO_HUMAN"
+            : decision.action,
+        confidence_score: decision.confidence,
+        reasoning_text: decision.reasoning,
+        iocs_considered: [
+          {
+            severity: escalation.severity,
+            affected_user_id: escalation.affected_user_id,
+            affected_ip: escalation.affected_ip,
+            prompt_context: buildL2ReasoningPrompt({
+              alert_rule: escalation.title,
+              severity: escalation.severity,
+              source_ip: escalation.affected_ip,
+              l1_confidence: null,
+              l1_reasoning: escalation.description,
+            }),
+          },
+        ],
+        actions_taken: actionsTaken,
+        model_used: "gemini-2.5-flash",
+        execution_time_ms: executionTimeMs,
+      });
 
       // MCP SCHEMA CHECK: verify table 'audit_logs' has columns:
       // [action, severity, metadata]
