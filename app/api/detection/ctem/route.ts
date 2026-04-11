@@ -7,7 +7,13 @@ export const runtime = "nodejs";
 
 const PostSchema = z.object({
   asset_name: z.string().min(1),
-  asset_type: z.enum(["server", "endpoint", "network", "identity", "application"]),
+  asset_type: z.enum([
+    "server",
+    "endpoint",
+    "network",
+    "identity",
+    "application",
+  ]),
   exposure_type: z.string().min(1),
   severity: z.enum(["critical", "high", "medium", "low"]),
   description: z.string().min(1),
@@ -37,7 +43,11 @@ export async function POST(request: NextRequest) {
 
     if (!parsed.success) {
       return NextResponse.json(
-        { success: false, error: "Invalid payload", details: parsed.error.flatten() },
+        {
+          success: false,
+          error: "Invalid payload",
+          details: parsed.error.flatten(),
+        },
         { status: 400 },
       );
     }
@@ -67,7 +77,10 @@ export async function POST(request: NextRequest) {
 
     if (error || !data) {
       return NextResponse.json(
-        { success: false, error: `Failed to upsert CTEM exposure: ${error?.message || "unknown"}` },
+        {
+          success: false,
+          error: `Failed to upsert CTEM exposure: ${error?.message || "unknown"}`,
+        },
         { status: 500 },
       );
     }
@@ -77,7 +90,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to create exposure",
+        error:
+          error instanceof Error ? error.message : "Failed to create exposure",
       },
       { status: 500 },
     );
@@ -152,7 +166,12 @@ export async function GET(request: NextRequest) {
 
     const severityCounts = (severityRows || []).reduce(
       (acc, row) => {
-        const key = row.severity as "critical" | "high" | "medium" | "low" | null;
+        const key = row.severity as
+          | "critical"
+          | "high"
+          | "medium"
+          | "low"
+          | null;
         if (key) {
           acc[key] = (acc[key] || 0) + 1;
         }
@@ -173,7 +192,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to list exposures",
+        error:
+          error instanceof Error ? error.message : "Failed to list exposures",
       },
       { status: 500 },
     );

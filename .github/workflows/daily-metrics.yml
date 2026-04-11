@@ -1,0 +1,28 @@
+name: SOC Daily Metrics
+on:
+  schedule:
+    - cron: '0 23 * * *'
+  workflow_dispatch:
+
+jobs:
+  calculate-metrics:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Calculate daily SOC metrics
+        run: |
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X POST "${{ secrets.NEXT_PUBLIC_APP_URL }}/api/platform/metrics" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}")
+          echo "Metrics calculation status: $RESPONSE"
+          if [ "$RESPONSE" != "200" ]; then
+            echo "Metrics calculation failed: $RESPONSE"
+            exit 1
+          fi
+      - name: Notify Discord on failure
+        if: failure()
+        run: |
+          WEBHOOK="${{ secrets.DISCORD_ESCALATION_WEBHOOK_URL }}"
+          if [ -z "$WEBHOOK" ]; then exit 0; fi
+          curl -s -X POST "$WEBHOOK" \
+            -H "Content-Type: application/json" \
+            -d '{"embeds":[{"title":"SOC Metrics Failed","color":16711680}]}'

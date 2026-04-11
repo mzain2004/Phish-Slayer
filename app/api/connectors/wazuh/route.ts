@@ -69,7 +69,9 @@ function normalizeTimestamp(value: string | number): string {
   }
 
   const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString();
+  return Number.isNaN(parsed.getTime())
+    ? new Date().toISOString()
+    : parsed.toISOString();
 }
 
 function toText(value: string | number | undefined): string | null {
@@ -80,7 +82,11 @@ function toText(value: string | number | undefined): string | null {
   return String(value);
 }
 
-function withTimeout<T>(promise: PromiseLike<T>, timeoutMs: number, message: string): Promise<T> {
+function withTimeout<T>(
+  promise: PromiseLike<T>,
+  timeoutMs: number,
+  message: string,
+): Promise<T> {
   return Promise.race([
     promise,
     new Promise<T>((_, reject) => {
@@ -106,7 +112,9 @@ async function triggerL1Triage(baseUrl: string): Promise<void> {
   }
 }
 
-function mapRuleLevelToSeverity(level: number | null): "low" | "medium" | "high" | "critical" {
+function mapRuleLevelToSeverity(
+  level: number | null,
+): "low" | "medium" | "high" | "critical" {
   if (level === null) {
     return "low";
   }
@@ -138,7 +146,11 @@ function buildAlertSummary(alert: WazuhAlert): string {
   return details.join(" | ");
 }
 
-function triggerCtemExposure(baseUrl: string, alert: WazuhAlert, alertId: string | null) {
+function triggerCtemExposure(
+  baseUrl: string,
+  alert: WazuhAlert,
+  alertId: string | null,
+) {
   if (!alertId) {
     return;
   }
@@ -183,27 +195,30 @@ async function queueAlert(alert: WazuhAlert): Promise<string | null> {
   const ruleLevel = alert.rule?.level ?? null;
 
   const insertResult = (await withTimeout(
-    adminClient.from("alerts").insert({
-      source: "wazuh",
-      rule_level: ruleLevel,
-      rule_id: toText(alert.rule?.id),
-      rule_description: alert.rule?.description ?? null,
-      rule_groups: alert.rule?.groups ?? [],
-      agent_id: toText(alert.agent?.id),
-      agent_name: alert.agent?.name ?? null,
-      agent_ip: alert.agent?.ip ?? null,
-      src_ip: alert.data?.srcip ?? null,
-      dest_ip: alert.data?.dstip ?? null,
-      process_name: alert.data?.process?.name ?? alert.data?.process_name ?? null,
-      process_id: toText(alert.data?.process?.pid),
-      file_path: alert.syscheck?.path ?? null,
-      file_hash_sha256: alert.syscheck?.sha256_after ?? null,
-      mitre_technique_id: alert.rule?.mitre?.technique?.[0] ?? null,
-      mitre_tactic: alert.rule?.mitre?.tactic?.[0] ?? null,
-      full_payload: alert,
-      status: "pending",
-      created_at: new Date().toISOString(),
-    })
+    adminClient
+      .from("alerts")
+      .insert({
+        source: "wazuh",
+        rule_level: ruleLevel,
+        rule_id: toText(alert.rule?.id),
+        rule_description: alert.rule?.description ?? null,
+        rule_groups: alert.rule?.groups ?? [],
+        agent_id: toText(alert.agent?.id),
+        agent_name: alert.agent?.name ?? null,
+        agent_ip: alert.agent?.ip ?? null,
+        src_ip: alert.data?.srcip ?? null,
+        dest_ip: alert.data?.dstip ?? null,
+        process_name:
+          alert.data?.process?.name ?? alert.data?.process_name ?? null,
+        process_id: toText(alert.data?.process?.pid),
+        file_path: alert.syscheck?.path ?? null,
+        file_hash_sha256: alert.syscheck?.sha256_after ?? null,
+        mitre_technique_id: alert.rule?.mitre?.technique?.[0] ?? null,
+        mitre_tactic: alert.rule?.mitre?.tactic?.[0] ?? null,
+        full_payload: alert,
+        status: "pending",
+        created_at: new Date().toISOString(),
+      })
       .select("id")
       .single(),
     2200,
@@ -244,7 +259,10 @@ export async function POST(request: NextRequest) {
 
     const parsed = WazuhAlertSchema.safeParse(payload);
     if (!parsed.success) {
-      console.error("[wazuh webhook] Payload validation failed", parsed.error.flatten());
+      console.error(
+        "[wazuh webhook] Payload validation failed",
+        parsed.error.flatten(),
+      );
       return NextResponse.json({
         received: true,
         level: null,

@@ -14,8 +14,12 @@ const PostSchema = z.object({
 const QuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
-  rule_level: z.enum(["informational", "low", "medium", "high", "critical"]).optional(),
-  rule_status: z.enum(["stable", "test", "experimental", "deprecated"]).optional(),
+  rule_level: z
+    .enum(["informational", "low", "medium", "high", "critical"])
+    .optional(),
+  rule_status: z
+    .enum(["stable", "test", "experimental", "deprecated"])
+    .optional(),
 });
 
 function getAdminClient() {
@@ -33,7 +37,11 @@ export async function POST(request: NextRequest) {
 
     if (!parsed.success) {
       return NextResponse.json(
-        { success: false, error: "Invalid payload", details: parsed.error.flatten() },
+        {
+          success: false,
+          error: "Invalid payload",
+          details: parsed.error.flatten(),
+        },
         { status: 400 },
       );
     }
@@ -49,7 +57,10 @@ export async function POST(request: NextRequest) {
 
     if (alertError || !alert) {
       return NextResponse.json(
-        { success: false, error: `Alert not found: ${alertError?.message || "missing record"}` },
+        {
+          success: false,
+          error: `Alert not found: ${alertError?.message || "missing record"}`,
+        },
         { status: 404 },
       );
     }
@@ -72,10 +83,15 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      analysisData = (analysis || undefined) as Record<string, unknown> | undefined;
+      analysisData = (analysis || undefined) as
+        | Record<string, unknown>
+        | undefined;
     }
 
-    const generatedRule = await generateWithGemini(alert as Record<string, unknown>, analysisData);
+    const generatedRule = await generateWithGemini(
+      alert as Record<string, unknown>,
+      analysisData,
+    );
 
     const { data: insertedRule, error: insertError } = await adminClient
       .from("sigma_rules")
@@ -84,7 +100,10 @@ export async function POST(request: NextRequest) {
         analysis_id: analysis_id || null,
         rule_name: generatedRule.rule_name,
         rule_title: generatedRule.rule_title,
-        rule_description: typeof alert.rule_description === "string" ? alert.rule_description : null,
+        rule_description:
+          typeof alert.rule_description === "string"
+            ? alert.rule_description
+            : null,
         rule_status: "experimental",
         rule_level: generatedRule.rule_level,
         rule_yaml: generatedRule.rule_yaml,
@@ -110,7 +129,8 @@ export async function POST(request: NextRequest) {
       agent_level: "L3",
       decision: "SIGMA_GENERATED",
       confidence_score: 0.91,
-      reasoning_text: "Generated Sigma detection rule from alert and available static analysis context.",
+      reasoning_text:
+        "Generated Sigma detection rule from alert and available static analysis context.",
       actions_taken: ["SIGMA_RULE_CREATED"],
       model_used: "gemini-2.5-flash",
     });
@@ -123,7 +143,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to generate Sigma rule",
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to generate Sigma rule",
       },
       { status: 500 },
     );
@@ -193,7 +216,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to list Sigma rules",
+        error:
+          error instanceof Error ? error.message : "Failed to list Sigma rules",
       },
       { status: 500 },
     );
