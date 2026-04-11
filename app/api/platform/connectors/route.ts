@@ -29,7 +29,9 @@ function getAdminClient() {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!url || !key) {
-    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+    throw new Error(
+      "Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY",
+    );
   }
 
   return createClient(url, key, {
@@ -37,7 +39,9 @@ function getAdminClient() {
   });
 }
 
-function getPingStatus(lastPing: string | null): "online" | "offline" | "never" {
+function getPingStatus(
+  lastPing: string | null,
+): "online" | "offline" | "never" {
   if (!lastPing) {
     return "never";
   }
@@ -88,7 +92,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to register connector",
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to register connector",
       },
       { status: 500 },
     );
@@ -145,7 +152,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to list connectors",
+        error:
+          error instanceof Error ? error.message : "Failed to list connectors",
       },
       { status: 500 },
     );

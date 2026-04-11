@@ -27,7 +27,10 @@ export async function GET() {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to fetch KPI metrics",
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to fetch KPI metrics",
       },
       { status: 500 },
     );
@@ -43,12 +46,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    let payload: unknown = {};
-    const contentType = request.headers.get("content-type") || "";
-
-    if (contentType.includes("application/json")) {
-      payload = await request.json();
-    }
+    const payload: unknown = await request.json().catch(() => ({}));
 
     const parsed = TriggerMetricsSchema.safeParse(payload);
     if (!parsed.success) {
@@ -68,7 +66,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to calculate SOC metrics",
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to calculate SOC metrics",
       },
       { status: 500 },
     );

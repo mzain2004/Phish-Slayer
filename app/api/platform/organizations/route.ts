@@ -11,9 +11,14 @@ const CreateOrganizationSchema = z.object({
     .string()
     .min(2)
     .max(120)
-    .regex(/^[a-z0-9-]+$/, "slug must contain lowercase letters, numbers, or hyphens"),
-  plan: z.enum(["trial", "starter", "pro", "enterprise", "mssp"]).default("trial"),
-  owner_id: z.string().uuid(),
+    .regex(
+      /^[a-z0-9-]+$/,
+      "slug must contain lowercase letters, numbers, or hyphens",
+    ),
+  plan: z
+    .enum(["trial", "starter", "pro", "enterprise", "mssp"])
+    .default("trial"),
+  owner_id: z.string().uuid().optional(),
 });
 
 function getAdminClient() {
@@ -21,7 +26,9 @@ function getAdminClient() {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!url || !key) {
-    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+    throw new Error(
+      "Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY",
+    );
   }
 
   return createClient(url, key, {
@@ -48,9 +55,26 @@ export async function POST(request: NextRequest) {
     const adminClient = getAdminClient();
     const { name, slug, plan, owner_id } = parsed.data;
 
+    const organizationInsert: {
+      name: string;
+      slug: string;
+      plan: "trial" | "starter" | "pro" | "enterprise" | "mssp";
+      is_active: boolean;
+      owner_id?: string;
+    } = {
+      name,
+      slug,
+      plan,
+      is_active: true,
+    };
+
+    if (owner_id) {
+      organizationInsert.owner_id = owner_id;
+    }
+
     const { data: organization, error: orgError } = await adminClient
       .from("organizations")
-      .insert({ name, slug, plan, owner_id, is_active: true })
+      .insert(organizationInsert)
       .select("*")
       .single();
 
@@ -62,6 +86,10 @@ export async function POST(request: NextRequest) {
         },
         { status: 500 },
       );
+    }
+
+    if (!owner_id) {
+      return NextResponse.json({ success: true, organization });
     }
 
     const { error: memberError } = await adminClient
@@ -88,7 +116,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to create organization",
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to create organization",
       },
       { status: 500 },
     );
@@ -135,11 +166,14 @@ export async function GET() {
         );
       }
 
-      memberCountMap = (members || []).reduce((acc: Map<string, number>, row: any) => {
-        const current = acc.get(row.organization_id) || 0;
-        acc.set(row.organization_id, current + 1);
-        return acc;
-      }, new Map<string, number>());
+      memberCountMap = (members || []).reduce(
+        (acc: Map<string, number>, row: any) => {
+          const current = acc.get(row.organization_id) || 0;
+          acc.set(row.organization_id, current + 1);
+          return acc;
+        },
+        new Map<string, number>(),
+      );
     }
 
     const data = orgRows.map((org: any) => ({
@@ -152,7 +186,10 @@ export async function GET() {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to list organizations",
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to list organizations",
       },
       { status: 500 },
     );

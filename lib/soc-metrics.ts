@@ -263,7 +263,9 @@ export async function calculateDailyMetrics(
   }
 
   const escalationRows = escalations || [];
-  const escalationIds = escalationRows.map((row: any) => row.id).filter(Boolean);
+  const escalationIds = escalationRows
+    .map((row: any) => row.id)
+    .filter(Boolean);
 
   let meanTimeToRespondMs = 0;
   if (escalationIds.length > 0) {
@@ -282,7 +284,10 @@ export async function calculateDailyMetrics(
 
     const firstDecisionByEscalation = new Map<string, string>();
     for (const row of l2ReasoningRows || []) {
-      if (!row.escalation_id || firstDecisionByEscalation.has(row.escalation_id)) {
+      if (
+        !row.escalation_id ||
+        firstDecisionByEscalation.has(row.escalation_id)
+      ) {
         continue;
       }
 
@@ -352,7 +357,9 @@ export async function calculateDailyMetrics(
       .single();
 
     if (error || !data) {
-      throw new Error(`Failed to upsert soc_metrics: ${error?.message || "unknown error"}`);
+      throw new Error(
+        `Failed to upsert soc_metrics: ${error?.message || "unknown error"}`,
+      );
     }
 
     return data as SocMetricsRecord;

@@ -61,7 +61,9 @@ export async function GET() {
       for (const row of data || []) {
         socMetricsSnapshot.total_alerts += Number(row.total_alerts || 0);
         socMetricsSnapshot.alerts_closed += Number(row.alerts_closed || 0);
-        socMetricsSnapshot.alerts_escalated += Number(row.alerts_escalated || 0);
+        socMetricsSnapshot.alerts_escalated += Number(
+          row.alerts_escalated || 0,
+        );
         socMetricsSnapshot.ips_blocked += Number(row.ips_blocked || 0);
         socMetricsSnapshot.sigma_rules_generated += Number(
           row.sigma_rules_generated || 0,
