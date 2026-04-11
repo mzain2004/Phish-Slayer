@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createSupabaseAdminClient } from "@supabase/supabase-js";
 import { createClient as createServerSupabaseClient } from "@/lib/supabase/server";
+import { getWazuhApiToken } from "@/lib/wazuh-client";
 import https from "https";
 import { z } from "zod";
 
@@ -222,17 +223,10 @@ export async function POST(request: NextRequest) {
   }
 
   const managerIp = process.env.WAZUH_MANAGER_IP || "167.172.85.62";
-  const wazuhToken = process.env.WAZUH_API_TOKEN;
-
-  if (!wazuhToken) {
-    return NextResponse.json(
-      { success: false, error: "Wazuh API token not configured" },
-      { status: 500 },
-    );
-  }
 
   try {
     const { agentName, agentIp, agentOs, agentArch } = parsedPayload.data;
+    const wazuhToken = await getWazuhApiToken();
     const enrollment = await requestWazuhEnrollment(agentName, managerIp, wazuhToken);
 
     const installScript = buildInstallScript(agentName, agentOs, agentArch, managerIp);

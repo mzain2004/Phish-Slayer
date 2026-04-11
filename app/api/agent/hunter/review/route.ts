@@ -33,7 +33,7 @@ type ReviewDecision = z.infer<typeof ReviewDecisionSchema>;
 const REVIEW_PROMPT = `You are a senior SOC reviewer for Phish-Slayer.
 You are reviewing the output quality of the L3 Threat Hunter
 agent to prevent false positive alert storms.
-You will receive aggregate hunter statistics.
+You will receive aggregate hunter statistics, which may contain empty/no-signal results.
 Respond ONLY with valid JSON:
 {
   'verdict': 'NORMAL' or 'SUSPICIOUS' or 'STORM',
@@ -42,6 +42,7 @@ Respond ONLY with valid JSON:
   'recommended': 'CONTINUE' or 'THROTTLE' or 'HALT'
 }
 Rules:
+- If aggregate data is empty, missing, or shows 0 escalations, return NORMAL with recommended CONTINUE.
 - STORM if more than 10 escalations in 1 hour
 - SUSPICIOUS if 5 to 10 escalations in 1 hour
 - NORMAL if fewer than 5
@@ -125,6 +126,10 @@ async function callGemini(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
+        generationConfig: {
+          temperature: 0,
+          responseMimeType: "application/json",
+        },
         systemInstruction: {
           parts: [{ text: REVIEW_PROMPT }],
         },

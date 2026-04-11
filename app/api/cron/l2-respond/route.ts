@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createSupabaseAdminClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import { buildL2ReasoningPrompt, saveReasoningChain } from "@/lib/reasoning-chain";
+import {
+  buildL2ReasoningPrompt,
+  saveReasoningChain,
+} from "@/lib/reasoning-chain";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -39,10 +42,12 @@ type EscalationRow = {
   affected_ip: string | null;
   recommended_action: string | null;
   telemetry_snapshot: unknown;
-  discord_notified: boolean;
+  discord_notified: boolean | null;
   status: string;
   created_at: string;
 };
+
+type RawEscalationRow = Record<string, unknown>;
 
 type Decision = z.infer<typeof GeminiDecisionSchema>;
 
@@ -127,6 +132,70 @@ function normalizeDecision(raw: Decision, escalation: EscalationRow): Decision {
   }
 
   return raw;
+}
+
+function toEscalationRow(row: RawEscalationRow): EscalationRow | null {
+  const id = typeof row.id === "string" ? row.id : null;
+  const severity = typeof row.severity === "string" ? row.severity : null;
+
+  if (
+    !id ||
+    !severity ||
+    !["low", "medium", "high", "critical"].includes(severity)
+  ) {
+    return null;
+  }
+
+  const affectedUserId =
+    typeof row.affected_user_id === "string"
+      ? row.affected_user_id
+      : typeof row.affectedUserId === "string"
+        ? row.affectedUserId
+        : null;
+
+  const affectedIp =
+    typeof row.affected_ip === "string"
+      ? row.affected_ip
+      : typeof row.affectedIp === "string"
+        ? row.affectedIp
+        : typeof row.source_ip === "string"
+          ? row.source_ip
+          : null;
+
+  return {
+    id,
+    alert_id:
+      typeof row.alert_id === "string"
+        ? row.alert_id
+        : typeof row.alertId === "string"
+          ? row.alertId
+          : null,
+    severity: severity as EscalationRow["severity"],
+    title: typeof row.title === "string" ? row.title : "Untitled escalation",
+    description:
+      typeof row.description === "string" ? row.description : "No description",
+    affected_user_id: affectedUserId,
+    affected_ip: affectedIp,
+    recommended_action:
+      typeof row.recommended_action === "string"
+        ? row.recommended_action
+        : typeof row.recommendedAction === "string"
+          ? row.recommendedAction
+          : null,
+    telemetry_snapshot:
+      row.telemetry_snapshot ?? row.telemetrySnapshot ?? null,
+    discord_notified:
+      typeof row.discord_notified === "boolean"
+        ? row.discord_notified
+        : typeof row.discordNotified === "boolean"
+          ? row.discordNotified
+          : null,
+    status: typeof row.status === "string" ? row.status : "pending",
+    created_at:
+      typeof row.created_at === "string"
+        ? row.created_at
+        : new Date().toISOString(),
+  };
 }
 
 async function getDecision(escalation: EscalationRow): Promise<Decision> {
@@ -229,20 +298,12 @@ export async function GET(request: NextRequest) {
   }
 
   const adminClient = getAdminClient();
-  const now = Date.now();
-  const olderThan15 = new Date(now - 15 * 60 * 1000).toISOString();
-  const since24h = new Date(now - 24 * 60 * 60 * 1000).toISOString();
   const baseUrl = process.env.INTERNAL_API_URL ?? "";
 
   const { data, error } = await adminClient
     .from("escalations")
-    .select(
-      "id, alert_id, severity, title, description, affected_user_id, affected_ip, recommended_action, telemetry_snapshot, discord_notified, status, created_at",
-    )
+    .select("*")
     .eq("status", "pending")
-    .eq("discord_notified", true)
-    .lte("created_at", olderThan15)
-    .gte("created_at", since24h)
     .order("created_at", { ascending: true })
     .limit(10);
 
@@ -256,7 +317,9 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const escalations = (data || []) as EscalationRow[];
+  const escalations = ((data || []) as RawEscalationRow[])
+    .map(toEscalationRow)
+    .filter((row): row is EscalationRow => row !== null);
   let processed = 0;
   let autoResolved = 0;
   let manualReview = 0;

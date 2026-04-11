@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { buildL3ReasoningPrompt, saveReasoningChain } from "@/lib/reasoning-chain";
+import {
+  buildL3ReasoningPrompt,
+  saveReasoningChain,
+} from "@/lib/reasoning-chain";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -113,7 +116,8 @@ export async function GET(request: NextRequest) {
 
     await saveReasoningChain({
       agent_level: "L3",
-      decision: reviewer.recommended || reviewer.verdict || "NEEDS_INVESTIGATION",
+      decision:
+        reviewer.recommended || reviewer.verdict || "NEEDS_INVESTIGATION",
       confidence_score: undefined,
       reasoning_text:
         reviewer.reasoning ||
@@ -126,7 +130,9 @@ export async function GET(request: NextRequest) {
           prompt_context: buildL3ReasoningPrompt([huntSummary]),
         },
       ],
-      actions_taken: [reviewer.action_taken || reviewer.recommended || "CONTINUE"],
+      actions_taken: [
+        reviewer.action_taken || reviewer.recommended || "CONTINUE",
+      ],
       model_used: "gemini-2.5-flash",
       execution_time_ms: executionTimeMs,
     });

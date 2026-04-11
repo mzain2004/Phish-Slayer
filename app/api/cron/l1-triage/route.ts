@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { buildL1ReasoningPrompt, saveReasoningChain } from "@/lib/reasoning-chain";
+import {
+  buildL1ReasoningPrompt,
+  saveReasoningChain,
+} from "@/lib/reasoning-chain";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
