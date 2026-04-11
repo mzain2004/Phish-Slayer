@@ -48,6 +48,7 @@ type CountQuery = {
   start: string;
   end: string;
   organizationId?: string;
+  organizationColumn?: string;
   extraFilters?: (query: any) => any;
 };
 
@@ -94,18 +95,19 @@ async function countRows({
   start,
   end,
   organizationId,
+  organizationColumn,
   extraFilters,
 }: CountQuery): Promise<number> {
   const client = getServiceClient();
 
   let query = client
     .from(table)
-    .select("id", { count: "exact", head: true })
+    .select("*", { count: "exact", head: true })
     .gte(timestampColumn, start)
     .lt(timestampColumn, end);
 
-  if (organizationId) {
-    query = query.eq("organization_id", organizationId);
+  if (organizationId && organizationColumn) {
+    query = query.eq(organizationColumn, organizationId);
   }
 
   if (extraFilters) {
@@ -119,6 +121,34 @@ async function countRows({
   }
 
   return count ?? 0;
+}
+
+async function countRowsWithTimestampFallback(
+  baseQuery: Omit<CountQuery, "timestampColumn">,
+  timestampColumns: string[],
+): Promise<number> {
+  let lastError: Error | null = null;
+
+  for (const timestampColumn of timestampColumns) {
+    try {
+      return await countRows({
+        ...baseQuery,
+        timestampColumn,
+      });
+    } catch (error) {
+      lastError =
+        error instanceof Error
+          ? error
+          : new Error("Failed counting rows with timestamp fallback");
+
+      // If the column is missing, try the next candidate column.
+      if (!/column .* does not exist/i.test(lastError.message)) {
+        throw lastError;
+      }
+    }
+  }
+
+  throw lastError || new Error("Failed counting rows with timestamp fallback");
 }
 
 function buildTrend(today: number, comparison: number[]): MetricTrend {
@@ -175,7 +205,6 @@ export async function calculateDailyMetrics(
     table: "escalations",
     start: startIso,
     end: endIso,
-    organizationId,
     extraFilters: (query) => query.neq("status", "pending"),
   });
 
@@ -183,21 +212,21 @@ export async function calculateDailyMetrics(
     table: "sigma_rules",
     start: startIso,
     end: endIso,
-    organizationId,
   });
 
-  const ipsBlocked = await countRows({
-    table: "blocked_ips",
-    start: startIso,
-    end: endIso,
-    organizationId,
-  });
+  const ipsBlocked = await countRowsWithTimestampFallback(
+    {
+      table: "blocked_ips",
+      start: startIso,
+      end: endIso,
+    },
+    ["created_at", "blocked_at"],
+  );
 
   const identitiesIsolated = await countRows({
     table: "audit_logs",
     start: startIso,
     end: endIso,
-    organizationId,
     extraFilters: (query) => query.eq("action", "IDENTITY_ISOLATED"),
   });
 
@@ -317,7 +346,6 @@ export async function calculateDailyMetrics(
     table: "agent_reasoning",
     start: startIso,
     end: endIso,
-    organizationId,
     extraFilters: (query) => query.eq("agent_level", "L1"),
   });
 
@@ -325,7 +353,6 @@ export async function calculateDailyMetrics(
     table: "agent_reasoning",
     start: startIso,
     end: endIso,
-    organizationId,
     extraFilters: (query) => query.eq("agent_level", "L3"),
   });
 
