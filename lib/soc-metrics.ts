@@ -214,14 +214,12 @@ export async function calculateDailyMetrics(
     end: endIso,
   });
 
-  const ipsBlocked = await countRowsWithTimestampFallback(
-    {
-      table: "blocked_ips",
-      start: startIso,
-      end: endIso,
-    },
-    ["created_at", "blocked_at"],
-  );
+  const ipsBlocked = await countRows({
+    table: "blocked_ips",
+    timestampColumn: "blocked_at",
+    start: startIso,
+    end: endIso,
+  });
 
   const identitiesIsolated = await countRows({
     table: "audit_logs",
