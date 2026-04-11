@@ -106,7 +106,79 @@ async function triggerL1Triage(baseUrl: string): Promise<void> {
   }
 }
 
-async function queueAlert(alert: WazuhAlert): Promise<boolean> {
+function mapRuleLevelToSeverity(level: number | null): "low" | "medium" | "high" | "critical" {
+  if (level === null) {
+    return "low";
+  }
+
+  if (level >= 14) {
+    return "critical";
+  }
+
+  if (level >= 12) {
+    return "high";
+  }
+
+  if (level >= 10) {
+    return "medium";
+  }
+
+  return "low";
+}
+
+function buildAlertSummary(alert: WazuhAlert): string {
+  const details = [
+    `rule=${alert.rule?.description || "unknown"}`,
+    `level=${alert.rule?.level ?? "unknown"}`,
+    `agent=${alert.agent?.name || "unknown"}`,
+    `src_ip=${alert.data?.srcip || "unknown"}`,
+    `dst_ip=${alert.data?.dstip || "unknown"}`,
+  ];
+
+  return details.join(" | ");
+}
+
+function triggerCtemExposure(baseUrl: string, alert: WazuhAlert, alertId: string | null) {
+  if (!alertId) {
+    return;
+  }
+
+  const severity = mapRuleLevelToSeverity(alert.rule?.level ?? null);
+  const exposurePayload = {
+    asset_name: alert.agent?.name || "unknown-agent",
+    asset_type: "server",
+    exposure_type: alert.rule?.description || "Wazuh rule alert",
+    severity,
+    description: buildAlertSummary(alert),
+    alert_id: alertId,
+  };
+
+  void fetch(`${baseUrl}/api/detection/ctem`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(exposurePayload),
+  })
+    .then(async (response) => {
+      if (!response.ok) {
+        const details = await response.text();
+        console.error("[wazuh webhook] CTEM trigger failed", {
+          alert_id: alertId,
+          status: response.status,
+          details,
+        });
+      }
+    })
+    .catch((error) => {
+      console.error("[wazuh webhook] CTEM trigger error", {
+        alert_id: alertId,
+        error,
+      });
+    });
+}
+
+async function queueAlert(alert: WazuhAlert): Promise<string | null> {
   const adminClient = getAdminClient();
   const ruleLevel = alert.rule?.level ?? null;
 
@@ -131,16 +203,21 @@ async function queueAlert(alert: WazuhAlert): Promise<boolean> {
       full_payload: alert,
       status: "pending",
       created_at: new Date().toISOString(),
-    }),
+    })
+      .select("id")
+      .single(),
     2200,
     "Timed out while inserting alert",
-  )) as { error: { message: string } | null };
+  )) as {
+    data: { id: string } | null;
+    error: { message: string } | null;
+  };
 
   if (insertResult.error) {
     throw new Error(insertResult.error.message);
   }
 
-  return true;
+  return insertResult.data?.id ?? null;
 }
 
 export async function POST(request: NextRequest) {
@@ -193,12 +270,19 @@ export async function POST(request: NextRequest) {
     }
 
     let queued = false;
+    let insertedAlertId: string | null = null;
     let triggeredL1 = false;
 
     try {
-      queued = await queueAlert(normalizedAlert);
+      insertedAlertId = await queueAlert(normalizedAlert);
+      queued = Boolean(insertedAlertId);
     } catch (error) {
       console.error("[wazuh webhook] Failed to insert alert", error);
+    }
+
+    if (queued) {
+      const baseUrl = process.env.INTERNAL_API_URL ?? request.nextUrl.origin;
+      triggerCtemExposure(baseUrl, normalizedAlert, insertedAlertId);
     }
 
     if ((ruleLevel ?? 0) >= 12) {

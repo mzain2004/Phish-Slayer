@@ -288,6 +288,36 @@ async function callInternalAction(
   return response;
 }
 
+function triggerSigmaRuleGeneration(baseUrl: string, alertId: string | null) {
+  if (!alertId) {
+    return;
+  }
+
+  void fetch(`${baseUrl}/api/detection/sigma`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ alert_id: alertId }),
+  })
+    .then(async (response) => {
+      if (!response.ok) {
+        const details = await response.text();
+        console.error("[L2 responder] Sigma generation trigger failed", {
+          alert_id: alertId,
+          status: response.status,
+          details,
+        });
+      }
+    })
+    .catch((error) => {
+      console.error("[L2 responder] Sigma generation trigger error", {
+        alert_id: alertId,
+        error,
+      });
+    });
+}
+
 export async function GET(request: NextRequest) {
   if (!isAuthorized(request)) {
     return NextResponse.json(
@@ -297,7 +327,7 @@ export async function GET(request: NextRequest) {
   }
 
   const adminClient = getAdminClient();
-  const baseUrl = process.env.INTERNAL_API_URL ?? "";
+  const baseUrl = process.env.INTERNAL_API_URL ?? request.nextUrl.origin;
 
   const { data, error } = await adminClient
     .from("escalations")
@@ -346,6 +376,7 @@ export async function GET(request: NextRequest) {
           reason: `L2 Auto-Response: ${escalation.description}`,
         });
         actionsTaken.push("ISOLATE_IDENTITY");
+        triggerSigmaRuleGeneration(baseUrl, escalation.alert_id);
 
         // MCP SCHEMA CHECK: verify table 'escalations' has columns:
         // [status, resolved_by, resolved_at]
@@ -375,6 +406,7 @@ export async function GET(request: NextRequest) {
           threatLevel: escalation.severity,
         });
         actionsTaken.push("BLOCK_IP");
+        triggerSigmaRuleGeneration(baseUrl, escalation.alert_id);
 
         // MCP SCHEMA CHECK: verify table 'escalations' has columns:
         // [status, resolved_by, resolved_at]
