@@ -12,6 +12,7 @@ import {
 } from "@/lib/static-analysis";
 import { mapToMitre, type MitreTechnique } from "@/lib/mitre-mapper";
 import { saveReasoningChain } from "@/lib/reasoning-chain";
+import { generateWithFallback } from "@/lib/ollama-client";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -28,22 +29,6 @@ const QuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   verdict: z.enum(["clean", "suspicious", "malicious", "unknown"]).optional(),
-});
-
-const GeminiApiResponseSchema = z.object({
-  candidates: z
-    .array(
-      z.object({
-        content: z.object({
-          parts: z.array(
-            z.object({
-              text: z.string().optional(),
-            }),
-          ),
-        }),
-      }),
-    )
-    .optional(),
 });
 
 const GeminiStructuredSchema = z.object({
@@ -125,45 +110,7 @@ function stripCodeFence(text: string): string {
 }
 
 async function runGemini(prompt: string) {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error("Missing GEMINI_API_KEY");
-  }
-
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: "user",
-            parts: [{ text: prompt }],
-          },
-        ],
-      }),
-    },
-  );
-
-  if (!response.ok) {
-    const details = await response.text();
-    throw new Error(`Gemini failed (${response.status}): ${details}`);
-  }
-
-  const body = await response.json();
-  const parsedGemini = GeminiApiResponseSchema.safeParse(body);
-  if (!parsedGemini.success) {
-    throw new Error("Gemini response schema invalid");
-  }
-
-  const text =
-    parsedGemini.data.candidates?.[0]?.content.parts
-      .map((part) => part.text || "")
-      .join("")
-      .trim() || "";
+  const text = await generateWithFallback(prompt, prompt);
 
   const cleaned = stripCodeFence(text);
   const parsedJson = JSON.parse(cleaned);
@@ -375,7 +322,7 @@ export async function POST(request: Request) {
         recommendedActions.length > 0
           ? recommendedActions
           : ["isolate file", "perform memory triage", "contain host"],
-      model_used: "gemini-2.5-flash",
+      model_used: "ollama+gemini-fallback",
       execution_time_ms: analysisDurationMs,
     });
 

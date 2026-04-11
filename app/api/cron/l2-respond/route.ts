@@ -5,6 +5,7 @@ import {
   buildL2ReasoningPrompt,
   saveReasoningChain,
 } from "@/lib/reasoning-chain";
+import { generateWithFallback } from "@/lib/ollama-client";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -14,22 +15,6 @@ const GeminiDecisionSchema = z.object({
   action: z.enum(["ISOLATE_IDENTITY", "BLOCK_IP", "MANUAL_REVIEW"]),
   confidence: z.number().min(0).max(1),
   reasoning: z.string().min(1),
-});
-
-const GeminiApiResponseSchema = z.object({
-  candidates: z
-    .array(
-      z.object({
-        content: z.object({
-          parts: z.array(
-            z.object({
-              text: z.string().optional(),
-            }),
-          ),
-        }),
-      }),
-    )
-    .optional(),
 });
 
 type EscalationRow = {
@@ -198,47 +183,20 @@ function toEscalationRow(row: RawEscalationRow): EscalationRow | null {
 }
 
 async function getDecision(escalation: EscalationRow): Promise<Decision> {
-  if (!process.env.GEMINI_API_KEY) {
-    throw new Error("Missing GEMINI_API_KEY");
-  }
-
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        systemInstruction: {
-          parts: [{ text: L2_PROMPT }],
-        },
-        contents: [
-          {
-            role: "user",
-            parts: [{ text: JSON.stringify(escalation) }],
-          },
-        ],
-      }),
+  const geminiPayload = JSON.stringify({
+    systemInstruction: {
+      parts: [{ text: L2_PROMPT }],
     },
-  );
+    contents: [
+      {
+        role: "user",
+        parts: [{ text: JSON.stringify(escalation) }],
+      },
+    ],
+  });
 
-  if (!response.ok) {
-    const details = await response.text();
-    throw new Error(`Gemini failed (${response.status}): ${details}`);
-  }
-
-  const body = await response.json();
-  const parsedGemini = GeminiApiResponseSchema.safeParse(body);
-  if (!parsedGemini.success) {
-    throw new Error("Gemini response schema invalid");
-  }
-
-  const text =
-    parsedGemini.data.candidates?.[0]?.content.parts
-      .map((part) => part.text || "")
-      .join("")
-      .trim() || "";
+  const ollamaPrompt = `${L2_PROMPT}\n\nEscalation JSON:\n${JSON.stringify(escalation)}`;
+  const text = await generateWithFallback(ollamaPrompt, geminiPayload);
 
   const cleaned = stripCodeFence(text);
 
@@ -493,7 +451,7 @@ export async function GET(request: NextRequest) {
           },
         ],
         actions_taken: actionsTaken,
-        model_used: "gemini-2.5-flash",
+        model_used: "ollama+gemini-fallback",
         execution_time_ms: executionTimeMs,
       });
 

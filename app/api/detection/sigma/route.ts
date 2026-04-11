@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
       reasoning_text:
         "Generated Sigma detection rule from alert and available static analysis context.",
       actions_taken: ["SIGMA_RULE_CREATED"],
-      model_used: "gemini-2.5-flash",
+      model_used: "ollama+gemini-fallback",
     });
 
     return NextResponse.json({

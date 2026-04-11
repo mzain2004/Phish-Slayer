@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from "uuid";
 import YAML from "yaml";
+import { generateWithFallback } from "@/lib/ollama-client";
 
 export interface SigmaInput {
   title: string;
@@ -17,14 +18,6 @@ export interface SigmaRule {
   rule_level: "informational" | "low" | "medium" | "high" | "critical";
   mitre_techniques: string[];
 }
-
-type GeminiResponse = {
-  candidates?: Array<{
-    content?: {
-      parts?: Array<{ text?: string }>;
-    };
-  }>;
-};
 
 function toRuleLevel(verdict?: string): SigmaRule["rule_level"] {
   switch ((verdict || "").toLowerCase()) {
@@ -188,55 +181,13 @@ export async function generateWithGemini(
         : "suspicious",
   });
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    return {
-      rule_name: slugifyRuleName(alertTitle),
-      rule_title: alertTitle,
-      rule_yaml: fallbackYaml,
-      rule_level: toRuleLevel(
-        typeof analysisData?.verdict === "string"
-          ? analysisData.verdict
-          : "suspicious",
-      ),
-      mitre_techniques: mitreTechniques,
-    };
-  }
-
   const prompt = `Generate a valid Sigma rule YAML for this security alert. Return ONLY YAML.\n\nRequirements:\n- Include title, id, status, description, author, date, logsource, detection, falsepositives, level, tags\n- logsource.product must be \"wazuh\"\n- logsource.service must be \"alerts\"\n- Keep rule practical and concise\n\nAlert:\n${JSON.stringify(alert, null, 2)}\n\nStatic analysis (optional):\n${JSON.stringify(analysisData || {}, null, 2)}`;
 
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              role: "user",
-              parts: [{ text: prompt }],
-            },
-          ],
-        }),
-      },
-    );
-
-    if (!response.ok) {
-      throw new Error(`Gemini failed with status ${response.status}`);
-    }
-
-    const body = (await response.json()) as GeminiResponse;
-    const rawText =
-      body.candidates?.[0]?.content?.parts
-        ?.map((part) => part.text || "")
-        .join("\n")
-        .trim() || "";
+    const rawText = await generateWithFallback(prompt, prompt);
 
     if (!rawText) {
-      throw new Error("Gemini returned empty response");
+      throw new Error("Model returned empty response");
     }
 
     const extractedYaml = extractYaml(rawText);

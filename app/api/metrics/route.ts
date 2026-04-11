@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import os from "os";
 import { createClient } from "@supabase/supabase-js";
+import { ollamaHealth } from "@/lib/ollama-client";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function GET() {
+  const ollamaOnline = await ollamaHealth();
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -83,6 +85,7 @@ export async function GET() {
     alerts_escalated: socMetricsSnapshot.alerts_escalated,
     ips_blocked: socMetricsSnapshot.ips_blocked,
     sigma_rules_generated: socMetricsSnapshot.sigma_rules_generated,
+    ollama_online: ollamaOnline,
   });
 }
 
