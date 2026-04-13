@@ -747,20 +747,31 @@ export default function Home() {
               title: "Neutralization",
               desc: "Eliminate risks and fortify your defenses.",
             },
-          ].map((step, i) => (
+          ].map((step, index) => (
             <motion.div
               variants={gridItem}
               {...tactileProps}
-              key={i}
+              key={step.num || index}
               className={`p-8 flex flex-col ${glassCard} hover:bg-white/10 transition-colors`}
             >
-              <span className="font-space-grotesk text-5xl font-light text-white/20 mb-6">
+              <span
+                key={`step-num-${step.num || index}`}
+                className="font-space-grotesk text-5xl font-light text-white/20 mb-6"
+              >
                 {step.num}
               </span>
-              <h3 className="font-space-grotesk text-2xl font-bold text-white mb-3">
+              <h3
+                key={`step-title-${step.num || index}`}
+                className="font-space-grotesk text-2xl font-bold text-white mb-3"
+              >
                 {step.title}
               </h3>
-              <p className="text-white/70 leading-relaxed">{step.desc}</p>
+              <p
+                key={`step-desc-${step.num || index}`}
+                className="text-white/70 leading-relaxed"
+              >
+                {step.desc}
+              </p>
             </motion.div>
           ))}
         </motion.div>
@@ -796,6 +807,7 @@ export default function Home() {
           className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl relative z-20 -mt-24"
         >
           <motion.div
+            key="mission-card"
             variants={gridItem}
             {...tactileProps}
             className={`p-8 text-left ${glassCard}`}
@@ -812,6 +824,7 @@ export default function Home() {
             </p>
           </motion.div>
           <motion.div
+            key="vision-card"
             variants={gridItem}
             {...tactileProps}
             className={`p-8 text-left ${glassCard}`}
@@ -844,6 +857,7 @@ export default function Home() {
         >
           {/* Left Card (Faded) */}
           <motion.div
+            key="testimonial-left"
             variants={gridItem}
             className={`p-6 w-full md:w-1/3 opacity-50 scale-95 ${glassCard}`}
           >
@@ -870,6 +884,7 @@ export default function Home() {
 
           {/* Center Card (Active) */}
           <motion.div
+            key="testimonial-center"
             variants={gridItem}
             {...tactileProps}
             className={`p-8 w-full md:w-1/3 z-10 border-[#2DD4BF]/30 ${glassCard}`}
@@ -909,6 +924,7 @@ export default function Home() {
 
           {/* Right Card (Faded) */}
           <motion.div
+            key="testimonial-right"
             variants={gridItem}
             className={`p-6 w-full md:w-1/3 opacity-50 scale-95 ${glassCard}`}
           >
@@ -1008,6 +1024,7 @@ export default function Home() {
         >
           {/* Starter */}
           <motion.div
+            key="plan-starter"
             variants={gridItem}
             {...tactileProps}
             className={`p-8 ${glassCard}`}
@@ -1036,6 +1053,7 @@ export default function Home() {
 
           {/* Pro */}
           <motion.div
+            key="plan-pro"
             variants={gridItem}
             {...tactileProps}
             className={`p-8 relative transform md:-translate-y-4 border-[#2DD4BF]/50 shadow-[0_0_30px_rgba(45,212,191,0.15)] ${glassCard}`}
@@ -1067,6 +1085,7 @@ export default function Home() {
 
           {/* Enterprise */}
           <motion.div
+            key="plan-enterprise"
             variants={gridItem}
             {...tactileProps}
             className={`p-8 ${glassCard}`}
@@ -1135,7 +1154,7 @@ export default function Home() {
           className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-12 mb-16"
         >
           {/* Brand & Desc */}
-          <motion.div variants={gridItem} className="lg:col-span-2">
+          <motion.div key="footer-brand" variants={gridItem} className="lg:col-span-2">
             <div className="flex items-center gap-2 mb-6">
               <Shield className="w-6 h-6 text-white" />
               <span className="font-space-grotesk font-bold text-2xl tracking-tight text-white">
@@ -1149,7 +1168,7 @@ export default function Home() {
           </motion.div>
 
           {/* Product Links */}
-          <motion.div variants={gridItem}>
+          <motion.div key="footer-product" variants={gridItem}>
             <h4 className="font-bold text-white mb-6">Product</h4>
             <ul className="space-y-4">
               <li>
@@ -1192,7 +1211,7 @@ export default function Home() {
           </motion.div>
 
           {/* Resources Links */}
-          <motion.div variants={gridItem}>
+          <motion.div key="footer-resources" variants={gridItem}>
             <h4 className="font-bold text-white mb-6">Resources</h4>
             <ul className="space-y-4">
               <li>
@@ -1235,7 +1254,7 @@ export default function Home() {
           </motion.div>
 
           {/* Legal & Contact */}
-          <motion.div variants={gridItem}>
+          <motion.div key="footer-legal" variants={gridItem}>
             <h4 className="font-bold text-white mb-6">Legal & Contact</h4>
             <ul className="space-y-4 mb-8">
               <li>
@@ -1318,6 +1337,7 @@ export default function Home() {
       <AnimatePresence>
         {isAuthOpen && (
           <motion.div
+            key="auth-modal"
             initial={{ opacity: 0, backdropFilter: "blur(0px)" }}
             animate={{ opacity: 1, backdropFilter: "blur(24px)" }}
             exit={{ opacity: 0, backdropFilter: "blur(0px)" }}
@@ -1331,7 +1351,7 @@ export default function Home() {
           </motion.div>
         )}
       </AnimatePresence>
-      <GlobalSupportWidget />
+      <GlobalSupportWidget key="global-support-widget" />
     </main>
   );
 }
