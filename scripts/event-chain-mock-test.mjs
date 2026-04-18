@@ -177,6 +177,10 @@ async function run() {
   assert(l1Completed, "Missing L1_COMPLETED event payload");
 
   const l1Decision = l1Completed?.metadata?.decision;
+  const l1Confidence =
+    typeof l1Completed?.metadata?.confidence === "number"
+      ? l1Completed.metadata.confidence
+      : null;
   assert(
     l1Decision === "CLOSE" || l1Decision === "ESCALATE",
     "L1 decision missing or invalid on L1_COMPLETED",
@@ -229,6 +233,7 @@ async function run() {
 
   console.log("CHAIN_ALERT_ID", internalAlertId);
   console.log("CHAIN_L1_DECISION", l1Decision);
+  console.log("CHAIN_L1_CONFIDENCE", l1Confidence ?? "n/a");
   console.log("CHAIN_TOTAL_DURATION_MS", totalDurationMs);
   console.log("CHAIN_ACTIONS", chainRows.map((row) => row.action).join(","));
   console.log("CHAIN_TEST_PASS");
