@@ -8,15 +8,14 @@ export const runtime = "nodejs";
 
 const DecisionSchema = z.object({
   decision: z.enum(["CLOSE", "ESCALATE"]),
-  confidence: z.number().min(0).max(1),
   severity: z.enum(["low", "medium", "high", "critical"]),
+  confidence: z.number().min(0).max(1),
   reasoning: z.string().min(1),
-  recommended_action: z.enum([
-    "CLOSE",
-    "ISOLATE_IDENTITY",
-    "BLOCK_IP",
-    "MANUAL_REVIEW",
-  ]),
+  mitre_context: z.string().min(1),
+  false_positive_indicators: z.array(z.string()),
+  threat_indicators: z.array(z.string()),
+  recommended_action: z.string().min(1),
+  analyst_notes: z.string().min(1),
 });
 
 const GeminiApiResponseSchema = z.object({
@@ -85,34 +84,56 @@ type Decision = z.infer<typeof DecisionSchema>;
 
 type Severity = "low" | "medium" | "high" | "critical";
 
+type EscalationAction =
+  | "CLOSE"
+  | "ISOLATE_IDENTITY"
+  | "BLOCK_IP"
+  | "MANUAL_REVIEW";
+
 type ProcessBatchOptions = {
   alertId?: string;
   alertMinAgeMinutes?: number;
   includeScans?: boolean;
 };
 
-const SYSTEM_PROMPT = `You are an autonomous Tier 1 SOC analyst for Phish-Slayer,
-a cybersecurity platform. Your job is to triage phishing and
-malware alerts. You will receive a JSON object with a source field.
-Analyze it and respond ONLY with a valid JSON object in this exact format:
+const SYSTEM_PROMPT = `You are an expert SOC analyst with 15 years experience in
+threat detection. Your job is to triage security alerts with
+surgical precision.
+
+You will receive a security alert with the following fields:
+- rule_id, rule_level (1-15), rule_description
+- agent_name, agent_ip
+- mitre_technique, mitre_tactic
+- source_ip, destination_ip
+- process_name, process_pid
+- raw_payload
+
+Analyze the alert and return ONLY valid JSON:
 {
-  'decision': 'CLOSE' or 'ESCALATE',
-  'confidence': float between 0.0 and 1.0,
-  'severity': 'low' or 'medium' or 'high' or 'critical',
-  'reasoning': 'one sentence max',
-  'recommended_action': 'CLOSE' or 'ISOLATE_IDENTITY' or 'BLOCK_IP' or 'MANUAL_REVIEW'
+  "decision": "CLOSE" | "ESCALATE",
+  "severity": "critical" | "high" | "medium" | "low",
+  "confidence": 0.0-1.0,
+  "reasoning": "detailed explanation referencing specific
+    alert fields and why this is or isn't a real threat",
+  "mitre_context": "MITRE ATT&CK technique explanation
+    if applicable",
+  "false_positive_indicators": ["list of reasons this
+    might be benign"],
+  "threat_indicators": ["list of reasons this is suspicious"],
+  "recommended_action": "specific next step for analyst",
+  "analyst_notes": "what a senior analyst should know"
 }
+
 Rules:
-- If source is 'wazuh':
-  - ESCALATE when rule_level >= 12
-  - ESCALATE if rule_description or rule_groups indicate credential theft, malware, ransomware, C2, privilege escalation, lateral movement, suspicious PowerShell, or persistence
-  - CLOSE if rule_level <= 8 and indicators are benign/expected
-- If source is 'scans':
-  - ESCALATE if risk_score >= 70 OR malicious_count >= 3
-  - ESCALATE if verdict is 'malicious' or 'phishing'
-  - CLOSE if risk_score < 30 AND malicious_count <= 1
-- If uncertain, always ESCALATE. Never CLOSE a borderline case.
-- Respond with raw JSON only. No markdown. No explanation.`;
+- ESCALATE if rule_level >= 10 OR confidence >= 0.7
+  AND clear threat indicators exist
+- CLOSE only if you are highly confident (>= 0.85)
+  this is a false positive
+- When uncertain, always ESCALATE — missing a real threat
+  is worse than a false escalation
+- Never CLOSE a MITRE-mapped technique without explicit
+  false positive evidence
+- Confidence must reflect genuine uncertainty`;
 
 function getAdminClient() {
   return createSupabaseAdminClient(
@@ -174,11 +195,51 @@ function buildFallbackDecision(record: QueueRecord, error: unknown): Decision {
     error instanceof Error ? error.message : "unknown Gemini error";
   return {
     decision: "ESCALATE",
-    confidence: 0,
     severity: deriveSeverityFromRecord(record),
+    confidence: 0,
     reasoning: `Gemini unavailable or invalid response (${reason}). Escalating for manual review.`,
-    recommended_action: "MANUAL_REVIEW",
+    mitre_context: "No MITRE context available due to model failure.",
+    false_positive_indicators: [],
+    threat_indicators: [
+      "Model decision unavailable; escalating to avoid missed threat.",
+    ],
+    recommended_action: "Escalate to manual review by a senior SOC analyst.",
+    analyst_notes:
+      "Fallback decision used because Gemini was unavailable or returned invalid output.",
   };
+}
+
+function stripCodeFence(text: string): string {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith("```") || !trimmed.endsWith("```")) {
+    return trimmed;
+  }
+
+  return trimmed
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/, "")
+    .trim();
+}
+
+function normalizeEscalationAction(decision: Decision): EscalationAction {
+  const recommendation = decision.recommended_action.toUpperCase();
+
+  if (recommendation.includes("BLOCK_IP") || recommendation.includes("BLOCK")) {
+    return "BLOCK_IP";
+  }
+
+  if (
+    recommendation.includes("ISOLATE_IDENTITY") ||
+    recommendation.includes("ISOLATE")
+  ) {
+    return "ISOLATE_IDENTITY";
+  }
+
+  if (decision.decision === "CLOSE") {
+    return "CLOSE";
+  }
+
+  return "MANUAL_REVIEW";
 }
 
 async function writeAuditLogSafe(
@@ -414,7 +475,7 @@ async function runGeminiTriage(record: QueueRecord): Promise<Decision> {
         .join("")
         .trim() || "";
 
-    const decisionJson = JSON.parse(modelText);
+    const decisionJson = JSON.parse(stripCodeFence(modelText));
     const parsedDecision = DecisionSchema.safeParse(decisionJson);
     if (!parsedDecision.success) {
       throw new Error("Decision schema validation failed");
@@ -462,7 +523,7 @@ async function escalateScan(
       description: decision.reasoning,
       affectedUserId,
       affectedIp,
-      recommendedAction: decision.recommended_action,
+      recommendedAction: normalizeEscalationAction(decision),
       telemetrySnapshot: record,
     }),
   });
@@ -503,11 +564,13 @@ async function processBatch(
     : { data: [] as ScanRecord[], error: null as { message: string } | null };
 
   const { data: scans, error: scansError } = scansResult;
-  const { data: alerts, error: alertsError } =
-    await fetchPendingWazuhAlerts(adminClient, {
+  const { data: alerts, error: alertsError } = await fetchPendingWazuhAlerts(
+    adminClient,
+    {
       alertId: options.alertId,
       minAgeMinutes: alertMinAgeMinutes,
-    });
+    },
+  );
 
   if (scansError || alertsError) {
     return NextResponse.json(

@@ -13,15 +13,15 @@ const PROCESSING_WINDOW_MS = 5 * 60 * 1000;
 const SWEEP_ESCALATION_MIN_AGE_MINUTES = 5;
 
 const GeminiDecisionSchema = z.object({
+  decision: z.enum(["BLOCK_IP", "ISOLATE_IDENTITY", "MANUAL_REVIEW"]),
   execute: z.boolean(),
-  action: z.enum([
-    "ISOLATE_IDENTITY",
-    "BLOCK_IP",
-    "HUNT",
-    "MANUAL_REVIEW",
-  ]),
   confidence: z.number().min(0).max(1),
   reasoning: z.string().min(1),
+  risk_assessment: z.string().min(1),
+  reversibility: z.string().min(1),
+  escalation_notes: z.string().min(1),
+  iocs_confirmed: z.array(z.string()),
+  action_scope: z.string().min(1),
 });
 
 type EscalationRow = {
@@ -46,7 +46,7 @@ type Decision = z.infer<typeof GeminiDecisionSchema>;
 type ProcessResult = {
   escalation_id: string;
   execute: boolean;
-  action: "ISOLATE_IDENTITY" | "BLOCK_IP" | "HUNT" | "MANUAL_REVIEW";
+  action: "ISOLATE_IDENTITY" | "BLOCK_IP" | "MANUAL_REVIEW";
   confidence: number;
   reasoning: string;
   outcome: "completed" | "failed";
@@ -54,29 +54,38 @@ type ProcessResult = {
   duration_ms?: number;
 };
 
-const L2_PROMPT = `You are an autonomous Tier 2 SOC responder for Phish-Slayer.
-A human analyst was notified but has not acted within 15 minutes.
-You must now decide whether to execute an automated response.
-You will receive an escalation JSON payload.
-Respond ONLY with a valid JSON object in this exact format:
+const L2_PROMPT = `You are a senior SOC responder with authority to take
+automated containment actions. You must be precise —
+wrong actions cause business disruption.
+
+You will receive:
+- The original L1 triage decision and reasoning
+- The full escalation record
+- Alert severity and confidence scores
+- Available actions: BLOCK_IP, ISOLATE_IDENTITY, MANUAL_REVIEW
+
+Return ONLY valid JSON:
 {
-  'execute': true or false,
-  'action': 'ISOLATE_IDENTITY' or 'BLOCK_IP' or 'HUNT' or 'MANUAL_REVIEW',
-  'confidence': float between 0.0 and 1.0,
-  'reasoning': 'one sentence max'
+  "decision": "BLOCK_IP" | "ISOLATE_IDENTITY" | "MANUAL_REVIEW",
+  "execute": true | false,
+  "confidence": 0.0-1.0,
+  "reasoning": "detailed justification referencing L1
+    findings and why this specific action is appropriate",
+  "risk_assessment": "potential business impact of this action",
+  "reversibility": "how to undo this action if wrong",
+  "escalation_notes": "what human analyst needs to know",
+  "iocs_confirmed": ["confirmed indicators of compromise"],
+  "action_scope": "exactly what will be blocked/isolated"
 }
+
 Rules:
-- Only set execute: true if confidence >= 0.85
-- ISOLATE_IDENTITY if affected_user_id exists and
-  severity is critical or high
-- BLOCK_IP if affected_ip exists and severity is
-  critical or high
-- HUNT if severity is critical or high and active threat
-  context requires deeper IOC correlation
-- MANUAL_REVIEW if confidence < 0.85 or severity
-  is low or medium
-- If uncertain, always set execute: false
-- Respond with raw JSON only. No markdown.`;
+- BLOCK_IP only for confirmed malicious external IPs with
+  confidence >= 0.85
+- ISOLATE_IDENTITY only for confirmed compromised accounts
+  with confidence >= 0.85
+- MANUAL_REVIEW if confidence < 0.85 or action is irreversible
+- Never execute on internal IP ranges (10.x, 192.168.x, 172.16-31.x)
+- Always set execute: false if business-critical systems involved`;
 
 const GEMINI_MODEL = "gemini-2.5-flash";
 const GEMINI_TIMEOUT_MS = 30_000;
@@ -151,80 +160,97 @@ async function generateGeminiText(payload: unknown): Promise<string> {
 
 function fallbackDecision(reasoning = "gemini_unavailable"): Decision {
   return {
+    decision: "MANUAL_REVIEW",
     execute: false,
-    action: "MANUAL_REVIEW",
     confidence: 0,
     reasoning,
+    risk_assessment: "Unable to assess due to model failure.",
+    reversibility: "No automated action taken.",
+    escalation_notes: "Fallback path used; route to human analyst.",
+    iocs_confirmed: [],
+    action_scope: "none",
   };
+}
+
+function isInternalIp(ip: string | null): boolean {
+  if (!ip) {
+    return false;
+  }
+
+  return (
+    /^10\./.test(ip) ||
+    /^192\.168\./.test(ip) ||
+    /^172\.(1[6-9]|2\d|3[0-1])\./.test(ip)
+  );
+}
+
+function isBusinessCriticalContext(escalation: EscalationRow): boolean {
+  const haystack = `${escalation.title} ${escalation.description}`.toLowerCase();
+  return /(business[-\s]?critical|domain controller|production|pci|payment|identity provider)/.test(
+    haystack,
+  );
 }
 
 function normalizeDecision(raw: Decision, escalation: EscalationRow): Decision {
   const isHighSeverity = ["critical", "high"].includes(escalation.severity);
 
-  if (raw.action === "HUNT") {
-    if (!isHighSeverity) {
-      return {
-        execute: false,
-        action: "MANUAL_REVIEW",
-        confidence: raw.confidence,
-        reasoning: raw.reasoning,
-      };
-    }
-
-    if (!raw.execute || raw.confidence < 0.85) {
-      return {
-        execute: false,
-        action: "MANUAL_REVIEW",
-        confidence: raw.confidence,
-        reasoning: raw.reasoning,
-      };
-    }
-
-    return raw;
-  }
-
   if (raw.confidence < 0.85 || !isHighSeverity) {
     return {
+      ...raw,
+      decision: "MANUAL_REVIEW",
       execute: false,
-      action: "MANUAL_REVIEW",
-      confidence: raw.confidence,
-      reasoning: raw.reasoning,
     };
   }
 
-  if (raw.action === "MANUAL_REVIEW") {
+  if (raw.decision === "MANUAL_REVIEW") {
     return {
+      ...raw,
       execute: false,
-      action: "MANUAL_REVIEW",
-      confidence: raw.confidence,
-      reasoning: raw.reasoning,
     };
   }
 
-  if (raw.action === "ISOLATE_IDENTITY" && !escalation.affected_user_id) {
+  if (raw.decision === "ISOLATE_IDENTITY" && !escalation.affected_user_id) {
     return {
+      ...raw,
+      decision: "MANUAL_REVIEW",
       execute: false,
-      action: "MANUAL_REVIEW",
-      confidence: raw.confidence,
       reasoning: "Missing affected_user_id required for isolate action.",
     };
   }
 
-  if (raw.action === "BLOCK_IP" && !escalation.affected_ip) {
+  if (raw.decision === "BLOCK_IP" && !escalation.affected_ip) {
     return {
+      ...raw,
+      decision: "MANUAL_REVIEW",
       execute: false,
-      action: "MANUAL_REVIEW",
-      confidence: raw.confidence,
       reasoning: "Missing affected_ip required for block action.",
+    };
+  }
+
+  if (raw.decision === "BLOCK_IP" && isInternalIp(escalation.affected_ip)) {
+    return {
+      ...raw,
+      decision: "MANUAL_REVIEW",
+      execute: false,
+      reasoning: "Internal IP detected; blocking is prohibited by policy.",
+    };
+  }
+
+  if (isBusinessCriticalContext(escalation)) {
+    return {
+      ...raw,
+      decision: "MANUAL_REVIEW",
+      execute: false,
+      reasoning:
+        "Business-critical context detected; forcing manual review.",
     };
   }
 
   if (!raw.execute) {
     return {
+      ...raw,
+      decision: "MANUAL_REVIEW",
       execute: false,
-      action: "MANUAL_REVIEW",
-      confidence: raw.confidence,
-      reasoning: raw.reasoning,
     };
   }
 
@@ -340,9 +366,7 @@ function isInternalAgentAuthorized(request: NextRequest): boolean {
     request.headers.get("agent_secret") ||
     request.headers.get("x-agent-secret");
 
-  return Boolean(
-    providedSecret && providedSecret === process.env.AGENT_SECRET,
-  );
+  return Boolean(providedSecret && providedSecret === process.env.AGENT_SECRET);
 }
 
 async function callInternalAction(
@@ -574,7 +598,10 @@ async function runL2Responder(request: NextRequest, options: L2RunOptions) {
       ? options.minAgeMinutes
       : 0;
 
-  let query = adminClient.from("escalations").select("*").eq("status", "pending");
+  let query = adminClient
+    .from("escalations")
+    .select("*")
+    .eq("status", "pending");
 
   if (options.escalationId) {
     query = query.eq("id", options.escalationId).limit(1);
@@ -639,18 +666,18 @@ async function runL2Responder(request: NextRequest, options: L2RunOptions) {
       const executionTimeMs = Date.now() - decisionStartedAt;
 
       await writeLifecycleAudit(adminClient, "decision", escalation, {
-        action: decision.action,
+        action: decision.decision,
         execute: decision.execute,
         confidence: decision.confidence,
         reasoning: decision.reasoning,
       });
 
-      const actionsTaken: string[] = [decision.action];
+      const actionsTaken: string[] = [decision.decision];
       let statusAfter = "awaiting_human";
       let outcomeAction = "manual_review";
       let actionFired = false;
 
-      if (decision.execute && decision.action === "ISOLATE_IDENTITY") {
+      if (decision.execute && decision.decision === "ISOLATE_IDENTITY") {
         await writeLifecycleAudit(adminClient, "action_taken", escalation, {
           action: "ISOLATE_IDENTITY",
           target_user_id: escalation.affected_user_id,
@@ -667,7 +694,7 @@ async function runL2Responder(request: NextRequest, options: L2RunOptions) {
         actionFired = true;
 
         autoResolved += 1;
-      } else if (decision.execute && decision.action === "BLOCK_IP") {
+      } else if (decision.execute && decision.decision === "BLOCK_IP") {
         await writeLifecycleAudit(adminClient, "action_taken", escalation, {
           action: "BLOCK_IP",
           target_ip: escalation.affected_ip,
@@ -685,19 +712,6 @@ async function runL2Responder(request: NextRequest, options: L2RunOptions) {
         actionFired = true;
 
         autoResolved += 1;
-      } else if (decision.execute && decision.action === "HUNT") {
-        await writeLifecycleAudit(adminClient, "action_taken", escalation, {
-          action: "HUNT",
-          execute: true,
-          reason: decision.reasoning,
-          l1_result: options.l1Result || null,
-        });
-
-        statusAfter = "hunt_requested";
-        outcomeAction = "hunt";
-        actionFired = true;
-
-        huntTriggered += 1;
       } else {
         await writeLifecycleAudit(adminClient, "action_taken", escalation, {
           action: "MANUAL_REVIEW",
@@ -714,7 +728,7 @@ async function runL2Responder(request: NextRequest, options: L2RunOptions) {
         statusAfter,
         outcomeAction,
         {
-          decision_action: decision.action,
+          decision_action: decision.decision,
           confidence: decision.confidence,
           reasoning: decision.reasoning,
           executed: actionFired,
@@ -726,13 +740,13 @@ async function runL2Responder(request: NextRequest, options: L2RunOptions) {
         outcome: "completed",
         status_after: statusAfter,
         action_fired: actionFired,
-        action_taken: decision.action,
+        action_taken: decision.decision,
       });
 
       await saveReasoningChain({
         escalation_id: escalation.id,
         agent_level: "L2",
-        decision: decision.action,
+        decision: decision.decision,
         confidence_score: decision.confidence,
         reasoning_text: decision.reasoning,
         iocs_considered: [
@@ -762,7 +776,7 @@ async function runL2Responder(request: NextRequest, options: L2RunOptions) {
       results.push({
         escalation_id: escalation.id,
         execute: decision.execute,
-        action: decision.action,
+        action: decision.decision,
         confidence: decision.confidence,
         reasoning: decision.reasoning,
         outcome: "completed",
@@ -784,7 +798,7 @@ async function runL2Responder(request: NextRequest, options: L2RunOptions) {
       results.push({
         escalation_id: escalation.id,
         execute: false,
-        action: decision?.action || "MANUAL_REVIEW",
+        action: decision?.decision || "MANUAL_REVIEW",
         confidence: decision?.confidence ?? 0,
         reasoning: decision?.reasoning || "processing_failed",
         outcome: "failed",

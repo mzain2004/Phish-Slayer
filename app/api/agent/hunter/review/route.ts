@@ -6,10 +6,13 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 const ReviewDecisionSchema = z.object({
-  verdict: z.enum(["NORMAL", "SUSPICIOUS", "STORM"]),
+  verdict: z.enum(["PROCEED", "HALT", "REDUCE_SCOPE"]),
   confidence: z.number().min(0).max(1),
-  reasoning: z.string().min(1),
-  recommended: z.enum(["CONTINUE", "THROTTLE", "HALT"]),
+  halt_reason: z.string().optional(),
+  quality_issues: z.array(z.string()),
+  approved_findings: z.array(z.number().int().nonnegative()),
+  rejected_findings: z.array(z.string()),
+  reviewer_notes: z.string().min(1),
 });
 
 const GeminiApiResponseSchema = z.object({
@@ -30,24 +33,26 @@ const GeminiApiResponseSchema = z.object({
 
 type ReviewDecision = z.infer<typeof ReviewDecisionSchema>;
 
-const REVIEW_PROMPT = `You are a senior SOC reviewer for Phish-Slayer.
-You are reviewing the output quality of the L3 Threat Hunter
-agent to prevent false positive alert storms.
-You will receive aggregate hunter statistics, which may contain empty/no-signal results.
-Respond ONLY with valid JSON:
+const REVIEW_PROMPT = `You are a senior threat intelligence reviewer. Your job is
+to quality-check L3 hunt findings before they trigger actions.
+
+Review the hunt findings and return ONLY valid JSON:
 {
-  'verdict': 'NORMAL' or 'SUSPICIOUS' or 'STORM',
-  'confidence': float 0.0 to 1.0,
-  'reasoning': 'one sentence max',
-  'recommended': 'CONTINUE' or 'THROTTLE' or 'HALT'
+  "verdict": "PROCEED" | "HALT" | "REDUCE_SCOPE",
+  "confidence": 0.0-1.0,
+  "halt_reason": "only if HALT — specific reason",
+  "quality_issues": ["list of finding quality problems"],
+  "approved_findings": ["finding indices that are solid"],
+  "rejected_findings": ["finding indices with reasons"],
+  "reviewer_notes": "what analyst should verify manually"
 }
-Rules:
-- If aggregate data is empty, missing, or shows 0 escalations, return NORMAL with recommended CONTINUE.
-- STORM if more than 10 escalations in 1 hour
-- SUSPICIOUS if 5 to 10 escalations in 1 hour
-- NORMAL if fewer than 5
-- HALT recommended only if confidence > 0.9 AND verdict is STORM
-- Respond with raw JSON only. No markdown.`;
+
+HALT conditions (be strict):
+- Hunt findings appear to be based on assumed correlations
+  without direct IOC evidence
+- Confidence scores are inflated without supporting data
+- Findings would trigger actions on internal infrastructure
+- Pattern looks like a false positive cascade`;
 
 function getAdminClient() {
   return createSupabaseAdminClient(
@@ -85,39 +90,27 @@ function normalizeDecision(
   count: number,
   decision: ReviewDecision,
 ): ReviewDecision {
-  let expectedVerdict: "NORMAL" | "SUSPICIOUS" | "STORM" = "NORMAL";
-  if (count > 10) {
-    expectedVerdict = "STORM";
-  } else if (count >= 5) {
-    expectedVerdict = "SUSPICIOUS";
+  if (decision.verdict === "HALT" && !decision.halt_reason) {
+    return {
+      ...decision,
+      halt_reason:
+        "HALT requested without explicit reason; requires manual analyst validation.",
+    };
   }
 
-  let recommended = decision.recommended;
-
-  if (expectedVerdict === "NORMAL") {
-    recommended = "CONTINUE";
+  if (count > 10 && decision.verdict === "PROCEED") {
+    return {
+      ...decision,
+      verdict: "REDUCE_SCOPE",
+    };
   }
 
-  if (expectedVerdict === "SUSPICIOUS" && recommended === "HALT") {
-    recommended = "THROTTLE";
-  }
-
-  if (
-    expectedVerdict === "STORM" &&
-    (decision.confidence <= 0.9 || recommended !== "HALT")
-  ) {
-    recommended = "THROTTLE";
-  }
-
-  return {
-    ...decision,
-    verdict: expectedVerdict,
-    recommended,
-  };
+  return decision;
 }
 
 async function callGemini(
   escalationsLastHour: number,
+  recentFindings: Array<Record<string, unknown>>,
 ): Promise<ReviewDecision> {
   if (!process.env.GEMINI_API_KEY) {
     throw new Error("Missing GEMINI_API_KEY");
@@ -145,6 +138,7 @@ async function callGemini(
               {
                 text: JSON.stringify({
                   escalations_last_hour: escalationsLastHour,
+                  recent_hunt_findings: recentFindings,
                   timestamp: new Date().toISOString(),
                 }),
               },
@@ -191,9 +185,9 @@ async function callGemini(
   return decision.data;
 }
 
-function mapSeverity(verdict: "NORMAL" | "SUSPICIOUS" | "STORM") {
-  if (verdict === "STORM") return "critical";
-  if (verdict === "SUSPICIOUS") return "high";
+function mapSeverity(verdict: "PROCEED" | "HALT" | "REDUCE_SCOPE") {
+  if (verdict === "HALT") return "critical";
+  if (verdict === "REDUCE_SCOPE") return "high";
   return "low";
 }
 
@@ -228,16 +222,36 @@ export async function GET(request: NextRequest) {
 
   const escalationsLastHour = count || 0;
 
+  const { data: findingsRows } = await adminClient
+    .from("hunt_findings")
+    .select("id, severity, confidence, title, description, indicators, source_records")
+    .order("created_at", { ascending: false })
+    .limit(25);
+
+  const recentFindings = ((findingsRows || []) as Array<Record<string, unknown>>)
+    .map((row) => ({
+      id: row.id,
+      severity: row.severity,
+      confidence: row.confidence,
+      title: row.title,
+      description: row.description,
+      indicators: row.indicators,
+      source_records: row.source_records,
+    }));
+
   let decision: ReviewDecision;
   try {
-    const rawDecision = await callGemini(escalationsLastHour);
+    const rawDecision = await callGemini(escalationsLastHour, recentFindings);
     decision = normalizeDecision(escalationsLastHour, rawDecision);
   } catch (error) {
     decision = normalizeDecision(escalationsLastHour, {
-      verdict: "NORMAL",
+      verdict: "PROCEED",
       confidence: 0,
-      reasoning: "Reviewer fallback due to model failure.",
-      recommended: "CONTINUE",
+      halt_reason: undefined,
+      quality_issues: ["Reviewer fallback due to model failure."],
+      approved_findings: [],
+      rejected_findings: [],
+      reviewer_notes: "Model unavailable; manual verification required.",
     });
     await adminClient.from("audit_logs").insert({
       action: "L3_STAGE_FAILURE",
@@ -256,7 +270,7 @@ export async function GET(request: NextRequest) {
 
   let actionTaken = "NONE";
 
-  if (decision.verdict === "SUSPICIOUS") {
+  if (decision.verdict === "REDUCE_SCOPE") {
     await fetch(`${baseUrl}/api/actions/escalate`, {
       method: "POST",
       headers: {
@@ -266,8 +280,8 @@ export async function GET(request: NextRequest) {
       body: JSON.stringify({
         alertId: `L3-REVIEW-${Date.now()}`,
         severity: "high",
-        title: "L3 Reviewer: High Escalation Volume Warning",
-        description: decision.reasoning,
+        title: "L3 Reviewer: Scope Reduction Recommended",
+        description: decision.reviewer_notes,
         recommendedAction: "MANUAL_REVIEW",
         telemetrySnapshot: {
           escalations_last_hour: escalationsLastHour,
@@ -275,8 +289,8 @@ export async function GET(request: NextRequest) {
         },
       }),
     });
-    actionTaken = "WARNED_HUMAN";
-  } else if (decision.verdict === "STORM" && decision.recommended === "HALT") {
+    actionTaken = "THROTTLE";
+  } else if (decision.verdict === "HALT") {
     await fetch(`${baseUrl}/api/actions/escalate`, {
       method: "POST",
       headers: {
@@ -287,7 +301,9 @@ export async function GET(request: NextRequest) {
         alertId: `L3-REVIEW-${Date.now()}`,
         severity: "critical",
         title: "🚨 L3 Reviewer: ALERT STORM DETECTED - Hunter Halted",
-        description: decision.reasoning,
+        description:
+          decision.halt_reason ||
+          "Reviewer halted hunt pipeline due to quality concerns.",
         recommendedAction: "MANUAL_REVIEW",
         telemetrySnapshot: {
           escalations_last_hour: escalationsLastHour,
@@ -299,7 +315,9 @@ export async function GET(request: NextRequest) {
     await adminClient.from("agent_circuit_breakers").insert({
       agent: "l3_hunter",
       status: "halted",
-      reason: decision.reasoning,
+      reason:
+        decision.halt_reason ||
+        "Reviewer halted hunt pipeline due to quality concerns.",
       halted_at: new Date().toISOString(),
     });
 
@@ -308,10 +326,11 @@ export async function GET(request: NextRequest) {
       severity: "critical",
       metadata: {
         cycle_id: cycleId,
-        halt_reason: decision.reasoning,
+        halt_reason: decision.halt_reason || null,
         verdict: decision.verdict,
         confidence: decision.confidence,
         escalations_last_hour: escalationsLastHour,
+        quality_issues: decision.quality_issues,
       },
       created_at: new Date().toISOString(),
     });
@@ -321,11 +340,14 @@ export async function GET(request: NextRequest) {
       severity: "critical",
       confidence: decision.confidence,
       title: "L3 Review Circuit Breaker Halt",
-      description: decision.reasoning,
+      description:
+        decision.halt_reason ||
+        "Reviewer halted hunt pipeline due to quality concerns.",
       indicators: {
         cycle_id: cycleId,
-        halt_reason: decision.reasoning,
+        halt_reason: decision.halt_reason || null,
         escalations_last_hour: escalationsLastHour,
+        quality_issues: decision.quality_issues,
       },
       source_records: [],
       escalated: false,
@@ -335,26 +357,6 @@ export async function GET(request: NextRequest) {
     });
 
     actionTaken = "HALT";
-  } else if (decision.verdict === "STORM") {
-    await fetch(`${baseUrl}/api/actions/escalate`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        AGENT_SECRET: process.env.AGENT_SECRET || "",
-      },
-      body: JSON.stringify({
-        alertId: `L3-REVIEW-${Date.now()}`,
-        severity: "high",
-        title: "L3 Reviewer: High Escalation Volume Warning",
-        description: decision.reasoning,
-        recommendedAction: "MANUAL_REVIEW",
-        telemetrySnapshot: {
-          escalations_last_hour: escalationsLastHour,
-          decision,
-        },
-      }),
-    });
-    actionTaken = "THROTTLE";
   }
 
   await adminClient.from("audit_logs").insert({
@@ -364,9 +366,12 @@ export async function GET(request: NextRequest) {
       cycle_id: cycleId,
       verdict: decision.verdict,
       confidence: decision.confidence,
-      reasoning: decision.reasoning,
+      halt_reason: decision.halt_reason || null,
+      quality_issues: decision.quality_issues,
+      reviewer_notes: decision.reviewer_notes,
       escalations_last_hour: escalationsLastHour,
-      recommended: decision.recommended,
+      approved_findings: decision.approved_findings,
+      rejected_findings: decision.rejected_findings,
       action_taken: actionTaken,
     },
   });
@@ -375,9 +380,10 @@ export async function GET(request: NextRequest) {
     success: true,
     verdict: decision.verdict,
     confidence: decision.confidence,
-    recommended: decision.recommended,
+    halt_reason: decision.halt_reason || null,
+    quality_issues: decision.quality_issues,
+    reviewer_notes: decision.reviewer_notes,
     escalations_reviewed: escalationsLastHour,
     action_taken: actionTaken,
-    reasoning: decision.reasoning,
   });
 }

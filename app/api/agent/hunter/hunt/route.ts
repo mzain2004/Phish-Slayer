@@ -5,17 +5,30 @@ import { z } from "zod";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const HunterDecisionSchema = z.object({
-  is_hit: z.boolean(),
+const HunterFindingSchema = z.object({
+  finding_type: z.enum([
+    "lateral_movement",
+    "c2_communication",
+    "persistence",
+    "data_exfiltration",
+    "initial_access",
+    "credential_theft",
+  ]),
   confidence: z.number().min(0).max(1),
   severity: z.enum(["low", "medium", "high", "critical"]),
-  reasoning: z.string().min(1),
-  recommended_action: z.enum([
-    "CLOSE",
-    "ISOLATE_IDENTITY",
-    "BLOCK_IP",
-    "MANUAL_REVIEW",
-  ]),
+  description: z.string().min(1),
+  iocs_involved: z.array(z.string()),
+  mitre_techniques: z.array(z.string()),
+  recommended_action: z.string().min(1),
+  hunt_queries: z.array(z.string()),
+});
+
+const HunterDecisionSchema = z.object({
+  findings: z.array(HunterFindingSchema),
+  attack_narrative: z.string().min(1),
+  confidence_overall: z.number().min(0).max(1),
+  priority: z.enum(["immediate", "high", "medium", "monitor"]),
+  analyst_briefing: z.string().min(1),
 });
 
 const GeminiApiResponseSchema = z.object({
@@ -46,23 +59,53 @@ type IntelRow = {
 };
 
 type HunterDecision = z.infer<typeof HunterDecisionSchema>;
+type HunterFinding = z.infer<typeof HunterFindingSchema>;
 
-const HUNTER_PROMPT = `You are an autonomous Tier 3 Threat Hunter for Phish-Slayer.
-You have found a historical scan that matches a known IOC from
-a fresh threat intelligence feed. Determine if this represents
-an undetected historical compromise.
-Respond ONLY with valid JSON:
+const HUNTER_PROMPT = `You are a threat hunter conducting proactive hunt operations.
+Your job is to find attack patterns humans would miss.
+
+You will receive:
+- IOCs ingested from threat feeds (URLhaus, ThreatFox, OpenPhish)
+- Correlated scan and alert records
+- L2 context (what triggered this hunt and why)
+- Historical findings from previous hunts
+
+Your job:
+1. Identify patterns across multiple IOCs
+2. Find relationships between seemingly unrelated alerts
+3. Detect lateral movement indicators
+4. Identify persistence mechanisms
+5. Find C2 communication patterns
+
+Return ONLY valid JSON:
 {
-  'is_hit': true or false,
-  'confidence': float 0.0 to 1.0,
-  'severity': 'low' or 'medium' or 'high' or 'critical',
-  'reasoning': 'one sentence max',
-  'recommended_action': 'CLOSE' or 'ISOLATE_IDENTITY'
-    or 'BLOCK_IP' or 'MANUAL_REVIEW'
+  "findings": [
+    {
+      "finding_type": "lateral_movement" | "c2_communication" |
+        "persistence" | "data_exfiltration" | "initial_access" |
+        "credential_theft",
+      "confidence": 0.0-1.0,
+      "severity": "critical" | "high" | "medium" | "low",
+      "description": "detailed finding with specific IOC references",
+      "iocs_involved": ["list of specific IOCs"],
+      "mitre_techniques": ["T1234.001 format"],
+      "recommended_action": "specific containment or investigation step",
+      "hunt_queries": ["specific queries analyst should run"]
+    }
+  ],
+  "attack_narrative": "overall story of what the attacker
+    appears to be doing based on all evidence",
+  "confidence_overall": 0.0-1.0,
+  "priority": "immediate" | "high" | "medium" | "monitor",
+  "analyst_briefing": "3-sentence executive summary"
 }
+
 Rules:
-- is_hit: true only if confidence >= 0.75
-- Respond with raw JSON only. No markdown.`;
+- Only report findings with confidence >= 0.6
+- Always connect findings to specific IOC evidence
+- If no patterns found, return empty findings array
+  with honest explanation
+- Never fabricate IOC correlations`;
 
 function getAdminClient() {
   return createSupabaseAdminClient(
@@ -97,40 +140,41 @@ function stripCodeFence(text: string): string {
 }
 
 function normalizeDecision(decision: HunterDecision): HunterDecision {
-  if (!decision.is_hit || decision.confidence < 0.75) {
-    return {
-      ...decision,
-      is_hit: false,
-      recommended_action: "MANUAL_REVIEW",
-    };
-  }
-
-  return decision;
+  const findings = decision.findings.filter((finding) => finding.confidence >= 0.6);
+  return {
+    ...decision,
+    findings,
+  };
 }
 
 function fallbackHunterDecision(
-  ioc: IntelRow,
-  scan: Record<string, unknown>,
+  _ioc: IntelRow,
+  _scan: Record<string, unknown>,
   reason: string,
 ): HunterDecision {
-  const riskScore =
-    typeof scan.risk_score === "number" && Number.isFinite(scan.risk_score)
-      ? scan.risk_score
-      : 0;
-
-  const severity: HunterDecision["severity"] =
-    riskScore >= 85 ||
-    /malware|trojan|ransom|phish/i.test(ioc.threat_type || "")
-      ? "high"
-      : "medium";
-
   return {
-    is_hit: true,
-    confidence: 0.76,
-    severity,
-    reasoning: `gemini_unavailable_heuristic_match: ${reason}`,
-    recommended_action: "MANUAL_REVIEW",
+    findings: [],
+    attack_narrative: `No reliable hunt narrative due to model failure: ${reason}`,
+    confidence_overall: 0,
+    priority: "monitor",
+    analyst_briefing:
+      "Model unavailable; no automated hunt findings were emitted.",
   };
+}
+
+function highestSeverity(
+  findings: HunterFinding[],
+): "low" | "medium" | "high" | "critical" {
+  if (findings.some((finding) => finding.severity === "critical")) {
+    return "critical";
+  }
+  if (findings.some((finding) => finding.severity === "high")) {
+    return "high";
+  }
+  if (findings.some((finding) => finding.severity === "medium")) {
+    return "medium";
+  }
+  return "low";
 }
 
 async function queryMatchingScans(
@@ -197,6 +241,10 @@ async function callGemini(
                 text: JSON.stringify({
                   ioc,
                   matched_scan: scan,
+                  l2_context: {
+                    trigger: "retroactive_ioc_match",
+                  },
+                  historical_findings: [],
                 }),
               },
             ],
@@ -347,11 +395,18 @@ export async function GET(request: NextRequest) {
             });
           }
 
-          if (!decision.is_hit) {
+          if (decision.findings.length === 0) {
             continue;
           }
 
           hitsFound += 1;
+
+          const severity = highestSeverity(decision.findings);
+          const primaryFinding = decision.findings[0];
+          const findingSummary = decision.findings
+            .map((finding) => finding.description)
+            .join(" | ")
+            .slice(0, 1500);
 
           const scanId = String(scan.id || "unknown");
           const affectedUserId =
@@ -369,15 +424,15 @@ export async function GET(request: NextRequest) {
               },
               body: JSON.stringify({
                 alertId: `L3-HUNT-${scanId}`,
-                severity: decision.severity,
-                title: `L3 Hunter: Retroactive IOC Match - ${ioc.ioc_value}`,
-                description: decision.reasoning,
+                severity,
+                title: `L3 Hunter: ${primaryFinding.finding_type} pattern - ${ioc.ioc_value}`,
+                description: `${decision.analyst_briefing} Narrative: ${decision.attack_narrative}. Findings: ${findingSummary}`,
                 affectedUserId,
-                recommendedAction: decision.recommended_action,
+                recommendedAction: "MANUAL_REVIEW",
                 telemetrySnapshot: {
                   ioc,
                   scan,
-                  hunter_confidence: decision.confidence,
+                  hunter_output: decision,
                 },
               }),
             },
@@ -399,30 +454,33 @@ export async function GET(request: NextRequest) {
 
           await adminClient.from("audit_logs").insert({
             action: "L3_HUNT_HIT",
-            severity: decision.severity,
+            severity,
             metadata: {
               cycle_id: cycleId,
               ioc_id: ioc.id,
               ioc_value: ioc.ioc_value,
               scan_id: scanId,
-              confidence: decision.confidence,
-              reasoning: decision.reasoning,
+              confidence: decision.confidence_overall,
+              attack_narrative: decision.attack_narrative,
+              findings_count: decision.findings.length,
+              priority: decision.priority,
             },
           });
 
           await adminClient.from("hunt_findings").insert({
             hunt_type: "campaign_cluster",
-            severity: decision.severity,
-            confidence: decision.confidence,
+            severity,
+            confidence: decision.confidence_overall,
             title: `L3 IOC correlation: ${ioc.ioc_value}`,
-            description: decision.reasoning,
+            description: `${decision.analyst_briefing} Narrative: ${decision.attack_narrative}`,
             indicators: {
               cycle_id: cycleId,
               ioc_id: ioc.id,
               ioc_type: ioc.ioc_type,
               ioc_value: ioc.ioc_value,
               source: ioc.source,
-              recommended_action: decision.recommended_action,
+              findings: decision.findings,
+              recommended_action: "MANUAL_REVIEW",
               halt_reason: null,
             },
             source_records: [scanId],
