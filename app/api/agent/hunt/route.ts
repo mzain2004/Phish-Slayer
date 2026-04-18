@@ -254,7 +254,7 @@ async function runEscalationBurstHunt(
   );
 
   const pending = rows.filter((row) =>
-    ["pending", "l2_pending_approval"].includes(
+    ["pending", "l2_pending_approval", "awaiting_human"].includes(
       (row.status || "").toLowerCase(),
     ),
   );

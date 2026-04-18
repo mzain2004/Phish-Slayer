@@ -29,6 +29,51 @@ type AgentListResponse = {
   }>;
 };
 
+type L2DecisionItem = {
+  id: string;
+  escalationId: string | null;
+  decision: string;
+  confidence: number | null;
+  actionTaken: string;
+  createdAt: string;
+  alertSource: string;
+};
+
+function extractAlertSource(
+  iocsConsidered: unknown,
+  telemetrySnapshot: unknown,
+  alertId: string | null,
+): string {
+  if (Array.isArray(iocsConsidered) && iocsConsidered.length > 0) {
+    const first = iocsConsidered[0];
+    if (first && typeof first === "object") {
+      const source = (first as { source?: unknown }).source;
+      if (typeof source === "string" && source.trim().length > 0) {
+        return source;
+      }
+    }
+  }
+
+  if (telemetrySnapshot && typeof telemetrySnapshot === "object") {
+    const source = (telemetrySnapshot as { source?: unknown }).source;
+    if (typeof source === "string" && source.trim().length > 0) {
+      return source;
+    }
+
+    const nested = (
+      telemetrySnapshot as { original_telemetry_snapshot?: unknown }
+    ).original_telemetry_snapshot;
+    if (nested && typeof nested === "object") {
+      const nestedSource = (nested as { source?: unknown }).source;
+      if (typeof nestedSource === "string" && nestedSource.trim().length > 0) {
+        return nestedSource;
+      }
+    }
+  }
+
+  return alertId ? "wazuh" : "unknown";
+}
+
 function normalizeStatus(raw: string | undefined): AgentStatus {
   const value = (raw || "").toLowerCase();
   if (value.includes("online") || value.includes("active")) {
@@ -67,6 +112,9 @@ export default function AgentSwarmPanel() {
   const [l2DecisionCount, setL2DecisionCount] = useState(0);
   const [l3FindingCount, setL3FindingCount] = useState(0);
   const [l3EscalatedCount, setL3EscalatedCount] = useState(0);
+  const [l2RecentDecisions, setL2RecentDecisions] = useState<L2DecisionItem[]>(
+    [],
+  );
   const [l2LastRunOverride, setL2LastRunOverride] = useState<string | null>(
     null,
   );
@@ -122,6 +170,7 @@ export default function AgentSwarmPanel() {
         agentsRes,
         l1CountPromise,
         l2CountPromise,
+        l2RecentPromise,
         l3FindingsPromise,
         l3EscalatedPromise,
       ] = await Promise.all([
@@ -131,9 +180,17 @@ export default function AgentSwarmPanel() {
           .select("id", { count: "exact", head: true })
           .in("action", ["L1_AUTO_CLOSED", "ALERT_ESCALATED"]),
         supabase
-          .from("audit_logs")
+          .from("agent_reasoning")
           .select("id", { count: "exact", head: true })
-          .eq("action", "L2_DECISION"),
+          .eq("agent_level", "L2"),
+        supabase
+          .from("agent_reasoning")
+          .select(
+            "id, escalation_id, decision, confidence_score, actions_taken, created_at, iocs_considered",
+          )
+          .eq("agent_level", "L2")
+          .order("created_at", { ascending: false })
+          .limit(6),
         supabase
           .from("hunt_findings")
           .select("id", { count: "exact", head: true })
@@ -194,6 +251,74 @@ export default function AgentSwarmPanel() {
       setL2DecisionCount(l2CountPromise.count || 0);
       setL3FindingCount(l3FindingsPromise.count || 0);
       setL3EscalatedCount(l3EscalatedPromise.count || 0);
+
+      const l2Rows = (l2RecentPromise.data || []) as Array<{
+        id: string;
+        escalation_id: string | null;
+        decision: string;
+        confidence_score: number | null;
+        actions_taken: unknown;
+        created_at: string;
+        iocs_considered: unknown;
+      }>;
+
+      const escalationIds = Array.from(
+        new Set(
+          l2Rows
+            .map((row) => row.escalation_id)
+            .filter((value): value is string => Boolean(value)),
+        ),
+      );
+
+      const escalationMap = new Map<
+        string,
+        { alert_id: string | null; telemetry_snapshot: unknown }
+      >();
+
+      if (escalationIds.length > 0) {
+        const { data: escalationRows } = await supabase
+          .from("escalations")
+          .select("id, alert_id, telemetry_snapshot")
+          .in("id", escalationIds);
+
+        for (const row of escalationRows || []) {
+          escalationMap.set(row.id as string, {
+            alert_id:
+              typeof (row as { alert_id?: unknown }).alert_id === "string"
+                ? ((row as { alert_id: string }).alert_id as string)
+                : null,
+            telemetry_snapshot: (row as { telemetry_snapshot?: unknown })
+              .telemetry_snapshot,
+          });
+        }
+      }
+
+      const decisions = l2Rows.map((row) => {
+        const linkedEscalation = row.escalation_id
+          ? escalationMap.get(row.escalation_id)
+          : undefined;
+
+        const firstAction =
+          Array.isArray(row.actions_taken) && row.actions_taken.length > 0
+            ? String(row.actions_taken[0])
+            : row.decision;
+
+        return {
+          id: row.id,
+          escalationId: row.escalation_id,
+          decision: row.decision,
+          confidence: row.confidence_score,
+          actionTaken: firstAction,
+          createdAt: row.created_at,
+          alertSource: extractAlertSource(
+            row.iocs_considered,
+            linkedEscalation?.telemetry_snapshot,
+            linkedEscalation?.alert_id || null,
+          ),
+        } satisfies L2DecisionItem;
+      });
+
+      setL2RecentDecisions(decisions);
     } catch (error) {
       setErrorText(error instanceof Error ? error.message : "Unknown error");
     } finally {
@@ -336,83 +461,133 @@ export default function AgentSwarmPanel() {
           Loading swarm status...
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {[l1Agent, l2Agent, l3Agent].filter(Boolean).map((agent, index) => (
-            <div
-              key={agent!.id}
-              className="rounded-xl border border-[rgba(48,54,61,0.9)] bg-black/20 p-4 flex flex-col gap-3"
-            >
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-white font-semibold">{agent!.name}</p>
-                <span
-                  className={`w-2.5 h-2.5 rounded-full ${statusColor(agent!.status)}`}
-                />
-              </div>
+        <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {[l1Agent, l2Agent, l3Agent].filter(Boolean).map((agent, index) => (
+              <div
+                key={agent!.id}
+                className="rounded-xl border border-[rgba(48,54,61,0.9)] bg-black/20 p-4 flex flex-col gap-3"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-white font-semibold">{agent!.name}</p>
+                  <span
+                    className={`w-2.5 h-2.5 rounded-full ${statusColor(agent!.status)}`}
+                  />
+                </div>
 
-              {index === 1 ? (
-                <div
-                  className={`text-[10px] uppercase tracking-[0.14em] font-semibold rounded-full px-2 py-1 border w-fit ${
-                    hitlEnabled
-                      ? "text-emerald-200 border-emerald-400/40 bg-emerald-500/20"
-                      : "text-red-200 border-red-400/40 bg-red-500/20"
+                {index === 1 ? (
+                  <div
+                    className={`text-[10px] uppercase tracking-[0.14em] font-semibold rounded-full px-2 py-1 border w-fit ${
+                      hitlEnabled
+                        ? "text-emerald-200 border-emerald-400/40 bg-emerald-500/20"
+                        : "text-red-200 border-red-400/40 bg-red-500/20"
+                    }`}
+                  >
+                    HITL: {hitlEnabled ? "ON" : "OFF"}
+                  </div>
+                ) : null}
+
+                <p className="text-xs text-white/60">
+                  Last run:{" "}
+                  {agent!.last_run
+                    ? new Date(agent!.last_run).toLocaleString()
+                    : "Never"}
+                </p>
+
+                <p className="text-xs text-white/60">
+                  {index === 2
+                    ? `Findings (24h): ${l3FindingCount} | Escalated: ${l3EscalatedCount}`
+                    : `Total decisions made: ${index === 0 ? l1DecisionCount : l2DecisionCount}`}
+                </p>
+
+                <button
+                  type="button"
+                  onClick={
+                    index === 0
+                      ? triggerL1Now
+                      : index === 1
+                        ? triggerL2Now
+                        : triggerL3Now
+                  }
+                  disabled={
+                    index === 0
+                      ? triggeringL1
+                      : index === 1
+                        ? triggeringL2
+                        : triggeringL3
+                  }
+                  className={`rounded-full px-4 py-2 text-sm font-semibold text-black disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 ${
+                    index === 2
+                      ? "bg-gradient-to-r from-[#c084fc] to-[#a855f7]"
+                      : "bg-gradient-to-r from-[#2DD4BF] to-[#22c55e]"
                   }`}
                 >
-                  HITL: {hitlEnabled ? "ON" : "OFF"}
-                </div>
-              ) : null}
+                  {(
+                    index === 0
+                      ? triggeringL1
+                      : index === 1
+                        ? triggeringL2
+                        : triggeringL3
+                  ) ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Triggering...
+                    </>
+                  ) : (
+                    "Trigger Now"
+                  )}
+                </button>
+              </div>
+            ))}
+          </div>
 
-              <p className="text-xs text-white/60">
-                Last run:{" "}
-                {agent!.last_run
-                  ? new Date(agent!.last_run).toLocaleString()
-                  : "Never"}
-              </p>
-
-              <p className="text-xs text-white/60">
-                {index === 2
-                  ? `Findings (24h): ${l3FindingCount} | Escalated: ${l3EscalatedCount}`
-                  : `Total decisions made: ${index === 0 ? l1DecisionCount : l2DecisionCount}`}
-              </p>
-
-              <button
-                type="button"
-                onClick={
-                  index === 0
-                    ? triggerL1Now
-                    : index === 1
-                      ? triggerL2Now
-                      : triggerL3Now
-                }
-                disabled={
-                  index === 0
-                    ? triggeringL1
-                    : index === 1
-                      ? triggeringL2
-                      : triggeringL3
-                }
-                className={`rounded-full px-4 py-2 text-sm font-semibold text-black disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 ${
-                  index === 2
-                    ? "bg-gradient-to-r from-[#c084fc] to-[#a855f7]"
-                    : "bg-gradient-to-r from-[#2DD4BF] to-[#22c55e]"
-                }`}
-              >
-                {(
-                  index === 0
-                    ? triggeringL1
-                    : index === 1
-                      ? triggeringL2
-                      : triggeringL3
-                ) ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Triggering...
-                  </>
-                ) : (
-                  "Trigger Now"
-                )}
-              </button>
+          <div className="rounded-xl border border-[rgba(48,54,61,0.9)] bg-black/20 p-4 flex flex-col gap-3">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-white font-semibold">Latest L2 Decisions</h3>
+              <span className="text-xs text-white/60">
+                Real-time from agent_reasoning
+              </span>
             </div>
-          ))}
+
+            {l2RecentDecisions.length === 0 ? (
+              <p className="text-xs text-white/60">
+                No L2 decisions logged yet.
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                {l2RecentDecisions.map((item) => (
+                  <div
+                    key={item.id}
+                    className="rounded-lg border border-[rgba(48,54,61,0.9)] bg-black/30 px-3 py-2 text-xs text-white/80"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-semibold text-white">
+                        {item.decision}
+                      </span>
+                      <span className="text-white/60">
+                        {new Date(item.createdAt).toLocaleString()}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-white/70">
+                      Action: {item.actionTaken}
+                    </p>
+                    <p className="text-white/70">
+                      Confidence:{" "}
+                      {typeof item.confidence === "number"
+                        ? item.confidence.toFixed(2)
+                        : "n/a"}
+                    </p>
+                    <p className="text-white/70">
+                      Alert source: {item.alertSource}
+                    </p>
+                    <p className="text-white/50">
+                      Escalation: {item.escalationId || "n/a"}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
