@@ -41,9 +41,10 @@ function createTimeoutSignal(timeoutMs: number): AbortSignal {
   return controller.signal;
 }
 
-function resolveGroqPrompts(
-  payload: Record<string, unknown>,
-): { systemPrompt: string; userPrompt: string } {
+function resolveGroqPrompts(payload: Record<string, unknown>): {
+  systemPrompt: string;
+  userPrompt: string;
+} {
   const systemInstruction = payload.systemInstruction as
     | { parts?: Array<{ text?: string }> }
     | undefined;

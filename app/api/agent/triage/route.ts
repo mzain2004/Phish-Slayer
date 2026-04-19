@@ -454,10 +454,7 @@ async function runGeminiTriage(record: QueueRecord): Promise<Decision> {
       throw new Error("Missing GROQ_API_KEY");
     }
 
-    const modelText = await groqComplete(
-      SYSTEM_PROMPT,
-      JSON.stringify(record),
-    );
+    const modelText = await groqComplete(SYSTEM_PROMPT, JSON.stringify(record));
 
     const decisionJson = JSON.parse(stripCodeFence(modelText));
     const parsedDecision = DecisionSchema.safeParse(decisionJson);

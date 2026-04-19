@@ -174,8 +174,9 @@ jobs:
             echo "=== Pulling latest image from GHCR ==="
             echo "${{ secrets.GITHUB_TOKEN }}" | \
               docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            docker compose pull
             docker compose down --remove-orphans
+            docker login ghcr.io -u mzain2004 -p ${{ secrets.GITHUB_TOKEN }}
+            docker compose pull
             docker compose up -d --force-recreate
 
             echo "=== Waiting for app to be ready ==="

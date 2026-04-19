@@ -35,7 +35,7 @@ export async function groqComplete(
     } catch (error) {
       const status = (error as { status?: number | string } | null)?.status;
       if ((status === 429 || status === "429") && i < 2) {
-        await sleep((2 ** i) * 2000);
+        await sleep(2 ** i * 2000);
         continue;
       }
       throw error;

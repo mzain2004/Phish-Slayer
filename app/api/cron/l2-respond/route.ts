@@ -387,10 +387,7 @@ async function getDecision(escalation: EscalationRow): Promise<Decision> {
       }
     }
 
-    const text = await generateGroqText(
-      L2_PROMPT,
-      JSON.stringify(escalation),
-    );
+    const text = await generateGroqText(L2_PROMPT, JSON.stringify(escalation));
     if (cacheKey) {
       writeGeminiCache(cacheKey, text);
     }
