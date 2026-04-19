@@ -490,7 +490,7 @@ export async function launchScan(target: string): Promise<{ error?: string }> {
     const { error: wlInsertError } = await supabase.from("scans").insert([
       {
         target: validTarget,
-          status: "completed",
+        status: "completed",
         date,
         verdict: "clean",
         malicious_count: 0,
@@ -530,7 +530,7 @@ export async function launchScan(target: string): Promise<{ error?: string }> {
     const { error: intelInsertError } = await supabase.from("scans").insert([
       {
         target: validTarget,
-          status: "completed",
+        status: "completed",
         date,
         verdict: "malicious",
         malicious_count: 1,
