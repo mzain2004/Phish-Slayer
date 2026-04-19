@@ -166,6 +166,8 @@ jobs:
           OLLAMA_MODEL=llama3.1:8b
           CRON_BASE_URL=https://phishslayer.tech
           NEXT_PUBLIC_SITE_URL=https://phishslayer.tech
+          GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}
+          GROQ_MODEL=llama-3.3-70b-versatile
           NEXT_PUBLIC_APP_URL=http://localhost:3000
           INTERNAL_API_URL=http://localhost:3000
           NEXT_PUBLIC_PADDLE_CLIENT_TOKEN=${{ secrets.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN }}
@@ -188,7 +190,7 @@ jobs:
             while [ "$STATUS" != "200" ] && [ $RETRY -lt $MAX_RETRIES ]; do
               sleep 10
               STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-                http://localhost:3000/api/metrics 2>/dev/null)
+                http://localhost:3000/api/health 2>/dev/null)
               [ -z "$STATUS" ] && STATUS="000"
               echo "Health check attempt $((RETRY+1)): $STATUS"
               RETRY=$((RETRY + 1))
