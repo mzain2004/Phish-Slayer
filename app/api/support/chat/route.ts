@@ -89,8 +89,7 @@ export async function POST(request: Request) {
         { context: "support-chat-auth" },
       );
 
-      reply =
-        responseText.trim() || "I couldn't process that. Try again.";
+      reply = responseText.trim() || "I couldn't process that. Try again.";
     } catch (error) {
       console.warn("Support chat fallback used", {
         error: error instanceof Error ? error.message : "unknown",

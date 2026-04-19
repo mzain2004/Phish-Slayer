@@ -1,20 +1,20 @@
 // Environment variable validation — import in app/layout.tsx (server-side only)
 
 const required = [
-  'NEXT_PUBLIC_SUPABASE_URL',
-  'NEXT_PUBLIC_SUPABASE_ANON_KEY',
-  'SUPABASE_SERVICE_ROLE_KEY',
-  'VIRUS_TOTAL_API_KEY',
-  'GEMINI_API_KEY',
-  'GOOGLE_GEMINI_MODEL',
+  "NEXT_PUBLIC_SUPABASE_URL",
+  "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+  "SUPABASE_SERVICE_ROLE_KEY",
+  "VIRUS_TOTAL_API_KEY",
+  "GEMINI_API_KEY",
+  "GOOGLE_GEMINI_MODEL",
 ];
 
 const optional = [
-  'PHISH_SLAYER_API_KEY',
-  'AGENT_SECRET',
-  'DISCORD_WEBHOOK_URL',
-  'CRON_SECRET',
-  'RESEND_API_KEY',
+  "PHISH_SLAYER_API_KEY",
+  "AGENT_SECRET",
+  "DISCORD_WEBHOOK_URL",
+  "CRON_SECRET",
+  "RESEND_API_KEY",
 ];
 
 export function validateEnv() {
@@ -27,12 +27,12 @@ export function validateEnv() {
 
   if (missing.length > 0) {
     console.error(
-      `[Phish-Slayer] Missing required environment variables: ${missing.join(', ')}`
+      `[Phish-Slayer] Missing required environment variables: ${missing.join(", ")}`,
     );
     // Don't throw in production — log and continue gracefully
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env.NODE_ENV === "development") {
       throw new Error(
-        `Missing required environment variables: ${missing.join(', ')}`
+        `Missing required environment variables: ${missing.join(", ")}`,
       );
     }
   }
@@ -40,7 +40,7 @@ export function validateEnv() {
   const missingOptional = optional.filter((k) => !process.env[k]);
   if (missingOptional.length > 0) {
     console.error(
-      `[Phish-Slayer] Missing optional environment variables (some features disabled): ${missingOptional.join(', ')}`
+      `[Phish-Slayer] Missing optional environment variables (some features disabled): ${missingOptional.join(", ")}`,
     );
   }
 }

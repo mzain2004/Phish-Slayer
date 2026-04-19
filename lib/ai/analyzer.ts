@@ -1,10 +1,10 @@
-'use server';
+"use server";
 
 import { geminiGenerateText } from "@/lib/ai/gemini";
 
 export async function analyzeThreat(incidentDescription: string) {
   if (!process.env.GEMINI_API_KEY) {
-    console.warn('GEMINI_API_KEY is not set. Skipping AI analysis.');
+    console.warn("GEMINI_API_KEY is not set. Skipping AI analysis.");
     return null;
   }
 
@@ -25,17 +25,20 @@ ${incidentDescription}`;
       },
       { context: "ai-analyze-threat" },
     );
-    
+
     // Clean up potential markdown formatting that the model might include despite instructions
-    if (text.startsWith('```json')) {
-      text = text.replace(/^```json/, '').replace(/```$/, '').trim();
-    } else if (text.startsWith('```')) {
-      text = text.replace(/^```/, '').replace(/```$/, '').trim();
+    if (text.startsWith("```json")) {
+      text = text
+        .replace(/^```json/, "")
+        .replace(/```$/, "")
+        .trim();
+    } else if (text.startsWith("```")) {
+      text = text.replace(/^```/, "").replace(/```$/, "").trim();
     }
-    
+
     return JSON.parse(text);
   } catch (error) {
-    console.error('AI Analysis Error:', error);
+    console.error("AI Analysis Error:", error);
     return null;
   }
 }
@@ -44,7 +47,11 @@ export async function scoreCtiFinding(summary: {
   last_analysis_stats: Record<string, number>;
   reputation: number;
   meaningful_name?: string;
-}): Promise<{ risk_score: number; threat_category: string; ai_summary: string } | null> {
+}): Promise<{
+  risk_score: number;
+  threat_category: string;
+  ai_summary: string;
+} | null> {
   if (!process.env.GEMINI_API_KEY) {
     return null;
   }
@@ -66,16 +73,19 @@ ${JSON.stringify(summary, null, 2)}`;
       },
       { context: "ai-score-cti" },
     );
-    
-    if (text.startsWith('\`\`\`json')) {
-      text = text.replace(/^```json/, '').replace(/```$/, '').trim();
-    } else if (text.startsWith('\`\`\`')) {
-      text = text.replace(/^```/, '').replace(/```$/, '').trim();
+
+    if (text.startsWith("\`\`\`json")) {
+      text = text
+        .replace(/^```json/, "")
+        .replace(/```$/, "")
+        .trim();
+    } else if (text.startsWith("\`\`\`")) {
+      text = text.replace(/^```/, "").replace(/```$/, "").trim();
     }
-    
+
     return JSON.parse(text);
   } catch (error) {
-    console.error('CTI Scoring Error:', error);
+    console.error("CTI Scoring Error:", error);
     return null;
   }
 }
