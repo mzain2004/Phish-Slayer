@@ -77,15 +77,19 @@ export async function GET(request: Request) {
         await supabaseAdmin.from("audit_logs").insert([
           {
             user_id: profile.id,
-            user_email: profile.email,
-            user_role: "system",
             action: "weekly_digest_sent",
             resource_type: "digest",
-            details: {
+            organization_id: null,
+            severity: "low",
+            payload: {
               totalScans: totalScans || 0,
               maliciousCount: maliciousCount || 0,
               openIncidents: openIncidents || 0,
               topThreats: topThreats || [],
+            },
+            metadata: {
+              user_email: profile.email,
+              user_role: "system",
             },
           },
         ]);

@@ -80,23 +80,25 @@ export async function POST(request: NextRequest) {
     const apiKeyHash = await bcryptHash(plaintextApiKey, BCRYPT_ROUNDS);
 
     const adminClient = getServiceRoleClient();
-    const { data: integration, error: integrationError } = await adminClient
-      .from("wazuh_integrations")
+    const { data: connector, error: connectorError } = await adminClient
+      .from("connectors")
       .insert({
-        tenant_id: tenant.tenantId,
-        name: parsed.data.name,
+        organization_id: tenant.tenantId,
+        connector_type: "wazuh",
+        connector_name: parsed.data.name,
         manager_ip: parsed.data.manager_ip ?? null,
         api_key_hash: apiKeyHash,
         is_active: true,
+        config: {},
       })
       .select("id")
       .single();
 
-    if (integrationError || !integration) {
+    if (connectorError || !connector) {
       return NextResponse.json(
         {
           success: false,
-          error: `Failed to create integration key: ${integrationError?.message || "insert failed"}`,
+          error: `Failed to create integration key: ${connectorError?.message || "insert failed"}`,
         },
         { status: 500 },
       );
@@ -105,7 +107,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       tenant_id: tenant.tenantId,
-      integration_id: integration.id,
+      connector_id: connector.id,
       api_key: plaintextApiKey,
       webhook_url: `${WEBHOOK_BASE_URL}?tenant=${tenant.tenantId}`,
     });

@@ -167,6 +167,7 @@ export async function POST(request: NextRequest) {
     await adminClient.from("audit_logs").insert({
       action: "WAZUH_CONFIG_UPDATED",
       severity: "medium",
+      organization_id: null,
       metadata: {
         webhookUrl: parsed.data.webhookUrl,
         alertLevel: parsed.data.alertLevel,

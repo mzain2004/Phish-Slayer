@@ -259,6 +259,7 @@ export async function GET(request: NextRequest) {
     await adminClient.from("audit_logs").insert({
       action: "L3_STAGE_FAILURE",
       severity: "medium",
+      organization_id: null,
       metadata: {
         stage: "review",
         failure_type: "gemini_failure",
@@ -327,6 +328,7 @@ export async function GET(request: NextRequest) {
     await adminClient.from("audit_logs").insert({
       action: "L3_CIRCUIT_BREAKER_HALTED",
       severity: "critical",
+      organization_id: null,
       metadata: {
         cycle_id: cycleId,
         halt_reason: decision.halt_reason || null,
@@ -365,6 +367,7 @@ export async function GET(request: NextRequest) {
   await adminClient.from("audit_logs").insert({
     action: "L3_REVIEW_COMPLETE",
     severity: mapSeverity(decision.verdict),
+    organization_id: null,
     metadata: {
       cycle_id: cycleId,
       verdict: decision.verdict,

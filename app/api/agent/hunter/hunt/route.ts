@@ -385,6 +385,7 @@ export async function GET(request: NextRequest) {
             await adminClient.from("audit_logs").insert({
               action: "L3_STAGE_FAILURE",
               severity: "medium",
+              organization_id: null,
               metadata: {
                 stage: "hunt",
                 failure_type: "gemini_failure",
@@ -457,6 +458,7 @@ export async function GET(request: NextRequest) {
           await adminClient.from("audit_logs").insert({
             action: "L3_HUNT_HIT",
             severity,
+            organization_id: null,
             metadata: {
               cycle_id: cycleId,
               ioc_id: ioc.id,

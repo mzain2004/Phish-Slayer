@@ -211,6 +211,7 @@ export async function POST(request: NextRequest) {
     action: "IDENTITY_ISOLATED",
     severity: "critical",
     reason,
+    organization_id: tenantId || null,
     metadata: {
       tenant_id: tenantId || null,
       caller_role: callerRole,

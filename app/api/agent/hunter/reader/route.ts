@@ -371,6 +371,7 @@ export async function GET(request: NextRequest) {
       await adminClient.from("audit_logs").insert({
         action: "L3_INTEL_INGESTED",
         severity: "low",
+        organization_id: null,
         metadata: {
           cycle_id: cycleId,
           source,
@@ -382,6 +383,7 @@ export async function GET(request: NextRequest) {
       await adminClient.from("audit_logs").insert({
         action: "L3_INTEL_INGESTED",
         severity: "medium",
+        organization_id: null,
         metadata: {
           cycle_id: cycleId,
           source,
@@ -393,6 +395,7 @@ export async function GET(request: NextRequest) {
       await adminClient.from("audit_logs").insert({
         action: "L3_STAGE_FAILURE",
         severity: "medium",
+        organization_id: null,
         metadata: {
           stage: "reader",
           cycle_id: cycleId,

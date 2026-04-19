@@ -255,6 +255,7 @@ async function writeAuditLogSafe(
   const { error } = await adminClient.from("audit_logs").insert({
     action,
     severity,
+    organization_id: tenantId || null,
     metadata: {
       tenant_id: tenantId || null,
       ...metadata,

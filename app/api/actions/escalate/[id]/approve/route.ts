@@ -85,7 +85,7 @@ export async function PATCH(
   const { data: escalation, error: fetchError } = await adminClient
     .from("escalations")
     .select(
-      "id, title, severity, status, recommended_action, affected_user_id, affected_ip",
+      "id, title, severity, status, tenant_id, recommended_action, affected_user_id, affected_ip",
     )
     .eq("id", escalationId)
     .single();
@@ -165,8 +165,10 @@ export async function PATCH(
   await adminClient.from("audit_logs").insert({
     action: "ESCALATION_APPROVED",
     severity: escalation.severity,
+    organization_id: escalation.tenant_id || null,
     metadata: {
       escalation_id: escalationId,
+      tenant_id: escalation.tenant_id || null,
       recommended_action: escalation.recommended_action,
       action_fired: actionFired,
     },

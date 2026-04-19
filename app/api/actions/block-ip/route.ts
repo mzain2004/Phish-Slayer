@@ -234,6 +234,7 @@ export async function POST(request: NextRequest) {
   const { error: auditError } = await adminClient.from("audit_logs").insert({
     action: "IP_BLOCKED",
     severity: mapThreatToAuditSeverity(threatLevel),
+    organization_id: tenantId || null,
     metadata: {
       tenant_id: tenantId || null,
       ip,

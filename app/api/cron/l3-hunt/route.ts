@@ -100,10 +100,12 @@ async function writeAuditLogSafe(
   action: string,
   severity: "low" | "medium" | "high" | "critical",
   metadata: Record<string, unknown>,
+  tenantId: string | null = null,
 ) {
   const { error } = await adminClient.from("audit_logs").insert({
     action,
     severity,
+    organization_id: tenantId,
     metadata,
     created_at: new Date().toISOString(),
   });
@@ -124,12 +126,18 @@ async function logL3Stage(
   metadata: Record<string, unknown> = {},
   tenantId: string | null = null,
 ) {
-  await writeAuditLogSafe(adminClient, L3_STAGE_ACTION, "low", {
-    stage,
-    cycle_id: cycleId,
-    tenant_id: tenantId,
-    ...metadata,
-  });
+  await writeAuditLogSafe(
+    adminClient,
+    L3_STAGE_ACTION,
+    "low",
+    {
+      stage,
+      cycle_id: cycleId,
+      tenant_id: tenantId,
+      ...metadata,
+    },
+    tenantId,
+  );
 }
 
 async function logStageFailure(
@@ -140,13 +148,19 @@ async function logStageFailure(
   extra: Record<string, unknown> = {},
   tenantId: string | null = null,
 ) {
-  await writeAuditLogSafe(adminClient, L3_STAGE_FAILURE_ACTION, "medium", {
-    stage,
-    cycle_id: cycleId,
-    tenant_id: tenantId,
-    error: error instanceof Error ? error.message : "unknown_error",
-    ...extra,
-  });
+  await writeAuditLogSafe(
+    adminClient,
+    L3_STAGE_FAILURE_ACTION,
+    "medium",
+    {
+      stage,
+      cycle_id: cycleId,
+      tenant_id: tenantId,
+      error: error instanceof Error ? error.message : "unknown_error",
+      ...extra,
+    },
+    tenantId,
+  );
 }
 
 async function logStaticAnalysisStage(
@@ -156,12 +170,18 @@ async function logStaticAnalysisStage(
   metadata: Record<string, unknown>,
   tenantId: string | null = null,
 ) {
-  await writeAuditLogSafe(adminClient, L3_STATIC_ANALYSIS_STAGE_ACTION, "low", {
-    cycle_id: cycleId,
-    tenant_id: tenantId,
-    stage,
-    ...metadata,
-  });
+  await writeAuditLogSafe(
+    adminClient,
+    L3_STATIC_ANALYSIS_STAGE_ACTION,
+    "low",
+    {
+      cycle_id: cycleId,
+      tenant_id: tenantId,
+      stage,
+      ...metadata,
+    },
+    tenantId,
+  );
 }
 
 async function triggerStaticAnalysisForFileAlerts(
@@ -722,6 +742,7 @@ async function runL3Pipeline(request: NextRequest, options: L3RunOptions) {
         reduced_scope: reducedScope,
         quality_issues: reviewer.quality_issues || [],
       },
+      tenantId,
     );
 
     const { error: haltFindingError } = await adminClient

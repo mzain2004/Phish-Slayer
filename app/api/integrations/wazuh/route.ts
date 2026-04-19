@@ -60,9 +60,12 @@ export async function GET(request: NextRequest) {
 
     const adminClient = getServiceRoleClient();
     const { data, error } = await adminClient
-      .from("wazuh_integrations")
-      .select("id, name, manager_ip, is_active, last_seen_at, created_at")
-      .eq("tenant_id", tenant.tenantId)
+      .from("connectors")
+      .select(
+        "id, connector_name, manager_ip, is_active, last_seen_at, created_at",
+      )
+      .eq("organization_id", tenant.tenantId)
+      .eq("connector_type", "wazuh")
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -75,14 +78,14 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const integrations = (data || []).map((integration) => ({
-      id: integration.id,
-      name: integration.name,
-      manager_ip: integration.manager_ip,
-      is_active: integration.is_active,
-      last_seen_at: integration.last_seen_at,
-      created_at: integration.created_at,
-      status: integration.is_active ? "Active" : "Inactive",
+    const integrations = (data || []).map((connector) => ({
+      id: connector.id,
+      name: connector.connector_name,
+      manager_ip: connector.manager_ip,
+      is_active: connector.is_active,
+      last_seen_at: connector.last_seen_at,
+      created_at: connector.created_at,
+      status: connector.is_active ? "Active" : "Inactive",
     }));
 
     return NextResponse.json({

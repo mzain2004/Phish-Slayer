@@ -1,275 +1,62 @@
-CREATE TABLE IF NOT EXISTS tenants (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
-  plan TEXT NOT NULL CHECK (plan IN ('starter', 'pro', 'enterprise')),
-  owner_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+-- NOTE: The codebase uses organizations as the multi-tenant boundary and
+-- connectors (connector_type = 'wazuh') for Wazuh integrations.
 
-CREATE TABLE IF NOT EXISTS tenant_members (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  role TEXT NOT NULL CHECK (role IN ('owner', 'admin', 'analyst')),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE (tenant_id, user_id)
-);
+ALTER TABLE public.connectors
+  ADD COLUMN IF NOT EXISTS api_key_hash text,
+  ADD COLUMN IF NOT EXISTS last_seen_at timestamptz,
+  ADD COLUMN IF NOT EXISTS manager_ip text;
 
-CREATE TABLE IF NOT EXISTS wazuh_integrations (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  api_key_hash TEXT NOT NULL,
-  manager_ip TEXT,
-  is_active BOOLEAN NOT NULL DEFAULT TRUE,
-  last_seen_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+ALTER TABLE public.audit_logs
+  ADD COLUMN IF NOT EXISTS organization_id uuid;
 
-ALTER TABLE tenants ENABLE ROW LEVEL SECURITY;
-ALTER TABLE tenant_members ENABLE ROW LEVEL SECURITY;
-ALTER TABLE wazuh_integrations ENABLE ROW LEVEL SECURITY;
+DO $$
+BEGIN
+  IF to_regclass('public.audit_log') IS NOT NULL THEN
+    INSERT INTO public.audit_logs (
+      id,
+      user_id,
+      action,
+      resource_type,
+      resource_id,
+      payload,
+      ip_address,
+      user_agent,
+      created_at,
+      metadata,
+      organization_id
+    )
+    SELECT
+      al.id,
+      al.user_id,
+      al.action,
+      al.resource_type,
+      al.resource_id,
+      COALESCE(al.details, '{}'::jsonb) as payload,
+      CASE
+        WHEN al.ip_address IS NULL THEN NULL
+        WHEN al.ip_address ~ '^[0-9]{1,3}(\\.[0-9]{1,3}){3}(/\\d{1,2})?$' THEN al.ip_address::inet
+        WHEN al.ip_address ~ '^[0-9A-Fa-f:]+(/\\d{1,3})?$' THEN al.ip_address::inet
+        ELSE NULL
+      END as ip_address,
+      al.user_agent,
+      al.created_at,
+      jsonb_strip_nulls(
+        jsonb_build_object(
+          'legacy_user_email', al.user_email,
+          'legacy_user_role', al.user_role,
+          'legacy_ip_address', al.ip_address
+        )
+      ) as metadata,
+      NULL::uuid as organization_id
+    FROM public.audit_log al
+    WHERE NOT EXISTS (SELECT 1 FROM public.audit_logs a2 WHERE a2.id = al.id);
 
-DROP POLICY IF EXISTS "Service role full access on tenants" ON tenants;
-CREATE POLICY "Service role full access on tenants"
-  ON tenants
-  FOR ALL
-  USING (auth.role() = 'service_role')
-  WITH CHECK (auth.role() = 'service_role');
+    DROP TABLE public.audit_log;
+  END IF;
+END $$;
 
-DROP POLICY IF EXISTS "Users can view own tenants" ON tenants;
-CREATE POLICY "Users can view own tenants"
-  ON tenants
-  FOR SELECT
-  USING (
-    owner_id = auth.uid()
-    OR EXISTS (
-      SELECT 1
-      FROM tenant_members tm
-      WHERE tm.tenant_id = tenants.id
-        AND tm.user_id = auth.uid()
-    )
-  );
+CREATE INDEX IF NOT EXISTS idx_connectors_org_type
+  ON public.connectors(organization_id, connector_type);
 
-DROP POLICY IF EXISTS "Users can insert own tenants" ON tenants;
-CREATE POLICY "Users can insert own tenants"
-  ON tenants
-  FOR INSERT
-  WITH CHECK (owner_id = auth.uid());
-
-DROP POLICY IF EXISTS "Owners can update own tenants" ON tenants;
-CREATE POLICY "Owners can update own tenants"
-  ON tenants
-  FOR UPDATE
-  USING (owner_id = auth.uid())
-  WITH CHECK (owner_id = auth.uid());
-
-DROP POLICY IF EXISTS "Service role full access on tenant_members" ON tenant_members;
-CREATE POLICY "Service role full access on tenant_members"
-  ON tenant_members
-  FOR ALL
-  USING (auth.role() = 'service_role')
-  WITH CHECK (auth.role() = 'service_role');
-
-DROP POLICY IF EXISTS "Members can view tenant membership" ON tenant_members;
-CREATE POLICY "Members can view tenant membership"
-  ON tenant_members
-  FOR SELECT
-  USING (
-    user_id = auth.uid()
-    OR EXISTS (
-      SELECT 1
-      FROM tenant_members tm
-      WHERE tm.tenant_id = tenant_members.tenant_id
-        AND tm.user_id = auth.uid()
-    )
-    OR EXISTS (
-      SELECT 1
-      FROM tenants t
-      WHERE t.id = tenant_members.tenant_id
-        AND t.owner_id = auth.uid()
-    )
-  );
-
-DROP POLICY IF EXISTS "Owners admins can manage membership" ON tenant_members;
-CREATE POLICY "Owners admins can manage membership"
-  ON tenant_members
-  FOR INSERT
-  WITH CHECK (
-    user_id = auth.uid()
-    OR EXISTS (
-      SELECT 1
-      FROM tenant_members tm
-      WHERE tm.tenant_id = tenant_members.tenant_id
-        AND tm.user_id = auth.uid()
-        AND tm.role IN ('owner', 'admin')
-    )
-    OR EXISTS (
-      SELECT 1
-      FROM tenants t
-      WHERE t.id = tenant_members.tenant_id
-        AND t.owner_id = auth.uid()
-    )
-  );
-
-DROP POLICY IF EXISTS "Owners admins can update membership" ON tenant_members;
-CREATE POLICY "Owners admins can update membership"
-  ON tenant_members
-  FOR UPDATE
-  USING (
-    EXISTS (
-      SELECT 1
-      FROM tenant_members tm
-      WHERE tm.tenant_id = tenant_members.tenant_id
-        AND tm.user_id = auth.uid()
-        AND tm.role IN ('owner', 'admin')
-    )
-    OR EXISTS (
-      SELECT 1
-      FROM tenants t
-      WHERE t.id = tenant_members.tenant_id
-        AND t.owner_id = auth.uid()
-    )
-  )
-  WITH CHECK (
-    EXISTS (
-      SELECT 1
-      FROM tenant_members tm
-      WHERE tm.tenant_id = tenant_members.tenant_id
-        AND tm.user_id = auth.uid()
-        AND tm.role IN ('owner', 'admin')
-    )
-    OR EXISTS (
-      SELECT 1
-      FROM tenants t
-      WHERE t.id = tenant_members.tenant_id
-        AND t.owner_id = auth.uid()
-    )
-  );
-
-DROP POLICY IF EXISTS "Owners admins can delete membership" ON tenant_members;
-CREATE POLICY "Owners admins can delete membership"
-  ON tenant_members
-  FOR DELETE
-  USING (
-    EXISTS (
-      SELECT 1
-      FROM tenant_members tm
-      WHERE tm.tenant_id = tenant_members.tenant_id
-        AND tm.user_id = auth.uid()
-        AND tm.role IN ('owner', 'admin')
-    )
-    OR EXISTS (
-      SELECT 1
-      FROM tenants t
-      WHERE t.id = tenant_members.tenant_id
-        AND t.owner_id = auth.uid()
-    )
-  );
-
-DROP POLICY IF EXISTS "Service role full access on wazuh_integrations" ON wazuh_integrations;
-CREATE POLICY "Service role full access on wazuh_integrations"
-  ON wazuh_integrations
-  FOR ALL
-  USING (auth.role() = 'service_role')
-  WITH CHECK (auth.role() = 'service_role');
-
-DROP POLICY IF EXISTS "Members can view own integrations" ON wazuh_integrations;
-CREATE POLICY "Members can view own integrations"
-  ON wazuh_integrations
-  FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1
-      FROM tenant_members tm
-      WHERE tm.tenant_id = wazuh_integrations.tenant_id
-        AND tm.user_id = auth.uid()
-    )
-    OR EXISTS (
-      SELECT 1
-      FROM tenants t
-      WHERE t.id = wazuh_integrations.tenant_id
-        AND t.owner_id = auth.uid()
-    )
-  );
-
-DROP POLICY IF EXISTS "Owners admins can manage integrations" ON wazuh_integrations;
-CREATE POLICY "Owners admins can manage integrations"
-  ON wazuh_integrations
-  FOR INSERT
-  WITH CHECK (
-    EXISTS (
-      SELECT 1
-      FROM tenant_members tm
-      WHERE tm.tenant_id = wazuh_integrations.tenant_id
-        AND tm.user_id = auth.uid()
-        AND tm.role IN ('owner', 'admin')
-    )
-    OR EXISTS (
-      SELECT 1
-      FROM tenants t
-      WHERE t.id = wazuh_integrations.tenant_id
-        AND t.owner_id = auth.uid()
-    )
-  );
-
-DROP POLICY IF EXISTS "Owners admins can update integrations" ON wazuh_integrations;
-CREATE POLICY "Owners admins can update integrations"
-  ON wazuh_integrations
-  FOR UPDATE
-  USING (
-    EXISTS (
-      SELECT 1
-      FROM tenant_members tm
-      WHERE tm.tenant_id = wazuh_integrations.tenant_id
-        AND tm.user_id = auth.uid()
-        AND tm.role IN ('owner', 'admin')
-    )
-    OR EXISTS (
-      SELECT 1
-      FROM tenants t
-      WHERE t.id = wazuh_integrations.tenant_id
-        AND t.owner_id = auth.uid()
-    )
-  )
-  WITH CHECK (
-    EXISTS (
-      SELECT 1
-      FROM tenant_members tm
-      WHERE tm.tenant_id = wazuh_integrations.tenant_id
-        AND tm.user_id = auth.uid()
-        AND tm.role IN ('owner', 'admin')
-    )
-    OR EXISTS (
-      SELECT 1
-      FROM tenants t
-      WHERE t.id = wazuh_integrations.tenant_id
-        AND t.owner_id = auth.uid()
-    )
-  );
-
-DROP POLICY IF EXISTS "Owners admins can delete integrations" ON wazuh_integrations;
-CREATE POLICY "Owners admins can delete integrations"
-  ON wazuh_integrations
-  FOR DELETE
-  USING (
-    EXISTS (
-      SELECT 1
-      FROM tenant_members tm
-      WHERE tm.tenant_id = wazuh_integrations.tenant_id
-        AND tm.user_id = auth.uid()
-        AND tm.role IN ('owner', 'admin')
-    )
-    OR EXISTS (
-      SELECT 1
-      FROM tenants t
-      WHERE t.id = wazuh_integrations.tenant_id
-        AND t.owner_id = auth.uid()
-    )
-  );
-
-CREATE INDEX IF NOT EXISTS idx_tenants_owner_id ON tenants(owner_id);
-CREATE INDEX IF NOT EXISTS idx_tenant_members_user_id ON tenant_members(user_id);
-CREATE INDEX IF NOT EXISTS idx_tenant_members_tenant_id ON tenant_members(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_wazuh_integrations_tenant_id ON wazuh_integrations(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_wazuh_integrations_last_seen_at ON wazuh_integrations(last_seen_at DESC);
+CREATE INDEX IF NOT EXISTS idx_connectors_last_seen_at
+  ON public.connectors(last_seen_at DESC);

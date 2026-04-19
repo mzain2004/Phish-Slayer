@@ -479,6 +479,7 @@ async function writeLifecycleAudit(
   const { error } = await adminClient.from("audit_logs").insert({
     action: stageToAction(stage),
     severity: escalation.severity,
+    organization_id: tenantId,
     metadata: payload,
     created_at: new Date().toISOString(),
   });
@@ -683,28 +684,46 @@ async function runL2Responder(request: NextRequest, options: L2RunOptions) {
       const claimState = await claimEscalation(adminClient, escalation);
       if (claimState !== "claimed") {
         skipped += 1;
-        await writeLifecycleAudit(adminClient, "skipped", escalation, {
-          skip_reason: claimState,
-          trigger_mode: options.triggerMode,
-        }, tenantId);
+        await writeLifecycleAudit(
+          adminClient,
+          "skipped",
+          escalation,
+          {
+            skip_reason: claimState,
+            trigger_mode: options.triggerMode,
+          },
+          tenantId,
+        );
         continue;
       }
 
-      await writeLifecycleAudit(adminClient, "received", escalation, {
-        status_before: escalation.status,
-        trigger_mode: options.triggerMode,
-      }, tenantId);
+      await writeLifecycleAudit(
+        adminClient,
+        "received",
+        escalation,
+        {
+          status_before: escalation.status,
+          trigger_mode: options.triggerMode,
+        },
+        tenantId,
+      );
 
       const decisionStartedAt = Date.now();
       decision = await getDecision(escalation);
       const executionTimeMs = Date.now() - decisionStartedAt;
 
-      await writeLifecycleAudit(adminClient, "decision", escalation, {
-        action: decision.decision,
-        execute: decision.execute,
-        confidence: decision.confidence,
-        reasoning: decision.reasoning,
-      }, tenantId);
+      await writeLifecycleAudit(
+        adminClient,
+        "decision",
+        escalation,
+        {
+          action: decision.decision,
+          execute: decision.execute,
+          confidence: decision.confidence,
+          reasoning: decision.reasoning,
+        },
+        tenantId,
+      );
 
       const actionsTaken: string[] = [decision.decision];
       let statusAfter = "awaiting_human";
@@ -712,10 +731,16 @@ async function runL2Responder(request: NextRequest, options: L2RunOptions) {
       let actionFired = false;
 
       if (decision.execute && decision.decision === "ISOLATE_IDENTITY") {
-        await writeLifecycleAudit(adminClient, "action_taken", escalation, {
-          action: "ISOLATE_IDENTITY",
-          target_user_id: escalation.affected_user_id,
-        }, tenantId);
+        await writeLifecycleAudit(
+          adminClient,
+          "action_taken",
+          escalation,
+          {
+            action: "ISOLATE_IDENTITY",
+            target_user_id: escalation.affected_user_id,
+          },
+          tenantId,
+        );
 
         await callInternalAction(baseUrl, "/api/actions/isolate-identity", {
           targetUserId: escalation.affected_user_id,
@@ -730,10 +755,16 @@ async function runL2Responder(request: NextRequest, options: L2RunOptions) {
 
         autoResolved += 1;
       } else if (decision.execute && decision.decision === "BLOCK_IP") {
-        await writeLifecycleAudit(adminClient, "action_taken", escalation, {
-          action: "BLOCK_IP",
-          target_ip: escalation.affected_ip,
-        }, tenantId);
+        await writeLifecycleAudit(
+          adminClient,
+          "action_taken",
+          escalation,
+          {
+            action: "BLOCK_IP",
+            target_ip: escalation.affected_ip,
+          },
+          tenantId,
+        );
 
         await callInternalAction(baseUrl, "/api/actions/block-ip", {
           ip: escalation.affected_ip,
@@ -749,11 +780,17 @@ async function runL2Responder(request: NextRequest, options: L2RunOptions) {
 
         autoResolved += 1;
       } else {
-        await writeLifecycleAudit(adminClient, "action_taken", escalation, {
-          action: "MANUAL_REVIEW",
-          reason: decision.reasoning,
-          execute: false,
-        }, tenantId);
+        await writeLifecycleAudit(
+          adminClient,
+          "action_taken",
+          escalation,
+          {
+            action: "MANUAL_REVIEW",
+            reason: decision.reasoning,
+            execute: false,
+          },
+          tenantId,
+        );
 
         manualReview += 1;
       }
@@ -773,12 +810,18 @@ async function runL2Responder(request: NextRequest, options: L2RunOptions) {
         },
       );
 
-      await writeLifecycleAudit(adminClient, "outcome", escalation, {
-        outcome: "completed",
-        status_after: statusAfter,
-        action_fired: actionFired,
-        action_taken: decision.decision,
-      }, tenantId);
+      await writeLifecycleAudit(
+        adminClient,
+        "outcome",
+        escalation,
+        {
+          outcome: "completed",
+          status_after: statusAfter,
+          action_fired: actionFired,
+          action_taken: decision.decision,
+        },
+        tenantId,
+      );
 
       await saveReasoningChain({
         escalation_id: escalation.id,
@@ -825,12 +868,18 @@ async function runL2Responder(request: NextRequest, options: L2RunOptions) {
 
       await resetEscalationClaim(adminClient, escalation.id);
 
-      await writeLifecycleAudit(adminClient, "outcome", escalation, {
-        outcome: "failed",
-        error:
-          batchError instanceof Error ? batchError.message : "unknown_error",
-        fallback_reasoning: decision?.reasoning || null,
-      }, tenantId);
+      await writeLifecycleAudit(
+        adminClient,
+        "outcome",
+        escalation,
+        {
+          outcome: "failed",
+          error:
+            batchError instanceof Error ? batchError.message : "unknown_error",
+          fallback_reasoning: decision?.reasoning || null,
+        },
+        tenantId,
+      );
 
       results.push({
         escalation_id: escalation.id,

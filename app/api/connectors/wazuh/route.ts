@@ -117,7 +117,7 @@ type StageCallResult = {
 
 type TenantContext = {
   tenantId: string;
-  integrationId: string | null;
+  connectorId: string | null;
 };
 
 function getAdminClient() {
@@ -192,6 +192,7 @@ async function writeAuditLogSafe(
       .insert({
         action,
         severity,
+        organization_id: tenantId || null,
         metadata: {
           tenant_id: tenantId || null,
           ...metadata,
@@ -259,7 +260,7 @@ async function verifyTenantWebhookAuth(
 ): Promise<
   | {
       ok: true;
-      integrationId: string;
+      connectorId: string;
     }
   | {
       ok: false;
@@ -274,9 +275,10 @@ async function verifyTenantWebhookAuth(
   }
 
   const { data, error } = await getAdminClient()
-    .from("wazuh_integrations")
+    .from("connectors")
     .select("id, api_key_hash")
-    .eq("tenant_id", tenantId)
+    .eq("organization_id", tenantId)
+    .eq("connector_type", "wazuh")
     .eq("is_active", true);
 
   if (error) {
@@ -293,10 +295,10 @@ async function verifyTenantWebhookAuth(
     };
   }
 
-  for (const integration of data) {
+  for (const connector of data) {
     const hash =
-      typeof integration.api_key_hash === "string"
-        ? integration.api_key_hash
+      typeof connector.api_key_hash === "string"
+        ? connector.api_key_hash
         : null;
 
     if (!hash) {
@@ -307,7 +309,7 @@ async function verifyTenantWebhookAuth(
     if (matches) {
       return {
         ok: true,
-        integrationId: integration.id,
+        connectorId: connector.id,
       };
     }
   }
@@ -875,7 +877,7 @@ async function processSingleAlert(
       agent_name: alert.agent?.name || null,
       src_ip: alert.data?.srcip || null,
       dst_ip: alert.data?.dstip || null,
-      integration_id: tenantContext?.integrationId || null,
+      connector_id: tenantContext?.connectorId || null,
     },
     tenantContext?.tenantId || null,
   );
@@ -1115,17 +1117,17 @@ export async function POST(request: NextRequest) {
 
     tenantContext = {
       tenantId,
-      integrationId: authResult.integrationId,
+      connectorId: authResult.connectorId,
     };
 
     const { error: lastSeenError } = await getAdminClient()
-      .from("wazuh_integrations")
+      .from("connectors")
       .update({ last_seen_at: new Date().toISOString() })
-      .eq("id", authResult.integrationId);
+      .eq("id", authResult.connectorId);
 
     if (lastSeenError) {
       console.error("[wazuh webhook] Failed updating integration heartbeat", {
-        integration_id: authResult.integrationId,
+        connector_id: authResult.connectorId,
         tenant_id: tenantId,
         details: lastSeenError.message,
       });

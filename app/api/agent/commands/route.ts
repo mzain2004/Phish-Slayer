@@ -69,7 +69,11 @@ export async function POST(request: Request) {
     await supabase.from("audit_logs").insert({
       action: "agent_command_sent",
       user_id: user.id,
-      details: { agentId, command, payload },
+      organization_id: null,
+      severity: "medium",
+      resource_type: "agent",
+      resource_id: String(agentId),
+      payload: { agentId, command, payload },
       ip_address: request.headers.get("x-forwarded-for") || "127.0.0.1",
     });
 

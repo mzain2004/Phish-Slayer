@@ -239,6 +239,7 @@ export async function POST(request: NextRequest) {
   const { error: auditError } = await adminClient.from("audit_logs").insert({
     action: "ALERT_ESCALATED",
     severity: payload.severity,
+    organization_id: payload.tenantId || null,
     metadata: {
       alertId: payload.alertId,
       tenant_id: payload.tenantId || null,

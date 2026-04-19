@@ -8,8 +8,8 @@ type TenantRow = {
   name: string;
 };
 
-type TenantMemberRow = {
-  tenant_id: string;
+type OrganizationMemberRow = {
+  organization_id: string;
   role: TenantRole;
   created_at: string;
 };
@@ -52,7 +52,7 @@ export async function getAuthenticatedUser() {
 async function getTenantById(tenantId: string): Promise<TenantRow | null> {
   const adminClient = getServiceRoleClient();
   const { data, error } = await adminClient
-    .from("tenants")
+    .from("organizations")
     .select("id, name")
     .eq("id", tenantId)
     .maybeSingle();
@@ -67,13 +67,13 @@ async function getTenantById(tenantId: string): Promise<TenantRow | null> {
 async function getMembership(
   userId: string,
   tenantId: string,
-): Promise<TenantMemberRow | null> {
+): Promise<OrganizationMemberRow | null> {
   const adminClient = getServiceRoleClient();
   const { data, error } = await adminClient
-    .from("tenant_members")
-    .select("tenant_id, role, created_at")
+    .from("organization_members")
+    .select("organization_id, role, created_at")
     .eq("user_id", userId)
-    .eq("tenant_id", tenantId)
+    .eq("organization_id", tenantId)
     .limit(1)
     .maybeSingle();
 
@@ -81,16 +81,16 @@ async function getMembership(
     return null;
   }
 
-  return data as TenantMemberRow;
+  return data as OrganizationMemberRow;
 }
 
 async function getFirstMembership(
   userId: string,
-): Promise<TenantMemberRow | null> {
+): Promise<OrganizationMemberRow | null> {
   const adminClient = getServiceRoleClient();
   const { data, error } = await adminClient
-    .from("tenant_members")
-    .select("tenant_id, role, created_at")
+    .from("organization_members")
+    .select("organization_id, role, created_at")
     .eq("user_id", userId)
     .order("created_at", { ascending: true })
     .limit(1)
@@ -100,7 +100,7 @@ async function getFirstMembership(
     return null;
   }
 
-  return data as TenantMemberRow;
+  return data as OrganizationMemberRow;
 }
 
 async function getOwnedTenant(
@@ -108,7 +108,7 @@ async function getOwnedTenant(
 ): Promise<TenantResolution | null> {
   const adminClient = getServiceRoleClient();
   const { data, error } = await adminClient
-    .from("tenants")
+    .from("organizations")
     .select("id, name")
     .eq("owner_id", userId)
     .order("created_at", { ascending: true })
@@ -137,7 +137,7 @@ async function createDefaultTenantForUser(
       : "Default Tenant";
 
   const { data: tenantInsert, error: tenantError } = await adminClient
-    .from("tenants")
+    .from("organizations")
     .insert({
       name: defaultName,
       plan: "starter",
@@ -152,13 +152,13 @@ async function createDefaultTenantForUser(
     );
   }
 
-  await adminClient.from("tenant_members").upsert(
+  await adminClient.from("organization_members").upsert(
     {
-      tenant_id: tenantInsert.id,
+      organization_id: tenantInsert.id,
       user_id: userId,
       role: "owner",
     },
-    { onConflict: "tenant_id,user_id" },
+    { onConflict: "organization_id,user_id" },
   );
 
   return {
@@ -206,7 +206,7 @@ export async function resolveTenantForUser(options: {
 
   const firstMembership = await getFirstMembership(userId);
   if (firstMembership) {
-    const tenant = await getTenantById(firstMembership.tenant_id);
+    const tenant = await getTenantById(firstMembership.organization_id);
     if (tenant) {
       return {
         tenantId: tenant.id,

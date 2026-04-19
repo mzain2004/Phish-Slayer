@@ -61,8 +61,9 @@ export async function POST(request: Request) {
     const { error } = await serviceClient.from("audit_logs").insert({
       user_id: user.id,
       action: "support_ticket",
-      resource: "support",
-      details: {
+      resource_type: "support",
+      organization_id: null,
+      payload: {
         subject: parsed.data.subject,
         description: parsed.data.description,
       },

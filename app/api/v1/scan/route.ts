@@ -307,6 +307,7 @@ async function handleScan(request: NextRequest) {
       await supabaseAdmin.from("audit_logs").insert({
         action: "TIER0_BLOCK",
         severity: "high",
+        organization_id: null,
         metadata: {
           rule_triggered: tier0Result.rule_triggered,
           reason: tier0Result.reason,

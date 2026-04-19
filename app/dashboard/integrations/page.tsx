@@ -12,6 +12,7 @@ import {
 import { toast } from "sonner";
 import DashboardCard from "@/components/dashboard/DashboardCard";
 import PhishButton from "@/components/ui/PhishButton";
+import { createClient } from "@/lib/supabase/client";
 
 type TenantInfo = {
   id: string;
@@ -83,9 +84,51 @@ export default function IntegrationsPage() {
         throw new Error(data.error || "Failed to load integrations");
       }
 
-      setTenant(data.tenant || null);
-      setIntegrations(data.integrations || []);
-      setWebhookUrl(data.webhook_url || "");
+      const resolvedTenant = data.tenant || null;
+      setTenant(resolvedTenant);
+
+      const resolvedWebhookUrl = data.webhook_url || "";
+      setWebhookUrl(resolvedWebhookUrl);
+
+      if (!resolvedTenant?.id) {
+        setIntegrations([]);
+        return;
+      }
+
+      const supabase = createClient();
+      const { data: connectorRows, error: connectorsError } = await supabase
+        .from("connectors")
+        .select(
+          "id, connector_name, manager_ip, is_active, last_seen_at, created_at",
+        )
+        .eq("organization_id", resolvedTenant.id)
+        .eq("connector_type", "wazuh")
+        .order("created_at", { ascending: false });
+
+      if (connectorsError) {
+        throw new Error(connectorsError.message);
+      }
+
+      const connectors: IntegrationRecord[] = (connectorRows || []).map(
+        (connector) => {
+          const isActive = Boolean(connector.is_active);
+          const status: IntegrationRecord["status"] = isActive
+            ? "Active"
+            : "Inactive";
+
+          return {
+            id: connector.id,
+            name: connector.connector_name,
+            manager_ip: connector.manager_ip,
+            is_active: isActive,
+            last_seen_at: connector.last_seen_at,
+            created_at: connector.created_at,
+            status,
+          };
+        },
+      );
+
+      setIntegrations(connectors);
     } catch (error) {
       const message =
         error instanceof Error
@@ -147,7 +190,7 @@ export default function IntegrationsPage() {
         success: boolean;
         error?: string;
         api_key?: string;
-        integration_id?: string;
+        connector_id?: string;
         webhook_url?: string;
       };
 
@@ -156,7 +199,7 @@ export default function IntegrationsPage() {
       }
 
       setGeneratedKey(payload.api_key || null);
-      setGeneratedIntegrationId(payload.integration_id || null);
+      setGeneratedIntegrationId(payload.connector_id || null);
       setWebhookUrl(payload.webhook_url || webhookUrl);
       setWizardStep(2);
 
