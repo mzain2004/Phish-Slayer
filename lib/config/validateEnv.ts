@@ -5,8 +5,8 @@ const required = [
   "NEXT_PUBLIC_SUPABASE_ANON_KEY",
   "SUPABASE_SERVICE_ROLE_KEY",
   "VIRUS_TOTAL_API_KEY",
-  "GEMINI_API_KEY",
-  "GOOGLE_GEMINI_MODEL",
+  "GROQ_API_KEY",
+  "GROQ_MODEL",
 ];
 
 const optional = [
@@ -15,6 +15,8 @@ const optional = [
   "DISCORD_WEBHOOK_URL",
   "CRON_SECRET",
   "RESEND_API_KEY",
+  "GEMINI_API_KEY",
+  "GOOGLE_GEMINI_MODEL",
 ];
 
 export function validateEnv() {
@@ -41,6 +43,12 @@ export function validateEnv() {
   if (missingOptional.length > 0) {
     console.error(
       `[Phish-Slayer] Missing optional environment variables (some features disabled): ${missingOptional.join(", ")}`,
+    );
+  }
+
+  if (!process.env.GEMINI_API_KEY) {
+    console.warn(
+      "[Phish-Slayer] GEMINI_API_KEY is optional; Gemini features remain disabled.",
     );
   }
 }

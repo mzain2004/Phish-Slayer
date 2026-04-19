@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
 import { logAuditEvent } from "@/lib/audit/auditLogger";
-import { geminiGenerateText } from "@/lib/ai/gemini";
+import { groqComplete } from "@/lib/ai/groq";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -62,9 +62,8 @@ export async function POST(request: Request) {
     const truncatedText =
       domText.length > 50000 ? domText.slice(0, 50000) : domText;
 
-    // Call Gemini using the GCP Gemini API
-    const geminiKey = process.env.GEMINI_API_KEY;
-    if (!geminiKey) {
+    // Call Groq for heuristic analysis
+    if (!process.env.GROQ_API_KEY) {
       return NextResponse.json(
         { error: "AI service not configured" },
         { status: 503 },
@@ -73,20 +72,9 @@ export async function POST(request: Request) {
 
     let responseText = "";
     try {
-      responseText = await geminiGenerateText(
-        {
-          contents: [
-            {
-              role: "user",
-              parts: [
-                {
-                  text: `${SYSTEM_PROMPT}\n\n--- WEBPAGE TEXT FROM: ${target} ---\n${truncatedText}\n--- END ---`,
-                },
-              ],
-            },
-          ],
-        },
-        { context: "ai-heuristic" },
+      responseText = await groqComplete(
+        SYSTEM_PROMPT,
+        `--- WEBPAGE TEXT FROM: ${target} ---\n${truncatedText}\n--- END ---`,
       );
     } catch (error) {
       console.warn("AI heuristic analysis fallback used", {
@@ -128,10 +116,7 @@ export async function POST(request: Request) {
     try {
       parsed = JSON.parse(cleaned);
     } catch {
-      console.error(
-        "Failed to parse Gemini AI response:",
-        cleaned.slice(0, 200),
-      );
+      console.error("Failed to parse Groq response:", cleaned.slice(0, 200));
       return NextResponse.json(
         {
           error: "AI returned invalid response format",

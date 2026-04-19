@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createSupabaseAdminClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import { geminiGenerateText } from "@/lib/ai/gemini";
+import { groqComplete } from "@/lib/ai/groq";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -215,34 +215,20 @@ async function callGemini(
   ioc: IntelRow,
   scan: Record<string, unknown>,
 ): Promise<HunterDecision> {
-  if (!process.env.GEMINI_API_KEY) {
-    throw new Error("Missing GEMINI_API_KEY");
+  if (!process.env.GROQ_API_KEY) {
+    throw new Error("Missing GROQ_API_KEY");
   }
 
-  const text = await geminiGenerateText(
-    {
-      systemInstruction: {
-        parts: [{ text: HUNTER_PROMPT }],
+  const text = await groqComplete(
+    HUNTER_PROMPT,
+    JSON.stringify({
+      ioc,
+      matched_scan: scan,
+      l2_context: {
+        trigger: "retroactive_ioc_match",
       },
-      contents: [
-        {
-          role: "user",
-          parts: [
-            {
-              text: JSON.stringify({
-                ioc,
-                matched_scan: scan,
-                l2_context: {
-                  trigger: "retroactive_ioc_match",
-                },
-                historical_findings: [],
-              }),
-            },
-          ],
-        },
-      ],
-    },
-    { context: "hunter-hunt" },
+      historical_findings: [],
+    }),
   );
 
   const cleaned = stripCodeFence(text);
@@ -251,12 +237,12 @@ async function callGemini(
   try {
     json = JSON.parse(cleaned);
   } catch {
-    throw new Error("Gemini hunter response was not valid JSON");
+    throw new Error("Groq hunter response was not valid JSON");
   }
 
   const decision = HunterDecisionSchema.safeParse(json);
   if (!decision.success) {
-    throw new Error("Gemini hunter decision schema validation failed");
+    throw new Error("Groq hunter decision schema validation failed");
   }
 
   return normalizeDecision(decision.data);

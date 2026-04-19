@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { geminiGenerateText } from "@/lib/ai/gemini";
+import { groqComplete } from "@/lib/ai/groq";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,35 +22,21 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!process.env.GEMINI_API_KEY) {
-      console.error("GEMINI_API_KEY is not set for /api/support-chat");
+    if (!process.env.GROQ_API_KEY) {
+      console.error("GROQ_API_KEY is not set for /api/support-chat");
       return NextResponse.json(
         { error: "Support service is unavailable" },
         { status: 500 },
       );
     }
 
-    const prompt = `You are Phish-Slayer AI Support, an expert cybersecurity SOC assistant. Help users navigate the platform, understand alerts, use features, and resolve issues. Be concise and technical.
-
-  Context:
-  - User ID: ${parsed.data.userId || "unknown"}
-  - User Email: ${parsed.data.userEmail || "unknown"}
-
-  User message: ${parsed.data.message}`;
+    const systemPrompt =
+      "You are Phish-Slayer AI Support, an expert cybersecurity SOC assistant. Help users navigate the platform, understand alerts, use features, and resolve issues. Be concise and technical.";
+    const userPrompt = `Context:\n- User ID: ${parsed.data.userId || "unknown"}\n- User Email: ${parsed.data.userEmail || "unknown"}\n\nUser message: ${parsed.data.message}`;
 
     let reply = "";
     try {
-      const responseText = await geminiGenerateText(
-        {
-          contents: [
-            {
-              role: "user",
-              parts: [{ text: prompt }],
-            },
-          ],
-        },
-        { context: "support-chat" },
-      );
+      const responseText = await groqComplete(systemPrompt, userPrompt, 512);
 
       reply =
         responseText.trim() ||

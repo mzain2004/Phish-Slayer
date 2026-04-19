@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient as createSupabaseAdminClient } from "@supabase/supabase-js";
 import { createClient as createServerSupabaseClient } from "@/lib/supabase/server";
 import { z } from "zod";
-import { geminiGenerateText } from "@/lib/ai/gemini";
+import { groqComplete } from "@/lib/ai/groq";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -92,7 +92,7 @@ function normalizeGeminiConfidence(
     return confidence;
   }
 
-  console.warn("[L1 triage] Gemini confidence fallback applied", {
+  console.warn("[L1 triage] Groq confidence fallback applied", {
     source: context.source,
     record_id: context.recordId,
     parsed_confidence: confidence,
@@ -197,13 +197,12 @@ function deriveSeverityFromRecord(record: QueueRecord): Severity {
 }
 
 function buildFallbackDecision(record: QueueRecord, error: unknown): Decision {
-  const reason =
-    error instanceof Error ? error.message : "unknown Gemini error";
+  const reason = error instanceof Error ? error.message : "unknown Groq error";
   return {
     decision: "ESCALATE",
     severity: deriveSeverityFromRecord(record),
     confidence: 0,
-    reasoning: `Gemini unavailable or invalid response (${reason}). Escalating for manual review.`,
+    reasoning: `Groq unavailable or invalid response (${reason}). Escalating for manual review.`,
     mitre_context: "No MITRE context available due to model failure.",
     false_positive_indicators: [],
     threat_indicators: [
@@ -211,7 +210,7 @@ function buildFallbackDecision(record: QueueRecord, error: unknown): Decision {
     ],
     recommended_action: "Escalate to manual review by a senior SOC analyst.",
     analyst_notes:
-      "Fallback decision used because Gemini was unavailable or returned invalid output.",
+      "Fallback decision used because Groq was unavailable or returned invalid output.",
   };
 }
 
@@ -451,24 +450,13 @@ async function fetchPendingWazuhAlerts(
 
 async function runGeminiTriage(record: QueueRecord): Promise<Decision> {
   try {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      throw new Error("Missing GEMINI_API_KEY");
+    if (!process.env.GROQ_API_KEY) {
+      throw new Error("Missing GROQ_API_KEY");
     }
 
-    const modelText = await geminiGenerateText(
-      {
-        systemInstruction: {
-          parts: [{ text: SYSTEM_PROMPT }],
-        },
-        contents: [
-          {
-            role: "user",
-            parts: [{ text: JSON.stringify(record) }],
-          },
-        ],
-      },
-      { context: "l1-triage" },
+    const modelText = await groqComplete(
+      SYSTEM_PROMPT,
+      JSON.stringify(record),
     );
 
     const decisionJson = JSON.parse(stripCodeFence(modelText));
@@ -485,7 +473,7 @@ async function runGeminiTriage(record: QueueRecord): Promise<Decision> {
       }),
     };
   } catch (error) {
-    console.warn("[L1 triage] Gemini failed, using graceful fallback", {
+    console.warn("[L1 triage] Groq failed, using graceful fallback", {
       source: record.source,
       record_id: record.id,
       error: error instanceof Error ? error.message : "unknown",

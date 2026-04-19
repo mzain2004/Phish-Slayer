@@ -1,30 +1,19 @@
 "use server";
 
-import { geminiGenerateText } from "@/lib/ai/gemini";
+import { groqComplete } from "@/lib/ai/groq";
 
 export async function analyzeThreat(incidentDescription: string) {
-  if (!process.env.GEMINI_API_KEY) {
-    console.warn("GEMINI_API_KEY is not set. Skipping AI analysis.");
+  if (!process.env.GROQ_API_KEY) {
+    console.warn("GROQ_API_KEY is not set. Skipping AI analysis.");
     return null;
   }
 
-  const prompt = `You are an elite Level 3 SOC Analyst. Analyze this incident description. Return ONLY a valid JSON object with exactly three keys: risk_score (number 1-10), threat_category (string), and remediation_steps (array of 3 strings). No markdown formatting, no conversational text.
-
-Incident Description:
-${incidentDescription}`;
+  const systemPrompt =
+    "You are an elite Level 3 SOC Analyst. Analyze this incident description. Return ONLY a valid JSON object with exactly three keys: risk_score (number 1-10), threat_category (string), and remediation_steps (array of 3 strings). No markdown formatting, no conversational text.";
+  const userPrompt = `Incident Description:\n${incidentDescription}`;
 
   try {
-    let text = await geminiGenerateText(
-      {
-        contents: [
-          {
-            role: "user",
-            parts: [{ text: prompt }],
-          },
-        ],
-      },
-      { context: "ai-analyze-threat" },
-    );
+    let text = await groqComplete(systemPrompt, userPrompt);
 
     // Clean up potential markdown formatting that the model might include despite instructions
     if (text.startsWith("```json")) {
@@ -52,27 +41,16 @@ export async function scoreCtiFinding(summary: {
   threat_category: string;
   ai_summary: string;
 } | null> {
-  if (!process.env.GEMINI_API_KEY) {
+  if (!process.env.GROQ_API_KEY) {
     return null;
   }
 
-  const prompt = `You are an elite Level 3 SOC Analyst. Review this stripped VirusTotal threat data. Return ONLY a valid JSON object with exactly three keys: risk_score (number 1-10), threat_category (string), and ai_summary (a concise, 2-sentence summary of the threat level and reputation). No markdown formatting, no conversational text.
-
-VirusTotal Data:
-${JSON.stringify(summary, null, 2)}`;
+  const systemPrompt =
+    "You are an elite Level 3 SOC Analyst. Review this stripped VirusTotal threat data. Return ONLY a valid JSON object with exactly three keys: risk_score (number 1-10), threat_category (string), and ai_summary (a concise, 2-sentence summary of the threat level and reputation). No markdown formatting, no conversational text.";
+  const userPrompt = `VirusTotal Data:\n${JSON.stringify(summary, null, 2)}`;
 
   try {
-    let text = await geminiGenerateText(
-      {
-        contents: [
-          {
-            role: "user",
-            parts: [{ text: prompt }],
-          },
-        ],
-      },
-      { context: "ai-score-cti" },
-    );
+    let text = await groqComplete(systemPrompt, userPrompt);
 
     if (text.startsWith("\`\`\`json")) {
       text = text

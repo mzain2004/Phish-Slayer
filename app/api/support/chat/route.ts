@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 import { z } from "zod";
-import { geminiGenerateText } from "@/lib/ai/gemini";
+import { groqComplete } from "@/lib/ai/groq";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -74,19 +74,10 @@ export async function POST(request: Request) {
 
     let reply = "";
     try {
-      const responseText = await geminiGenerateText(
-        {
-          systemInstruction: {
-            parts: [
-              {
-                text: "You are Phish-Slayer AI Support, an expert cybersecurity SOC assistant embedded in the Phish-Slayer Autonomous SOC platform. Help users navigate the platform, understand their alerts, use features like URL scanning, static analysis, Sigma rules, CTEM, agent reasoning chains, and SOC metrics. Be concise, technical, and helpful. Never ask the user to sign in — they are already authenticated.",
-              },
-            ],
-          },
-          contents: [{ role: "user", parts: [{ text: userMessage }] }],
-          generationConfig: { maxOutputTokens: 500, temperature: 0.7 },
-        },
-        { context: "support-chat-auth" },
+      const responseText = await groqComplete(
+        "You are Phish-Slayer AI Support, an expert cybersecurity SOC assistant embedded in the Phish-Slayer Autonomous SOC platform. Help users navigate the platform, understand their alerts, use features like URL scanning, static analysis, Sigma rules, CTEM, agent reasoning chains, and SOC metrics. Be concise, technical, and helpful. Never ask the user to sign in — they are already authenticated.",
+        userMessage,
+        500,
       );
 
       reply = responseText.trim() || "I couldn't process that. Try again.";

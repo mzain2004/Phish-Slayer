@@ -282,7 +282,10 @@ function enforceTenantRateLimit(tenantId: string) {
   };
 }
 
-function buildL3CacheKey(alertType: string, ruleId: string | null): string | null {
+function buildL3CacheKey(
+  alertType: string,
+  ruleId: string | null,
+): string | null {
   if (!ruleId) {
     return null;
   }
@@ -862,7 +865,9 @@ async function runEventDrivenAgentChain(
           );
 
           const asyncL3Result: L3ChainResult = {
-            findings_count: l3Stage.ok ? extractL3FindingsCount(l3Stage.data) : 0,
+            findings_count: l3Stage.ok
+              ? extractL3FindingsCount(l3Stage.data)
+              : 0,
             duration_ms: l3Stage.duration_ms,
             timed_out: l3Stage.timed_out,
             error: l3Stage.error,

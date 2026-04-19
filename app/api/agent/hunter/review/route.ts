@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createSupabaseAdminClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import { geminiGenerateText } from "@/lib/ai/gemini";
+import { groqComplete } from "@/lib/ai/groq";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -107,35 +107,17 @@ async function callGemini(
   escalationsLastHour: number,
   recentFindings: Array<Record<string, unknown>>,
 ): Promise<ReviewDecision> {
-  if (!process.env.GEMINI_API_KEY) {
-    throw new Error("Missing GEMINI_API_KEY");
+  if (!process.env.GROQ_API_KEY) {
+    throw new Error("Missing GROQ_API_KEY");
   }
 
-  const text = await geminiGenerateText(
-    {
-      generationConfig: {
-        temperature: 0,
-        responseMimeType: "application/json",
-      },
-      systemInstruction: {
-        parts: [{ text: REVIEW_PROMPT }],
-      },
-      contents: [
-        {
-          role: "user",
-          parts: [
-            {
-              text: JSON.stringify({
-                escalations_last_hour: escalationsLastHour,
-                recent_hunt_findings: recentFindings,
-                timestamp: new Date().toISOString(),
-              }),
-            },
-          ],
-        },
-      ],
-    },
-    { context: "hunter-review" },
+  const text = await groqComplete(
+    REVIEW_PROMPT,
+    JSON.stringify({
+      escalations_last_hour: escalationsLastHour,
+      recent_hunt_findings: recentFindings,
+      timestamp: new Date().toISOString(),
+    }),
   );
 
   const cleaned = stripCodeFence(text);
@@ -144,12 +126,12 @@ async function callGemini(
   try {
     json = JSON.parse(cleaned);
   } catch {
-    throw new Error("Gemini reviewer response was not valid JSON");
+    throw new Error("Groq reviewer response was not valid JSON");
   }
 
   const decision = ReviewDecisionSchema.safeParse(json);
   if (!decision.success) {
-    throw new Error("Gemini reviewer decision schema validation failed");
+    throw new Error("Groq reviewer decision schema validation failed");
   }
 
   return decision.data;

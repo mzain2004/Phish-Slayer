@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { geminiGenerateText, getGeminiModel } from "@/lib/ai/gemini";
+import { groqComplete, getGroqModel } from "@/lib/ai/groq";
 
 export const OLLAMA_BASE_URL =
   process.env.OLLAMA_BASE_URL || "http://localhost:11434";
@@ -41,7 +41,33 @@ function createTimeoutSignal(timeoutMs: number): AbortSignal {
   return controller.signal;
 }
 
-async function geminiGenerate(promptOrPayload: string): Promise<string> {
+function resolveGroqPrompts(
+  payload: Record<string, unknown>,
+): { systemPrompt: string; userPrompt: string } {
+  const systemInstruction = payload.systemInstruction as
+    | { parts?: Array<{ text?: string }> }
+    | undefined;
+  const systemText = systemInstruction?.parts
+    ?.map((part) => part.text || "")
+    .join("\n")
+    .trim();
+
+  const contents = payload.contents as
+    | Array<{ parts?: Array<{ text?: string }> }>
+    | undefined;
+  const userText = contents
+    ?.flatMap((item) => item.parts || [])
+    .map((part) => part.text || "")
+    .join("\n")
+    .trim();
+
+  return {
+    systemPrompt: systemText || "You are a helpful assistant.",
+    userPrompt: userText || "",
+  };
+}
+
+async function groqGenerate(promptOrPayload: string): Promise<string> {
   let parsedPayload: unknown;
   try {
     parsedPayload = JSON.parse(promptOrPayload);
@@ -51,7 +77,7 @@ async function geminiGenerate(promptOrPayload: string): Promise<string> {
 
   const payload =
     parsedPayload && typeof parsedPayload === "object"
-      ? parsedPayload
+      ? (parsedPayload as Record<string, unknown>)
       : {
           contents: [
             {
@@ -61,10 +87,9 @@ async function geminiGenerate(promptOrPayload: string): Promise<string> {
           ],
         };
 
-  return geminiGenerateText(payload, {
-    signal: createTimeoutSignal(OLLAMA_TIMEOUT_MS),
-    context: "ollama-fallback",
-  });
+  const { systemPrompt, userPrompt } = resolveGroqPrompts(payload);
+
+  return groqComplete(systemPrompt, userPrompt);
 }
 
 export async function ollamaGenerate(
@@ -156,12 +181,12 @@ export async function generateWithFallback(
     console.info("[llm] provider=ollama model=%s", DEFAULT_MODEL);
     return result;
   } catch (ollamaError) {
-    console.warn("[llm] provider=ollama failed, using Gemini fallback", {
+    console.warn("[llm] provider=ollama failed, using Groq fallback", {
       error: ollamaError instanceof Error ? ollamaError.message : "unknown",
     });
   }
 
-  const geminiResult = await geminiGenerate(geminiPrompt || prompt);
-  console.info("[llm] provider=gemini model=%s", getGeminiModel());
-  return geminiResult;
+  const groqResult = await groqGenerate(geminiPrompt || prompt);
+  console.info("[llm] provider=groq model=%s", getGroqModel());
+  return groqResult;
 }

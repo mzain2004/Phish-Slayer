@@ -138,7 +138,7 @@ export async function geminiGenerateText(
       lastError = error instanceof Error ? error : new Error("Gemini failure");
 
       if (isRateLimit && attempt < GEMINI_MAX_RETRIES - 1) {
-        await sleep((2 ** attempt) * GEMINI_BACKOFF_BASE_MS);
+        await sleep(2 ** attempt * GEMINI_BACKOFF_BASE_MS);
         continue;
       }
 

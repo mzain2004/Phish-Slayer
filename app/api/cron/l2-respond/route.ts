@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createSupabaseAdminClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import { geminiGenerateText, getGeminiModel } from "@/lib/ai/gemini";
+import { groqComplete, getGroqModel } from "@/lib/ai/groq";
 import {
   buildL2ReasoningPrompt,
   saveReasoningChain,
@@ -174,26 +174,25 @@ function writeGeminiCache(key: string, text: string) {
   geminiResponseCache.set(key, { text, cachedAt: Date.now() });
 }
 
-async function generateGeminiText(payload: unknown): Promise<string> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error("Missing GEMINI_API_KEY");
+async function generateGroqText(
+  systemPrompt: string,
+  userPrompt: string,
+): Promise<string> {
+  if (!process.env.GROQ_API_KEY) {
+    throw new Error("Missing GROQ_API_KEY");
   }
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
 
   try {
-    return await geminiGenerateText(payload, {
-      signal: controller.signal,
-      context: "l2-respond",
-    });
+    return await groqComplete(systemPrompt, userPrompt);
   } finally {
     clearTimeout(timeoutId);
   }
 }
 
-function fallbackDecision(reasoning = "gemini_unavailable"): Decision {
+function fallbackDecision(reasoning = "groq_unavailable"): Decision {
   return {
     decision: "MANUAL_REVIEW",
     execute: false,
@@ -388,19 +387,10 @@ async function getDecision(escalation: EscalationRow): Promise<Decision> {
       }
     }
 
-    const geminiPayload = {
-      systemInstruction: {
-        parts: [{ text: L2_PROMPT }],
-      },
-      contents: [
-        {
-          role: "user",
-          parts: [{ text: JSON.stringify(escalation) }],
-        },
-      ],
-    };
-
-    const text = await generateGeminiText(geminiPayload);
+    const text = await generateGroqText(
+      L2_PROMPT,
+      JSON.stringify(escalation),
+    );
     if (cacheKey) {
       writeGeminiCache(cacheKey, text);
     }
@@ -414,7 +404,7 @@ async function getDecision(escalation: EscalationRow): Promise<Decision> {
 
     return normalizeDecision(parsedDecision.data, escalation);
   } catch (error) {
-    console.error("[L2 responder] Gemini decision failed; using fallback", {
+    console.error("[L2 responder] Groq decision failed; using fallback", {
       escalation_id: escalation.id,
       error,
     });
@@ -921,7 +911,7 @@ async function runL2Responder(request: NextRequest, options: L2RunOptions) {
         tenantId,
       );
 
-      const geminiModel = getGeminiModel();
+      const groqModel = getGroqModel();
       await saveReasoningChain({
         escalation_id: escalation.id,
         agent_level: "L2",
@@ -946,9 +936,9 @@ async function runL2Responder(request: NextRequest, options: L2RunOptions) {
         ],
         actions_taken: actionsTaken,
         model_used:
-          decision.reasoning === "gemini_unavailable"
-            ? `${geminiModel}:fallback`
-            : geminiModel,
+          decision.reasoning === "groq_unavailable"
+            ? `${groqModel}:fallback`
+            : groqModel,
         execution_time_ms: executionTimeMs,
       });
 
