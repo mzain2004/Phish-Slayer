@@ -16,12 +16,23 @@ const CreateOrganizationSchema = z.object({
     .regex(
       /^[a-z0-9-]+$/,
       "slug must contain lowercase letters, numbers, or hyphens",
-    ),
+    )
+    .optional(),
   plan: z
     .enum(["trial", "starter", "pro", "enterprise", "mssp"])
     .default("trial"),
   owner_id: z.string().uuid().optional(),
 });
+
+function slugifyOrganizationName(name: string): string {
+  const slug = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  return slug.length > 0 ? slug : "default-tenant";
+}
 
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -81,6 +92,31 @@ export async function POST(request: NextRequest) {
 
     const adminClient = getAdminClient();
     const { name, slug, plan, owner_id } = parsed.data;
+    const ownerId = owner_id || user.id;
+    const resolvedPlan = plan || "trial";
+    const resolvedSlug = slug || slugifyOrganizationName(name);
+
+    const { data: existingOrg, error: existingError } = await adminClient
+      .from("organizations")
+      .select("*")
+      .eq("owner_id", ownerId)
+      .ilike("name", name)
+      .limit(1)
+      .maybeSingle();
+
+    if (existingError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Failed to check existing organizations: ${existingError.message}`,
+        },
+        { status: 500 },
+      );
+    }
+
+    if (existingOrg) {
+      return NextResponse.json({ success: true, organization: existingOrg });
+    }
 
     const organizationInsert: {
       name: string;
@@ -90,14 +126,11 @@ export async function POST(request: NextRequest) {
       owner_id?: string;
     } = {
       name,
-      slug,
-      plan,
+      slug: resolvedSlug,
+      plan: resolvedPlan,
       is_active: true,
+      owner_id: ownerId,
     };
-
-    if (owner_id) {
-      organizationInsert.owner_id = owner_id;
-    }
 
     const { data: organization, error: orgError } = await adminClient
       .from("organizations")
@@ -115,15 +148,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!owner_id) {
-      return NextResponse.json({ success: true, organization });
-    }
-
     const { error: memberError } = await adminClient
       .from("organization_members")
       .insert({
         organization_id: organization.id,
-        user_id: owner_id,
+        user_id: ownerId,
         role: "owner",
       });
 

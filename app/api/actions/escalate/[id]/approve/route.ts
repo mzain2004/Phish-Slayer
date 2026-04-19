@@ -114,9 +114,11 @@ export async function PATCH(
     );
   }
 
-  const organizationId = escalation.organization_id || escalation.tenant_id || null;
+  const organizationId =
+    escalation.organization_id || escalation.tenant_id || null;
   const affectedIp =
-    typeof escalation.affected_ip === "string" && escalation.affected_ip !== "unknown"
+    typeof escalation.affected_ip === "string" &&
+    escalation.affected_ip !== "unknown"
       ? escalation.affected_ip
       : null;
 

@@ -624,9 +624,9 @@ async function runEventDrivenAgentChain(
       duration_ms: l1Result.duration_ms,
       timed_out: l1Result.timed_out,
       error: l1Result.error,
-        organization_id: organizationId,
+      organization_id: organizationId,
     },
-      organizationId,
+    organizationId,
   );
 
   let l2Result: L2ChainResult | null = null;

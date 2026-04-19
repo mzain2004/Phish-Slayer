@@ -122,7 +122,10 @@ export async function POST(request: NextRequest) {
 
   const payload = parsed.data;
   const organizationId =
-    payload.organization_id || payload.organizationId || payload.tenantId || null;
+    payload.organization_id ||
+    payload.organizationId ||
+    payload.tenantId ||
+    null;
   const webhookUrl = process.env.DISCORD_ESCALATION_WEBHOOK_URL;
 
   let discordNotified = false;

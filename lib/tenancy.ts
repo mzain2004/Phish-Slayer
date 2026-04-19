@@ -20,6 +20,19 @@ export type TenantResolution = {
   role: TenantRole;
 };
 
+function buildDefaultOrganizationSlug(userEmail?: string): string {
+  const emailPrefix =
+    typeof userEmail === "string" && userEmail.includes("@")
+      ? userEmail.split("@")[0]
+      : "default";
+  const normalizedPrefix = emailPrefix
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "-");
+  const safePrefix = normalizedPrefix.length > 0 ? normalizedPrefix : "default";
+
+  return `${safePrefix}-${Date.now()}`;
+}
+
 export function getServiceRoleClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -129,18 +142,25 @@ async function getOwnedTenant(
 async function createDefaultTenantForUser(
   userId: string,
   tenantNameHint?: string,
+  userEmail?: string,
 ): Promise<TenantResolution> {
   const adminClient = getServiceRoleClient();
+  const existingOwnedTenant = await getOwnedTenant(userId);
+  if (existingOwnedTenant) {
+    return existingOwnedTenant;
+  }
   const defaultName =
     tenantNameHint && tenantNameHint.trim().length > 0
       ? `${tenantNameHint.trim()} Tenant`
       : "Default Tenant";
+  const slug = buildDefaultOrganizationSlug(userEmail);
 
   const { data: tenantInsert, error: tenantError } = await adminClient
     .from("organizations")
     .insert({
       name: defaultName,
-      plan: "starter",
+      slug,
+      plan: "trial",
       owner_id: userId,
     })
     .select("id, name")
@@ -172,12 +192,14 @@ export async function resolveTenantForUser(options: {
   userId: string;
   preferredTenantId?: string;
   tenantNameHint?: string;
+  userEmail?: string;
   autoCreate?: boolean;
 }): Promise<TenantResolution | null> {
   const {
     userId,
     preferredTenantId,
     tenantNameHint,
+    userEmail,
     autoCreate = true,
   } = options;
 
@@ -225,5 +247,5 @@ export async function resolveTenantForUser(options: {
     return null;
   }
 
-  return createDefaultTenantForUser(userId, tenantNameHint);
+  return createDefaultTenantForUser(userId, tenantNameHint, userEmail);
 }

@@ -48,6 +48,7 @@ export async function GET(request: NextRequest) {
         (user.user_metadata?.full_name as string | undefined) ||
         user.email ||
         undefined,
+      userEmail: user.email || undefined,
       autoCreate: true,
     });
 

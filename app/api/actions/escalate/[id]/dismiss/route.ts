@@ -96,7 +96,8 @@ export async function PATCH(
     );
   }
 
-  const organizationId = escalation.organization_id || escalation.tenant_id || null;
+  const organizationId =
+    escalation.organization_id || escalation.tenant_id || null;
 
   const { error: updateError } = await adminClient
     .from("escalations")

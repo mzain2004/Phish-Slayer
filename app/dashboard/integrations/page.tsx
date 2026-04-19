@@ -84,24 +84,51 @@ export default function IntegrationsPage() {
         throw new Error(data.error || "Failed to load integrations");
       }
 
+      const supabase = createClient();
       const resolvedTenant = data.tenant || null;
-      setTenant(resolvedTenant);
+      let resolvedTenantName =
+        typeof resolvedTenant?.name === "string" ? resolvedTenant.name.trim() : "";
+
+      if (resolvedTenant?.id && !resolvedTenantName) {
+        const { data: organizationRow, error: organizationError } = await supabase
+          .from("organizations")
+          .select("name")
+          .eq("id", resolvedTenant.id)
+          .maybeSingle();
+
+        if (organizationError) {
+          throw new Error(organizationError.message);
+        }
+
+        resolvedTenantName =
+          typeof organizationRow?.name === "string"
+            ? organizationRow.name.trim()
+            : "";
+      }
+
+      const normalizedTenant = resolvedTenant
+        ? {
+            ...resolvedTenant,
+            name: resolvedTenantName || resolvedTenant.id,
+          }
+        : null;
+
+      setTenant(normalizedTenant);
 
       const resolvedWebhookUrl = data.webhook_url || "";
       setWebhookUrl(resolvedWebhookUrl);
 
-      if (!resolvedTenant?.id) {
+      if (!normalizedTenant?.id) {
         setIntegrations([]);
         return;
       }
 
-      const supabase = createClient();
       const { data: connectorRows, error: connectorsError } = await supabase
         .from("connectors")
         .select(
           "id, connector_name, manager_ip, is_active, last_seen_at, created_at",
         )
-        .eq("organization_id", resolvedTenant.id)
+        .eq("organization_id", normalizedTenant.id)
         .eq("connector_type", "wazuh")
         .order("created_at", { ascending: false });
 
@@ -423,7 +450,7 @@ export default function IntegrationsPage() {
             Configured Integrations
           </h2>
           <span className="text-xs text-slate-400">
-            Tenant: {tenant?.name || "Unknown"}
+            Tenant: {tenant?.name || "n/a"}
           </span>
         </div>
 

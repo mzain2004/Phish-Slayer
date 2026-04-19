@@ -60,15 +60,12 @@ export async function GET(request: NextRequest) {
   if (organizationId) {
     triageUrl.searchParams.set("organization_id", organizationId);
   }
-  const response = await fetch(
-    triageUrl,
-    {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${process.env.CRON_SECRET}`,
-      },
+  const response = await fetch(triageUrl, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${process.env.CRON_SECRET}`,
     },
-  );
+  });
 
   const payload = await response.json();
   const executionTimeMs = Date.now() - startedAt;

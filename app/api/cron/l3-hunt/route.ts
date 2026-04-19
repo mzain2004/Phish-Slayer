@@ -485,7 +485,7 @@ function parseL2Context(value: unknown): L3RunOptions["l2Context"] {
       z.string().uuid().safeParse(raw.tenant_id).success
         ? raw.tenant_id
         : typeof raw.organizationId === "string" &&
-          z.string().uuid().safeParse(raw.organizationId).success
+            z.string().uuid().safeParse(raw.organizationId).success
           ? raw.organizationId
           : null,
     action,

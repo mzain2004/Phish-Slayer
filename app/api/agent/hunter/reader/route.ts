@@ -383,10 +383,10 @@ export async function GET(request: NextRequest) {
       await adminClient.from("audit_logs").insert({
         action: "L3_INTEL_INGESTED",
         severity: "low",
-          organization_id: organizationId,
+        organization_id: organizationId,
         metadata: {
           cycle_id: cycleId,
-            organization_id: organizationId,
+          organization_id: organizationId,
           source,
           status: "success",
           fetched: feedIocs.length,
@@ -396,10 +396,10 @@ export async function GET(request: NextRequest) {
       await adminClient.from("audit_logs").insert({
         action: "L3_INTEL_INGESTED",
         severity: "medium",
-          organization_id: organizationId,
+        organization_id: organizationId,
         metadata: {
           cycle_id: cycleId,
-            organization_id: organizationId,
+          organization_id: organizationId,
           source,
           status: "failure",
           error: String(result.reason),
@@ -409,11 +409,11 @@ export async function GET(request: NextRequest) {
       await adminClient.from("audit_logs").insert({
         action: "L3_STAGE_FAILURE",
         severity: "medium",
-          organization_id: organizationId,
+        organization_id: organizationId,
         metadata: {
           stage: "reader",
           cycle_id: cycleId,
-            organization_id: organizationId,
+          organization_id: organizationId,
           source,
           error: String(result.reason),
         },
