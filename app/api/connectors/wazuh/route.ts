@@ -19,53 +19,69 @@ const tenantRateLimitStore = new Map<
   }
 >();
 
-const WazuhAlertSchema = z
+const UnknownFieldsSchema = z.record(z.string(), z.unknown());
+
+const WazuhRuleSchema = z
   .object({
-    id: z.union([z.string(), z.number()]),
-    timestamp: z.union([z.string(), z.number()]),
-    rule: z
+    id: z.union([z.string(), z.number()]).optional(),
+    level: z.number(),
+    description: z.string(),
+    groups: z.array(z.string()).optional(),
+    mitre: z
       .object({
-        id: z.union([z.string(), z.number()]).optional(),
-        level: z.coerce.number().int().min(0).max(15).optional(),
-        description: z.string().optional(),
-        groups: z.array(z.string()).optional(),
-        mitre: z
-          .object({
-            technique: z.array(z.string()).optional(),
-            tactic: z.array(z.string()).optional(),
-          })
-          .optional(),
+        technique: z.array(z.string()).optional(),
+        tactic: z.array(z.string()).optional(),
       })
-      .optional(),
-    agent: z
-      .object({
-        id: z.union([z.string(), z.number()]).optional(),
-        name: z.string().optional(),
-        ip: z.string().optional(),
-      })
-      .optional(),
-    data: z
-      .object({
-        srcip: z.string().optional(),
-        dstip: z.string().optional(),
-        process: z
-          .object({
-            name: z.string().optional(),
-            pid: z.union([z.string(), z.number()]).optional(),
-          })
-          .optional(),
-        process_name: z.string().optional(),
-      })
-      .passthrough()
-      .optional(),
-    syscheck: z
-      .object({
-        path: z.string().optional(),
-        sha256_after: z.string().optional(),
-      })
+      .catchall(z.unknown())
       .optional(),
   })
-  .passthrough();
+  .catchall(z.unknown())
+  .and(UnknownFieldsSchema);
+
+const WazuhAgentSchema = z
+  .object({
+    id: z.union([z.string(), z.number()]).optional(),
+    name: z.string().optional(),
+    ip: z.string().optional(),
+  })
+  .catchall(z.unknown())
+  .and(UnknownFieldsSchema);
+
+const WazuhDataSchema = z
+  .object({
+    srcip: z.string().optional(),
+    dstip: z.string().optional(),
+    process: z
+      .object({
+        name: z.string().optional(),
+        pid: z.union([z.string(), z.number()]).optional(),
+      })
+      .catchall(z.unknown())
+      .optional(),
+    process_name: z.string().optional(),
+  })
+  .catchall(z.unknown())
+  .and(UnknownFieldsSchema);
+
+const WazuhSyscheckSchema = z
+  .object({
+    path: z.string().optional(),
+    sha256_after: z.string().optional(),
+  })
+  .catchall(z.unknown())
+  .and(UnknownFieldsSchema);
+
+const WazuhAlertSchema = z
+  .object({
+    id: z.union([z.string(), z.number()]).optional(),
+    timestamp: z.union([z.string(), z.number()]).optional(),
+    rule: WazuhRuleSchema.optional(),
+    agent: WazuhAgentSchema.optional(),
+    data: WazuhDataSchema.optional(),
+    syscheck: WazuhSyscheckSchema.optional(),
+  })
+  .catchall(z.unknown())
+  .and(UnknownFieldsSchema);
 
 type WazuhAlert = z.infer<typeof WazuhAlertSchema>;
 
@@ -819,6 +835,10 @@ async function runEventDrivenAgentChain(
 }
 
 function normalizeAlert(input: WazuhAlert): WazuhAlert {
+  if (input.timestamp === undefined) {
+    return input;
+  }
+
   return {
     ...input,
     timestamp: normalizeTimestamp(input.timestamp),

@@ -87,14 +87,17 @@ export default function IntegrationsPage() {
       const supabase = createClient();
       const resolvedTenant = data.tenant || null;
       let resolvedTenantName =
-        typeof resolvedTenant?.name === "string" ? resolvedTenant.name.trim() : "";
+        typeof resolvedTenant?.name === "string"
+          ? resolvedTenant.name.trim()
+          : "";
 
       if (resolvedTenant?.id && !resolvedTenantName) {
-        const { data: organizationRow, error: organizationError } = await supabase
-          .from("organizations")
-          .select("name")
-          .eq("id", resolvedTenant.id)
-          .maybeSingle();
+        const { data: organizationRow, error: organizationError } =
+          await supabase
+            .from("organizations")
+            .select("name")
+            .eq("id", resolvedTenant.id)
+            .maybeSingle();
 
         if (organizationError) {
           throw new Error(organizationError.message);

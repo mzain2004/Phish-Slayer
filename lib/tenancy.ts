@@ -25,9 +25,7 @@ function buildDefaultOrganizationSlug(userEmail?: string): string {
     typeof userEmail === "string" && userEmail.includes("@")
       ? userEmail.split("@")[0]
       : "default";
-  const normalizedPrefix = emailPrefix
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "-");
+  const normalizedPrefix = emailPrefix.toLowerCase().replace(/[^a-z0-9]/g, "-");
   const safePrefix = normalizedPrefix.length > 0 ? normalizedPrefix : "default";
 
   return `${safePrefix}-${Date.now()}`;
