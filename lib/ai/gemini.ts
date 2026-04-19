@@ -73,7 +73,7 @@ async function attemptGeminiCall(
 ): Promise<string> {
   const apiKey = getGeminiApiKey();
   if (!apiKey) {
-    throw new Error("Missing GEMINI_API_KEY");
+    throw new Error("Missing GROQ_API_KEY");
   }
 
   const model = getGeminiModel();
