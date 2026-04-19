@@ -85,7 +85,7 @@ export async function PATCH(
   const { data: escalation, error: fetchError } = await adminClient
     .from("escalations")
     .select(
-      "id, title, severity, status, tenant_id, recommended_action, affected_user_id, affected_ip",
+      "id, title, severity, status, tenant_id, organization_id, recommended_action, affected_user_id, affected_ip",
     )
     .eq("id", escalationId)
     .single();
@@ -114,6 +114,12 @@ export async function PATCH(
     );
   }
 
+  const organizationId = escalation.organization_id || escalation.tenant_id || null;
+  const affectedIp =
+    typeof escalation.affected_ip === "string" && escalation.affected_ip !== "unknown"
+      ? escalation.affected_ip
+      : null;
+
   let actionFired: string | null = null;
 
   if (
@@ -140,7 +146,7 @@ export async function PATCH(
     }
   }
 
-  if (escalation.recommended_action === "BLOCK_IP" && escalation.affected_ip) {
+  if (escalation.recommended_action === "BLOCK_IP" && affectedIp) {
     const response = await fetch(
       `${request.nextUrl.origin}/api/actions/block-ip`,
       {
@@ -150,9 +156,10 @@ export async function PATCH(
           cookie: request.headers.get("cookie") || "",
         },
         body: JSON.stringify({
-          ip: escalation.affected_ip,
+          ip: affectedIp,
           reason: escalation.title,
           threatLevel: escalation.severity,
+          organization_id: organizationId,
         }),
       },
     );
@@ -165,10 +172,11 @@ export async function PATCH(
   await adminClient.from("audit_logs").insert({
     action: "ESCALATION_APPROVED",
     severity: escalation.severity,
-    organization_id: escalation.tenant_id || null,
+    organization_id: organizationId,
     metadata: {
       escalation_id: escalationId,
-      tenant_id: escalation.tenant_id || null,
+      organization_id: organizationId,
+      tenant_id: organizationId,
       recommended_action: escalation.recommended_action,
       action_fired: actionFired,
     },

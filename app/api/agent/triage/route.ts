@@ -99,6 +99,24 @@ type ProcessBatchOptions = {
   tenantId?: string;
 };
 
+function normalizeGeminiConfidence(
+  confidence: number,
+  context: { source: QueueRecord["source"]; recordId: string },
+): number {
+  if (confidence > 0) {
+    return confidence;
+  }
+
+  console.warn("[L1 triage] Gemini confidence fallback applied", {
+    source: context.source,
+    record_id: context.recordId,
+    parsed_confidence: confidence,
+    fallback_confidence: 0.5,
+  });
+
+  return 0.5;
+}
+
 const SYSTEM_PROMPT = `You are an expert SOC analyst with 15 years experience in
 threat detection. Your job is to triage security alerts with
 surgical precision.
@@ -497,7 +515,13 @@ async function runGeminiTriage(record: QueueRecord): Promise<Decision> {
       throw new Error("Decision schema validation failed");
     }
 
-    return parsedDecision.data;
+    return {
+      ...parsedDecision.data,
+      confidence: normalizeGeminiConfidence(parsedDecision.data.confidence, {
+        source: record.source,
+        recordId: record.id,
+      }),
+    };
   } catch (error) {
     console.warn("[L1 triage] Gemini failed, using graceful fallback", {
       source: record.source,
@@ -521,7 +545,7 @@ async function escalateScan(
 
   const affectedIp =
     record.source === "wazuh"
-      ? record.src_ip || record.dest_ip || record.agent_ip || null
+      ? record.src_ip || record.dest_ip || record.agent_ip || "unknown"
       : null;
 
   const affectedUserId =
@@ -540,10 +564,12 @@ async function escalateScan(
       description: decision.reasoning,
       affectedUserId,
       affectedIp,
+      organization_id: tenantId || undefined,
       tenantId: tenantId || undefined,
       recommendedAction: normalizeEscalationAction(decision),
       telemetrySnapshot: {
         ...(record as Record<string, unknown>),
+        organization_id: tenantId || null,
         tenant_id: tenantId || null,
       },
     }),
@@ -574,6 +600,7 @@ async function processBatch(
 ) {
   const adminClient = getAdminClient();
   const tenantId = options.tenantId || null;
+  const organizationId = tenantId;
   const includeScans = options.includeScans ?? !options.alertId;
   const alertMinAgeMinutes =
     typeof options.alertMinAgeMinutes === "number" &&
@@ -682,6 +709,7 @@ async function processBatch(
             action: "L1_AUTO_CLOSED",
             severity: decision.severity,
             metadata: {
+              organization_id: organizationId,
               tenant_id: tenantId,
               source: item.source,
               record_id: item.id,
@@ -711,7 +739,7 @@ async function processBatch(
           item_id: item.id,
           alert_id: item.source === "wazuh" ? item.id : null,
           scan_id: item.source === "scans" ? item.id : null,
-          tenant_id: tenantId,
+          tenant_id: organizationId,
           source: item.source,
           decision: decision.decision,
           confidence: decision.confidence,
@@ -725,7 +753,7 @@ async function processBatch(
           item,
           decision,
           baseUrl,
-          tenantId,
+          organizationId,
         );
 
         const updateQuery =
@@ -769,7 +797,7 @@ async function processBatch(
           item_id: item.id,
           alert_id: item.source === "wazuh" ? item.id : null,
           scan_id: item.source === "scans" ? item.id : null,
-          tenant_id: tenantId,
+          tenant_id: organizationId,
           source: item.source,
           decision: decision.decision,
           confidence: decision.confidence,
@@ -802,7 +830,8 @@ async function processBatch(
 
   return NextResponse.json({
     success: true,
-    tenant_id: tenantId,
+    tenant_id: organizationId,
+    organization_id: organizationId,
     processed,
     closed,
     escalated,
@@ -831,7 +860,9 @@ export async function GET(request: NextRequest) {
     ? Math.max(0, parsedMinAge)
     : undefined;
   const tenantParam =
-    request.nextUrl.searchParams.get("tenant_id") || undefined;
+    request.nextUrl.searchParams.get("organization_id") ||
+    request.nextUrl.searchParams.get("tenant_id") ||
+    undefined;
   let tenantId: string | undefined;
 
   if (tenantParam) {
@@ -890,9 +921,12 @@ export async function POST(request: NextRequest) {
     ? Math.max(0, parsedMinAge)
     : undefined;
   const tenantIdRaw =
-    typeof body.tenant_id === "string" && body.tenant_id.trim().length > 0
-      ? body.tenant_id.trim()
-      : undefined;
+    typeof body.organization_id === "string" &&
+    body.organization_id.trim().length > 0
+      ? body.organization_id.trim()
+      : typeof body.tenant_id === "string" && body.tenant_id.trim().length > 0
+        ? body.tenant_id.trim()
+        : undefined;
   let tenantId: string | undefined;
 
   if (tenantIdRaw) {

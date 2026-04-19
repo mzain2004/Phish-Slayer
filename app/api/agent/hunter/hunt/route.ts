@@ -120,6 +120,16 @@ function getCycleId(request: NextRequest): string | null {
   return value && value.trim().length > 0 ? value.trim() : null;
 }
 
+function getOrganizationId(request: NextRequest): string | null {
+  const value = request.nextUrl.searchParams.get("organization_id");
+  if (!value || value.trim().length === 0) {
+    return null;
+  }
+
+  const parsed = z.string().uuid().safeParse(value.trim());
+  return parsed.success ? parsed.data : null;
+}
+
 function isAuthorized(request: NextRequest): boolean {
   return (
     Boolean(process.env.CRON_SECRET) &&
@@ -326,6 +336,7 @@ export async function GET(request: NextRequest) {
   const adminClient = getAdminClient();
   const baseUrl = request.nextUrl.origin;
   const cycleId = getCycleId(request);
+  const organizationId = getOrganizationId(request);
   const minAgeRaw = request.nextUrl.searchParams.get("min_age_minutes");
   const parsedMinAge = minAgeRaw ? Number(minAgeRaw) : NaN;
   const minAgeMinutes = Number.isFinite(parsedMinAge)
@@ -385,11 +396,12 @@ export async function GET(request: NextRequest) {
             await adminClient.from("audit_logs").insert({
               action: "L3_STAGE_FAILURE",
               severity: "medium",
-              organization_id: null,
+              organization_id: organizationId,
               metadata: {
                 stage: "hunt",
                 failure_type: "gemini_failure",
                 cycle_id: cycleId,
+                organization_id: organizationId,
                 ioc_id: ioc.id,
                 scan_id: String(scan.id || "unknown"),
                 error: fallbackReason,
@@ -431,8 +443,10 @@ export async function GET(request: NextRequest) {
                 title: `L3 Hunter: ${primaryFinding.finding_type} pattern - ${ioc.ioc_value}`,
                 description: `${decision.analyst_briefing} Narrative: ${decision.attack_narrative}. Findings: ${findingSummary}`,
                 affectedUserId,
+                organization_id: organizationId,
                 recommendedAction: "MANUAL_REVIEW",
                 telemetrySnapshot: {
+                  organization_id: organizationId,
                   ioc,
                   scan,
                   hunter_output: decision,
@@ -458,9 +472,10 @@ export async function GET(request: NextRequest) {
           await adminClient.from("audit_logs").insert({
             action: "L3_HUNT_HIT",
             severity,
-            organization_id: null,
+            organization_id: organizationId,
             metadata: {
               cycle_id: cycleId,
+              organization_id: organizationId,
               ioc_id: ioc.id,
               ioc_value: ioc.ioc_value,
               scan_id: scanId,

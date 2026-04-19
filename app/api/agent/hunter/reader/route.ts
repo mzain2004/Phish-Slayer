@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createSupabaseAdminClient } from "@supabase/supabase-js";
+import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -33,6 +34,16 @@ function isAuthorized(request: NextRequest): boolean {
 function getCycleId(request: NextRequest): string | null {
   const value = request.headers.get("x-l3-cycle-id");
   return value && value.trim().length > 0 ? value.trim() : null;
+}
+
+function getOrganizationId(request: NextRequest): string | null {
+  const value = request.nextUrl.searchParams.get("organization_id");
+  if (!value || value.trim().length === 0) {
+    return null;
+  }
+
+  const parsed = z.string().uuid().safeParse(value.trim());
+  return parsed.success ? parsed.data : null;
 }
 
 function ensureStringArray(input: unknown): string[] {
@@ -338,6 +349,7 @@ export async function GET(request: NextRequest) {
 
   const adminClient = getAdminClient();
   const cycleId = getCycleId(request);
+  const organizationId = getOrganizationId(request);
 
   const settled = await Promise.allSettled([
     fetchUrlhaus(),
@@ -371,9 +383,10 @@ export async function GET(request: NextRequest) {
       await adminClient.from("audit_logs").insert({
         action: "L3_INTEL_INGESTED",
         severity: "low",
-        organization_id: null,
+          organization_id: organizationId,
         metadata: {
           cycle_id: cycleId,
+            organization_id: organizationId,
           source,
           status: "success",
           fetched: feedIocs.length,
@@ -383,9 +396,10 @@ export async function GET(request: NextRequest) {
       await adminClient.from("audit_logs").insert({
         action: "L3_INTEL_INGESTED",
         severity: "medium",
-        organization_id: null,
+          organization_id: organizationId,
         metadata: {
           cycle_id: cycleId,
+            organization_id: organizationId,
           source,
           status: "failure",
           error: String(result.reason),
@@ -395,10 +409,11 @@ export async function GET(request: NextRequest) {
       await adminClient.from("audit_logs").insert({
         action: "L3_STAGE_FAILURE",
         severity: "medium",
-        organization_id: null,
+          organization_id: organizationId,
         metadata: {
           stage: "reader",
           cycle_id: cycleId,
+            organization_id: organizationId,
           source,
           error: String(result.reason),
         },

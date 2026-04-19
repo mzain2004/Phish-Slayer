@@ -85,7 +85,7 @@ export async function PATCH(
 
   const { data: escalation, error: fetchError } = await adminClient
     .from("escalations")
-    .select("id, severity, tenant_id")
+    .select("id, severity, tenant_id, organization_id")
     .eq("id", escalationId)
     .single();
 
@@ -95,6 +95,8 @@ export async function PATCH(
       { status: 404 },
     );
   }
+
+  const organizationId = escalation.organization_id || escalation.tenant_id || null;
 
   const { error: updateError } = await adminClient
     .from("escalations")
@@ -115,10 +117,11 @@ export async function PATCH(
   await adminClient.from("audit_logs").insert({
     action: "ESCALATION_DISMISSED",
     severity: escalation.severity,
-    organization_id: escalation.tenant_id || null,
+    organization_id: organizationId,
     metadata: {
       escalation_id: escalationId,
-      tenant_id: escalation.tenant_id || null,
+      organization_id: organizationId,
+      tenant_id: organizationId,
     },
     actor_id: userId,
     created_at: resolvedAt,

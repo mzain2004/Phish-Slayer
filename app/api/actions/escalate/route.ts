@@ -14,6 +14,8 @@ const EscalatePayloadSchema = z.object({
   description: z.string().min(1, { message: "description is required" }),
   affectedUserId: z.string().uuid().optional(),
   affectedIp: z.string().optional(),
+  organization_id: z.string().uuid().optional(),
+  organizationId: z.string().uuid().optional(),
   tenantId: z.string().uuid().optional(),
   recommendedAction: z.enum([
     "CLOSE",
@@ -119,6 +121,8 @@ export async function POST(request: NextRequest) {
   }
 
   const payload = parsed.data;
+  const organizationId =
+    payload.organization_id || payload.organizationId || payload.tenantId || null;
   const webhookUrl = process.env.DISCORD_ESCALATION_WEBHOOK_URL;
 
   let discordNotified = false;
@@ -210,7 +214,8 @@ export async function POST(request: NextRequest) {
       title: payload.title,
       description: payload.description,
       affected_user_id: payload.affectedUserId ?? null,
-      affected_ip: payload.affectedIp ?? null,
+      affected_ip: payload.affectedIp ?? "unknown",
+      organization_id: organizationId,
       recommended_action: payload.recommendedAction,
       telemetry_snapshot: payload.telemetrySnapshot ?? null,
       discord_notified: discordNotified,
@@ -239,10 +244,11 @@ export async function POST(request: NextRequest) {
   const { error: auditError } = await adminClient.from("audit_logs").insert({
     action: "ALERT_ESCALATED",
     severity: payload.severity,
-    organization_id: payload.tenantId || null,
+    organization_id: organizationId,
     metadata: {
       alertId: payload.alertId,
-      tenant_id: payload.tenantId || null,
+      organization_id: organizationId,
+      tenant_id: organizationId,
       recommendedAction: payload.recommendedAction,
       discord_notified: discordNotified,
     },

@@ -379,11 +379,17 @@ async function invokeStep<T>(
   cycleId: string,
   path: string,
   schema: z.ZodSchema<T>,
+  organizationId: string | null,
 ) {
   let payload: unknown = null;
 
   try {
-    const response = await fetch(`${baseUrl}${path}`, {
+    const url = new URL(path, baseUrl);
+    if (organizationId) {
+      url.searchParams.set("organization_id", organizationId);
+    }
+
+    const response = await fetch(url, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${process.env.CRON_SECRET}`,
@@ -438,7 +444,9 @@ type L3RunOptions = {
   triggerMode: "sweep" | "event";
   minHuntRecordAgeMinutes: number;
   triggerReason?: string;
+  organizationId?: string | null;
   l2Context?: {
+    organization_id: string | null;
     tenant_id: string | null;
     action: "ISOLATE_IDENTITY" | "BLOCK_IP" | "HUNT" | "MANUAL_REVIEW";
     confidence: number;
@@ -467,11 +475,19 @@ function parseL2Context(value: unknown): L3RunOptions["l2Context"] {
   }
 
   return {
+    organization_id:
+      typeof raw.organization_id === "string" &&
+      z.string().uuid().safeParse(raw.organization_id).success
+        ? raw.organization_id
+        : null,
     tenant_id:
       typeof raw.tenant_id === "string" &&
       z.string().uuid().safeParse(raw.tenant_id).success
         ? raw.tenant_id
-        : null,
+        : typeof raw.organizationId === "string" &&
+          z.string().uuid().safeParse(raw.organizationId).success
+          ? raw.organizationId
+          : null,
     action,
     confidence:
       typeof raw.confidence === "number" && Number.isFinite(raw.confidence)
@@ -498,7 +514,11 @@ async function runL3Pipeline(request: NextRequest, options: L3RunOptions) {
   const cycleId = `l3-cycle-${startedAt}`;
   const adminClient = getAdminClient();
   const baseUrl = getInternalBaseUrl(request);
-  const tenantId = options.l2Context?.tenant_id || null;
+  const tenantId =
+    options.organizationId ||
+    options.l2Context?.organization_id ||
+    options.l2Context?.tenant_id ||
+    null;
   const stageErrors: string[] = [];
   const hunterPath =
     options.minHuntRecordAgeMinutes > 0
@@ -546,6 +566,7 @@ async function runL3Pipeline(request: NextRequest, options: L3RunOptions) {
       trigger_mode: options.triggerMode,
       trigger_reason: options.triggerReason || null,
       l2_context: options.l2Context || null,
+      organization_id: tenantId,
     },
     tenantId,
   );
@@ -555,6 +576,7 @@ async function runL3Pipeline(request: NextRequest, options: L3RunOptions) {
     cycleId,
     "/api/agent/hunter/reader",
     ReaderResponseSchema,
+    tenantId,
   );
 
   if (readerResult.ok) {
@@ -607,6 +629,7 @@ async function runL3Pipeline(request: NextRequest, options: L3RunOptions) {
     cycleId,
     hunterPath,
     HunterResponseSchema,
+    tenantId,
   );
 
   if (hunterResult.ok) {
@@ -649,6 +672,7 @@ async function runL3Pipeline(request: NextRequest, options: L3RunOptions) {
     "review_started",
     {
       step_path: "/api/agent/hunter/review",
+      organization_id: tenantId,
     },
     tenantId,
   );
@@ -658,6 +682,7 @@ async function runL3Pipeline(request: NextRequest, options: L3RunOptions) {
     cycleId,
     "/api/agent/hunter/review",
     ReviewerResponseSchema,
+    tenantId,
   );
 
   if (reviewerResult.ok) {
@@ -908,12 +933,24 @@ export async function POST(request: NextRequest) {
   const minHuntRecordAgeMinutes = Number.isFinite(minAgeRaw)
     ? Math.max(0, minAgeRaw)
     : 0;
+  const organizationId =
+    (typeof body.organization_id === "string" &&
+      z.string().uuid().safeParse(body.organization_id).success &&
+      body.organization_id) ||
+    (typeof body.organizationId === "string" &&
+      z.string().uuid().safeParse(body.organizationId).success &&
+      body.organizationId) ||
+    (typeof body.tenant_id === "string" &&
+      z.string().uuid().safeParse(body.tenant_id).success &&
+      body.tenant_id) ||
+    null;
   const l2Context = parseL2Context(body.l2_context);
 
   return runL3Pipeline(request, {
     triggerMode: "event",
     minHuntRecordAgeMinutes,
     triggerReason,
+    organizationId,
     l2Context,
   });
 }

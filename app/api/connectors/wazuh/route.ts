@@ -563,6 +563,7 @@ async function runEventDrivenAgentChain(
 ): Promise<ChainExecutionResult> {
   const chainStartedAt = Date.now();
   const stagesExecuted: string[] = [];
+  const organizationId = tenantId;
 
   await writeAuditLogSafe(
     "AGENT_CHAIN_STARTED",
@@ -582,7 +583,8 @@ async function runEventDrivenAgentChain(
       alert_id: alertId,
       include_scans: false,
       alert_min_age_minutes: 0,
-      tenant_id: tenantId,
+      organization_id: organizationId,
+      tenant_id: organizationId,
     },
     STAGE_TIMEOUT_MS,
   );
@@ -622,8 +624,9 @@ async function runEventDrivenAgentChain(
       duration_ms: l1Result.duration_ms,
       timed_out: l1Result.timed_out,
       error: l1Result.error,
+        organization_id: organizationId,
     },
-    tenantId,
+      organizationId,
   );
 
   let l2Result: L2ChainResult | null = null;
@@ -636,8 +639,9 @@ async function runEventDrivenAgentChain(
       {
         alert_id: alertId,
         escalation_id: l1Result.escalation_id,
+        organization_id: organizationId,
       },
-      tenantId,
+      organizationId,
     );
 
     if (!l1Result.escalation_id) {
@@ -673,12 +677,14 @@ async function runEventDrivenAgentChain(
         {
           escalation_id: l1Result.escalation_id,
           min_age_minutes: 0,
-          tenant_id: tenantId,
+          organization_id: organizationId,
+          tenant_id: organizationId,
           l1_result: {
             decision: l1Result.decision,
             confidence: l1Result.confidence,
             escalation_id: l1Result.escalation_id,
-            tenant_id: tenantId,
+            organization_id: organizationId,
+            tenant_id: organizationId,
           },
         },
         STAGE_TIMEOUT_MS,
@@ -718,8 +724,9 @@ async function runEventDrivenAgentChain(
           duration_ms: l2Result.duration_ms,
           timed_out: l2Result.timed_out,
           error: l2Result.error,
+          organization_id: organizationId,
         },
-        tenantId,
+        organizationId,
       );
     }
 

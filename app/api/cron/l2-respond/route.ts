@@ -29,6 +29,7 @@ const TenantIdSchema = z.string().uuid();
 type EscalationRow = {
   id: string;
   alert_id: string | null;
+  organization_id: string | null;
   severity: "low" | "medium" | "high" | "critical";
   title: string;
   description: string;
@@ -186,6 +187,14 @@ function isInternalIp(ip: string | null): boolean {
   );
 }
 
+function getActionableIp(ip: string | null): string | null {
+  if (!ip || ip === "unknown") {
+    return null;
+  }
+
+  return ip;
+}
+
 function isBusinessCriticalContext(escalation: EscalationRow): boolean {
   const haystack =
     `${escalation.title} ${escalation.description}`.toLowerCase();
@@ -195,6 +204,7 @@ function isBusinessCriticalContext(escalation: EscalationRow): boolean {
 }
 
 function normalizeDecision(raw: Decision, escalation: EscalationRow): Decision {
+  const actionableIp = getActionableIp(escalation.affected_ip);
   const isHighSeverity = ["critical", "high"].includes(escalation.severity);
 
   if (raw.confidence < 0.85 || !isHighSeverity) {
@@ -221,7 +231,7 @@ function normalizeDecision(raw: Decision, escalation: EscalationRow): Decision {
     };
   }
 
-  if (raw.decision === "BLOCK_IP" && !escalation.affected_ip) {
+  if (raw.decision === "BLOCK_IP" && !actionableIp) {
     return {
       ...raw,
       decision: "MANUAL_REVIEW",
@@ -230,7 +240,7 @@ function normalizeDecision(raw: Decision, escalation: EscalationRow): Decision {
     };
   }
 
-  if (raw.decision === "BLOCK_IP" && isInternalIp(escalation.affected_ip)) {
+  if (raw.decision === "BLOCK_IP" && isInternalIp(actionableIp)) {
     return {
       ...raw,
       decision: "MANUAL_REVIEW",
@@ -278,6 +288,13 @@ function toEscalationRow(row: RawEscalationRow): EscalationRow | null {
         ? row.affectedUserId
         : null;
 
+  const organizationId =
+    typeof row.organization_id === "string"
+      ? row.organization_id
+      : typeof row.organizationId === "string"
+        ? row.organizationId
+        : null;
+
   const affectedIp =
     typeof row.affected_ip === "string"
       ? row.affected_ip
@@ -296,6 +313,7 @@ function toEscalationRow(row: RawEscalationRow): EscalationRow | null {
           ? row.alertId
           : null,
     severity: severity as EscalationRow["severity"],
+    organization_id: organizationId,
     title: typeof row.title === "string" ? row.title : "Untitled escalation",
     description:
       typeof row.description === "string" ? row.description : "No description",
@@ -469,6 +487,7 @@ async function writeLifecycleAudit(
   tenantId: string | null = null,
 ) {
   const payload = {
+    organization_id: tenantId,
     tenant_id: tenantId,
     escalation_id: escalation.id,
     alert_id: escalation.alert_id,
@@ -506,9 +525,21 @@ function resolveEscalationTenantId(
   escalation: EscalationRow,
   l1Result: Record<string, unknown> | null | undefined,
 ): string | null {
+  if (escalation.organization_id) {
+    return escalation.organization_id;
+  }
+
   const telemetry = escalation.telemetry_snapshot;
 
   if (telemetry && typeof telemetry === "object") {
+    const telemetryOrganizationId = readTenantIdFromUnknown(
+      (telemetry as Record<string, unknown>).organization_id,
+    );
+
+    if (telemetryOrganizationId) {
+      return telemetryOrganizationId;
+    }
+
     const telemetryTenantId = readTenantIdFromUnknown(
       (telemetry as Record<string, unknown>).tenant_id,
     );
@@ -516,6 +547,11 @@ function resolveEscalationTenantId(
     if (telemetryTenantId) {
       return telemetryTenantId;
     }
+  }
+
+  const l1OrganizationId = readTenantIdFromUnknown(l1Result?.organization_id);
+  if (l1OrganizationId) {
+    return l1OrganizationId;
   }
 
   const l1TenantId = readTenantIdFromUnknown(l1Result?.tenant_id);
@@ -621,11 +657,13 @@ type L2RunOptions = {
   minAgeMinutes?: number;
   triggerMode: "sweep" | "event";
   l1Result?: Record<string, unknown> | null;
+  organizationId?: string | null;
 };
 
 async function runL2Responder(request: NextRequest, options: L2RunOptions) {
   const adminClient = getAdminClient();
   const baseUrl = process.env.INTERNAL_API_URL ?? request.nextUrl.origin;
+  const organizationId = options.organizationId ?? null;
 
   const minAgeMinutes =
     typeof options.minAgeMinutes === "number" && options.minAgeMinutes > 0
@@ -678,7 +716,8 @@ async function runL2Responder(request: NextRequest, options: L2RunOptions) {
   for (const escalation of escalations) {
     let decision: Decision | null = null;
     const startedAt = Date.now();
-    const tenantId = resolveEscalationTenantId(escalation, options.l1Result);
+    const tenantId =
+      organizationId || resolveEscalationTenantId(escalation, options.l1Result);
 
     try {
       const claimState = await claimEscalation(adminClient, escalation);
@@ -691,6 +730,7 @@ async function runL2Responder(request: NextRequest, options: L2RunOptions) {
           {
             skip_reason: claimState,
             trigger_mode: options.triggerMode,
+            organization_id: tenantId,
           },
           tenantId,
         );
@@ -704,6 +744,7 @@ async function runL2Responder(request: NextRequest, options: L2RunOptions) {
         {
           status_before: escalation.status,
           trigger_mode: options.triggerMode,
+          organization_id: tenantId,
         },
         tenantId,
       );
@@ -721,6 +762,7 @@ async function runL2Responder(request: NextRequest, options: L2RunOptions) {
           execute: decision.execute,
           confidence: decision.confidence,
           reasoning: decision.reasoning,
+          organization_id: tenantId,
         },
         tenantId,
       );
@@ -729,6 +771,7 @@ async function runL2Responder(request: NextRequest, options: L2RunOptions) {
       let statusAfter = "awaiting_human";
       let outcomeAction = "manual_review";
       let actionFired = false;
+      const actionableIp = getActionableIp(escalation.affected_ip);
 
       if (decision.execute && decision.decision === "ISOLATE_IDENTITY") {
         await writeLifecycleAudit(
@@ -738,6 +781,7 @@ async function runL2Responder(request: NextRequest, options: L2RunOptions) {
           {
             action: "ISOLATE_IDENTITY",
             target_user_id: escalation.affected_user_id,
+            organization_id: tenantId,
           },
           tenantId,
         );
@@ -745,6 +789,7 @@ async function runL2Responder(request: NextRequest, options: L2RunOptions) {
         await callInternalAction(baseUrl, "/api/actions/isolate-identity", {
           targetUserId: escalation.affected_user_id,
           reason: `L2 Auto-Response: ${escalation.description}`,
+          organization_id: tenantId,
           tenantId,
         });
         triggerSigmaRuleGeneration(baseUrl, escalation.alert_id);
@@ -761,15 +806,17 @@ async function runL2Responder(request: NextRequest, options: L2RunOptions) {
           escalation,
           {
             action: "BLOCK_IP",
-            target_ip: escalation.affected_ip,
+            target_ip: actionableIp,
+            organization_id: tenantId,
           },
           tenantId,
         );
 
         await callInternalAction(baseUrl, "/api/actions/block-ip", {
-          ip: escalation.affected_ip,
+          ip: actionableIp,
           reason: `L2 Auto-Response: ${escalation.description}`,
           threatLevel: escalation.severity,
+          organization_id: tenantId,
           tenantId,
         });
         triggerSigmaRuleGeneration(baseUrl, escalation.alert_id);
@@ -801,6 +848,7 @@ async function runL2Responder(request: NextRequest, options: L2RunOptions) {
         statusAfter,
         outcomeAction,
         {
+          organization_id: tenantId,
           tenant_id: tenantId,
           decision_action: decision.decision,
           confidence: decision.confidence,
@@ -819,6 +867,7 @@ async function runL2Responder(request: NextRequest, options: L2RunOptions) {
           status_after: statusAfter,
           action_fired: actionFired,
           action_taken: decision.decision,
+          organization_id: tenantId,
         },
         tenantId,
       );
@@ -834,6 +883,7 @@ async function runL2Responder(request: NextRequest, options: L2RunOptions) {
             severity: escalation.severity,
             affected_user_id: escalation.affected_user_id,
             affected_ip: escalation.affected_ip,
+            organization_id: tenantId,
             source: inferAlertSource(escalation),
             prompt_context: buildL2ReasoningPrompt({
               alert_rule: escalation.title,
@@ -877,6 +927,7 @@ async function runL2Responder(request: NextRequest, options: L2RunOptions) {
           error:
             batchError instanceof Error ? batchError.message : "unknown_error",
           fallback_reasoning: decision?.reasoning || null,
+          organization_id: tenantId,
         },
         tenantId,
       );
@@ -957,6 +1008,11 @@ export async function POST(request: NextRequest) {
   const minAgeMinutes = Number.isFinite(minAgeRaw)
     ? Math.max(0, minAgeRaw)
     : undefined;
+  const organizationId =
+    readTenantIdFromUnknown(body.organization_id) ||
+    readTenantIdFromUnknown(body.organizationId) ||
+    readTenantIdFromUnknown(body.tenant_id) ||
+    readTenantIdFromUnknown(body.tenantId);
   const l1Result =
     body.l1_result && typeof body.l1_result === "object"
       ? (body.l1_result as Record<string, unknown>)
@@ -967,5 +1023,6 @@ export async function POST(request: NextRequest) {
     minAgeMinutes,
     triggerMode: "event",
     l1Result,
+    organizationId,
   });
 }

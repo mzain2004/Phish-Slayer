@@ -67,6 +67,16 @@ function getCycleId(request: NextRequest): string | null {
   return value && value.trim().length > 0 ? value.trim() : null;
 }
 
+function getOrganizationId(request: NextRequest): string | null {
+  const value = request.nextUrl.searchParams.get("organization_id");
+  if (!value || value.trim().length === 0) {
+    return null;
+  }
+
+  const parsed = z.string().uuid().safeParse(value.trim());
+  return parsed.success ? parsed.data : null;
+}
+
 function isAuthorized(request: NextRequest): boolean {
   return (
     Boolean(process.env.CRON_SECRET) &&
@@ -203,6 +213,7 @@ export async function GET(request: NextRequest) {
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
   const baseUrl = request.nextUrl.origin;
   const cycleId = getCycleId(request);
+  const organizationId = getOrganizationId(request);
 
   const { count, error: countError } = await adminClient
     .from("escalations")
@@ -259,11 +270,12 @@ export async function GET(request: NextRequest) {
     await adminClient.from("audit_logs").insert({
       action: "L3_STAGE_FAILURE",
       severity: "medium",
-      organization_id: null,
+      organization_id: organizationId,
       metadata: {
         stage: "review",
         failure_type: "gemini_failure",
         cycle_id: cycleId,
+        organization_id: organizationId,
         escalations_last_hour: escalationsLastHour,
         error: error instanceof Error ? error.message : "unknown_gemini_error",
       },
@@ -286,8 +298,10 @@ export async function GET(request: NextRequest) {
         severity: "high",
         title: "L3 Reviewer: Scope Reduction Recommended",
         description: decision.reviewer_notes,
+        organization_id: organizationId,
         recommendedAction: "MANUAL_REVIEW",
         telemetrySnapshot: {
+          organization_id: organizationId,
           escalations_last_hour: escalationsLastHour,
           decision,
         },
@@ -308,8 +322,10 @@ export async function GET(request: NextRequest) {
         description:
           decision.halt_reason ||
           "Reviewer halted hunt pipeline due to quality concerns.",
+        organization_id: organizationId,
         recommendedAction: "MANUAL_REVIEW",
         telemetrySnapshot: {
+          organization_id: organizationId,
           escalations_last_hour: escalationsLastHour,
           decision,
         },
@@ -328,9 +344,10 @@ export async function GET(request: NextRequest) {
     await adminClient.from("audit_logs").insert({
       action: "L3_CIRCUIT_BREAKER_HALTED",
       severity: "critical",
-      organization_id: null,
+      organization_id: organizationId,
       metadata: {
         cycle_id: cycleId,
+        organization_id: organizationId,
         halt_reason: decision.halt_reason || null,
         verdict: decision.verdict,
         confidence: decision.confidence,
@@ -367,9 +384,10 @@ export async function GET(request: NextRequest) {
   await adminClient.from("audit_logs").insert({
     action: "L3_REVIEW_COMPLETE",
     severity: mapSeverity(decision.verdict),
-    organization_id: null,
+    organization_id: organizationId,
     metadata: {
       cycle_id: cycleId,
+      organization_id: organizationId,
       verdict: decision.verdict,
       confidence: decision.confidence,
       halt_reason: decision.halt_reason || null,

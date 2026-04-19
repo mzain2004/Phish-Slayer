@@ -72,7 +72,10 @@ export default function DashboardLayout({
   );
 
   return (
-    <SessionGuard loadingFallback={loadingFallback} onUserChange={handleUserChange}>
+    <SessionGuard
+      loadingFallback={loadingFallback}
+      onUserChange={handleUserChange}
+    >
       <div
         className="dashboard-theme relative min-h-screen overflow-hidden text-white"
         style={{
@@ -125,12 +128,12 @@ export default function DashboardLayout({
             </div>
           </header>
 
-        <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
-          <DashboardErrorBoundary>
-            <div className="grid gap-6 p-6">{children}</div>
-          </DashboardErrorBoundary>
-        </main>
-      </div>
+          <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+            <DashboardErrorBoundary>
+              <div className="grid gap-6 p-6">{children}</div>
+            </DashboardErrorBoundary>
+          </main>
+        </div>
       </div>
     </SessionGuard>
   );
