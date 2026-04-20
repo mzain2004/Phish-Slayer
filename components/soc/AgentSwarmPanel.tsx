@@ -99,12 +99,12 @@ function normalizeStatus(raw: string | undefined): AgentStatus {
 
 function statusColor(status: AgentStatus): string {
   if (status === "online") {
-    return "bg-emerald-400";
+    return "bg-accent";
   }
   if (status === "error") {
-    return "bg-red-400";
+    return "bg-danger";
   }
-  return "bg-slate-400";
+  return "bg-white/40";
 }
 
 export default function AgentSwarmPanel() {
@@ -547,7 +547,7 @@ export default function AgentSwarmPanel() {
   };
 
   return (
-    <div className="p-6 bg-[rgba(23,28,35,0.85)] backdrop-blur-3xl border border-[rgba(48,54,61,0.9)] rounded-2xl flex flex-col gap-4">
+    <div className="p-6 glass flex flex-col gap-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h2 className="text-xl font-bold text-white">Agent Command Center</h2>
         <div className="text-xs text-white/60 uppercase tracking-[0.14em]">
@@ -565,10 +565,7 @@ export default function AgentSwarmPanel() {
         <div className="flex flex-col gap-4">
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {[l1Agent, l2Agent, l3Agent].filter(Boolean).map((agent, index) => (
-              <div
-                key={agent!.id}
-                className="rounded-xl border border-[rgba(48,54,61,0.9)] bg-black/20 p-4 flex flex-col gap-3"
-              >
+              <div key={agent!.id} className="rounded-xl glass p-4 flex flex-col gap-3">
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-white font-semibold">{agent!.name}</p>
                   <span
@@ -580,8 +577,8 @@ export default function AgentSwarmPanel() {
                   <div
                     className={`text-[10px] uppercase tracking-[0.14em] font-semibold rounded-full px-2 py-1 border w-fit ${
                       hitlEnabled
-                        ? "text-emerald-200 border-emerald-400/40 bg-emerald-500/20"
-                        : "text-red-200 border-red-400/40 bg-red-500/20"
+                        ? "text-accent border-accent/30 bg-accent/15"
+                        : "text-danger border-danger/30 bg-danger/15"
                     }`}
                   >
                     HITL: {hitlEnabled ? "ON" : "OFF"}
@@ -617,10 +614,10 @@ export default function AgentSwarmPanel() {
                         ? triggeringL2
                         : triggeringL3
                   }
-                  className={`rounded-full px-4 py-2 text-sm font-semibold text-black disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 ${
+                  className={`rounded-full px-4 py-2 text-sm font-semibold text-white disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 ${
                     index === 2
-                      ? "bg-gradient-to-r from-[#c084fc] to-[#a855f7]"
-                      : "bg-gradient-to-r from-[#2DD4BF] to-[#22c55e]"
+                      ? "bg-gradient-to-r from-primary to-accent"
+                      : "bg-gradient-to-r from-primary to-accent"
                   }`}
                 >
                   {(
@@ -642,7 +639,7 @@ export default function AgentSwarmPanel() {
             ))}
           </div>
 
-          <div className="rounded-xl border border-[rgba(48,54,61,0.9)] bg-black/20 p-4 flex flex-col gap-3">
+          <div className="rounded-xl glass p-4 flex flex-col gap-3">
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-white font-semibold">Latest L2 Decisions</h3>
               <span className="text-xs text-white/60">
@@ -657,10 +654,7 @@ export default function AgentSwarmPanel() {
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                 {l2RecentDecisions.map((item) => (
-                  <div
-                    key={item.id}
-                    className="rounded-lg border border-[rgba(48,54,61,0.9)] bg-black/30 px-3 py-2 text-xs text-white/80"
-                  >
+                  <div key={item.id} className="rounded-lg glass px-3 py-2 text-xs text-white/80">
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-semibold text-white">
                         {item.decision}
@@ -690,7 +684,7 @@ export default function AgentSwarmPanel() {
             )}
           </div>
 
-          <div className="rounded-xl border border-[rgba(48,54,61,0.9)] bg-black/20 p-4 flex flex-col gap-3">
+          <div className="rounded-xl glass p-4 flex flex-col gap-3">
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-white font-semibold">
                 Latest L3 Hunt Telemetry
@@ -701,19 +695,19 @@ export default function AgentSwarmPanel() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-              <div className="rounded-lg border border-[rgba(48,54,61,0.9)] bg-black/30 px-3 py-2 text-xs text-white/80">
+              <div className="rounded-lg glass px-3 py-2 text-xs text-white/80">
                 <p className="text-white/60">IOCs ingested</p>
                 <p className="mt-1 text-base font-semibold text-white">
                   {l3Telemetry.iocsIngested}
                 </p>
               </div>
-              <div className="rounded-lg border border-[rgba(48,54,61,0.9)] bg-black/30 px-3 py-2 text-xs text-white/80">
+              <div className="rounded-lg glass px-3 py-2 text-xs text-white/80">
                 <p className="text-white/60">Findings (24h)</p>
                 <p className="mt-1 text-base font-semibold text-white">
                   {l3Telemetry.findings24h}
                 </p>
               </div>
-              <div className="rounded-lg border border-[rgba(48,54,61,0.9)] bg-black/30 px-3 py-2 text-xs text-white/80">
+              <div className="rounded-lg glass px-3 py-2 text-xs text-white/80">
                 <p className="text-white/60">Confidence scores</p>
                 <p className="mt-1 text-base font-semibold text-white">
                   {l3Telemetry.confidenceScores.length > 0
@@ -723,7 +717,7 @@ export default function AgentSwarmPanel() {
                     : "n/a"}
                 </p>
               </div>
-              <div className="rounded-lg border border-[rgba(48,54,61,0.9)] bg-black/30 px-3 py-2 text-xs text-white/80">
+              <div className="rounded-lg glass px-3 py-2 text-xs text-white/80">
                 <p className="text-white/60">Last run</p>
                 <p className="mt-1 text-base font-semibold text-white">
                   {l3Telemetry.lastRun
@@ -733,7 +727,7 @@ export default function AgentSwarmPanel() {
               </div>
             </div>
 
-            <div className="rounded-lg border border-[rgba(48,54,61,0.9)] bg-black/30 px-3 py-2 text-xs text-white/80">
+            <div className="rounded-lg glass px-3 py-2 text-xs text-white/80">
               <p className="text-white/60">Reasoning summary</p>
               <p className="mt-1 text-white/90">
                 {l3Telemetry.reasoningSummary}

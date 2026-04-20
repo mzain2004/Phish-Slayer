@@ -15,8 +15,7 @@ import {
   X,
 } from "lucide-react";
 
-const glassCard =
-  "liquid-glass bg-white/5 backdrop-blur-3xl border border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]";
+const glassCard = "glass";
 
 const tactileProps = {
   whileHover: { scale: 1.02 },
@@ -46,7 +45,7 @@ function AuthModal({
       </motion.button>
 
       <div className="flex items-center justify-center gap-2 mb-8">
-        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#A78BFA] to-[#2DD4BF] flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center">
           <Shield className="w-4 h-4 text-black" />
         </div>
         <span className="font-bold text-xl tracking-tight text-white">
@@ -65,7 +64,7 @@ function AuthModal({
           <div className="grid grid-cols-1 gap-3">
             <Link
               href="/auth/login"
-              className="w-full text-center py-2.5 rounded-lg bg-[#2DD4BF] text-black font-semibold hover:bg-[#14B8A6] transition-colors"
+              className="w-full text-center py-2.5 rounded-lg bg-primary text-white font-semibold hover:bg-primary/90 transition-colors"
             >
               Continue to Login
             </Link>
@@ -88,7 +87,7 @@ function AuthModal({
           <div className="grid grid-cols-1 gap-3">
             <Link
               href="/auth/signup"
-              className="w-full text-center py-2.5 rounded-lg bg-[#2DD4BF] text-black font-semibold hover:bg-[#14B8A6] transition-colors"
+              className="w-full text-center py-2.5 rounded-lg bg-primary text-white font-semibold hover:bg-primary/90 transition-colors"
             >
               Continue to Signup
             </Link>
@@ -114,22 +113,12 @@ export default function PhishSlayerLanding({
   const [authIntent, setAuthIntent] = useState<"login" | "signup">("login");
 
   return (
-    <main
-      className="relative min-h-screen overflow-hidden flex flex-col items-center text-white"
-      style={{
-        background: "linear-gradient(135deg, #6B21A8 0%, #0D9488 100%)",
-      }}
-    >
-      <motion.section
-        whileHover={{
-          filter: "drop-shadow(0 0 60px rgba(167, 139, 250, 0.15))",
-        }}
-        className="w-full max-w-5xl mx-auto px-6 pt-32 pb-24 flex flex-col items-center text-center transition-all duration-700"
-      >
+    <main className="relative min-h-screen overflow-hidden flex flex-col items-center text-white bg-base bg-[radial-gradient(1200px_circle_at_top,#1a1b2b_0%,#0a0a0f_55%)]">
+      <motion.section className="w-full max-w-5xl mx-auto px-6 pt-32 pb-24 flex flex-col items-center text-center transition-all duration-700 hover:shadow-[0_0_60px_rgba(124,106,247,0.2)]">
         <div
           className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-8 ${glassCard}`}
         >
-          <span className="w-2 h-2 rounded-full bg-[#A78BFA] animate-pulse"></span>
+          <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
           <span className="text-sm font-medium text-white/80">
             AI Threat Detection Active
           </span>
@@ -155,7 +144,7 @@ export default function PhishSlayerLanding({
           {isAuthenticated ? (
             <Link
               href="/dashboard"
-              className="bg-[#2DD4BF] text-black font-semibold px-8 py-4 rounded-full transition-all duration-300 flex items-center gap-2"
+              className="bg-primary text-white font-semibold px-8 py-4 rounded-full transition-all duration-300 flex items-center gap-2 hover:bg-primary/90 hover:shadow-[0_0_24px_rgba(124,106,247,0.35)]"
             >
               OPEN DASHBOARD
               <ArrowRight className="w-4 h-4" />
@@ -167,7 +156,7 @@ export default function PhishSlayerLanding({
                 setAuthIntent("signup");
                 setIsAuthOpen(true);
               }}
-              className="bg-[#2DD4BF] text-black font-semibold px-8 py-4 rounded-full transition-all duration-300 flex items-center gap-2 group"
+              className="bg-primary text-white font-semibold px-8 py-4 rounded-full transition-all duration-300 flex items-center gap-2 group hover:bg-primary/90 hover:shadow-[0_0_24px_rgba(124,106,247,0.35)]"
             >
               ACTIVATE FREE TRIAL NOW
               <ArrowRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
@@ -240,9 +229,9 @@ export default function PhishSlayerLanding({
           everyone.
         </p>
 
-        <div className="relative w-full max-w-3xl aspect-[2/1] mb-12 rounded-3xl overflow-hidden bg-purple-500/20 border border-white/10 flex items-center justify-center">
+        <div className="relative w-full max-w-3xl aspect-[2/1] mb-12 rounded-3xl overflow-hidden bg-primary/20 border border-white/10 flex items-center justify-center">
           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent z-10"></div>
-          <div className="absolute inset-0 bg-teal-500/20"></div>
+          <div className="absolute inset-0 bg-accent/20"></div>
           <Shield className="relative z-20 w-16 h-16 text-white/80" />
         </div>
 
@@ -251,8 +240,8 @@ export default function PhishSlayerLanding({
             {...tactileProps}
             className={`p-8 text-left ${glassCard} rounded-2xl`}
           >
-            <div className="w-10 h-10 rounded-full bg-[#A78BFA]/20 flex items-center justify-center mb-6">
-              <Shield className="w-5 h-5 text-[#A78BFA]" />
+            <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center mb-6">
+              <Shield className="w-5 h-5 text-primary" />
             </div>
             <h3 className="text-2xl font-bold text-white mb-3">Our Mission</h3>
             <p className="text-white/70">
@@ -264,8 +253,8 @@ export default function PhishSlayerLanding({
             {...tactileProps}
             className={`p-8 text-left ${glassCard} rounded-2xl`}
           >
-            <div className="w-10 h-10 rounded-full bg-[#2DD4BF]/20 flex items-center justify-center mb-6">
-              <Network className="w-5 h-5 text-[#2DD4BF]" />
+            <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center mb-6">
+              <Network className="w-5 h-5 text-accent" />
             </div>
             <h3 className="text-2xl font-bold text-white mb-3">Our Vision</h3>
             <p className="text-white/70">
@@ -299,9 +288,9 @@ export default function PhishSlayerLanding({
 
           <motion.div
             {...tactileProps}
-            className={`p-8 relative transform md:-translate-y-4 border-[#2DD4BF]/50 shadow-[0_0_30px_rgba(45,212,191,0.15)] ${glassCard} rounded-2xl`}
+            className={`p-8 relative transform md:-translate-y-4 border-primary/50 shadow-[0_0_30px_rgba(124,106,247,0.2)] ${glassCard} rounded-2xl`}
           >
-            <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-[#2DD4BF] text-black text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+            <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-primary text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
               Most Popular
             </div>
             <h3 className="text-2xl font-bold text-white mb-2">Pro</h3>
@@ -312,7 +301,7 @@ export default function PhishSlayerLanding({
             <p className="text-white/70 mb-8 h-12">
               Advanced features for growing teams.
             </p>
-            <button className="w-full py-3 rounded-full bg-[#2DD4BF] text-black transition-all duration-300 font-bold">
+            <button className="w-full py-3 rounded-full bg-primary text-white transition-all duration-300 font-bold hover:bg-primary/90">
               Start Free Trial
             </button>
           </motion.div>
@@ -356,10 +345,10 @@ export default function PhishSlayerLanding({
       <AnimatePresence>
         {isAuthOpen && (
           <motion.div
-            initial={{ opacity: 0, backdropFilter: "blur(0px)" }}
-            animate={{ opacity: 1, backdropFilter: "blur(24px)" }}
-            exit={{ opacity: 0, backdropFilter: "blur(0px)" }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-2xl p-4"
             onClick={() => setIsAuthOpen(false)}
           >
             <AuthModal

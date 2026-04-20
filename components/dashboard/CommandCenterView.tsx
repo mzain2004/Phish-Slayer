@@ -28,8 +28,7 @@ type CommandCenterViewProps = {
   recentScans: RecentScan[];
 };
 
-const glassCard =
-  "liquid-glass bg-[rgba(23,28,35,0.85)] backdrop-blur-3xl border border-[rgba(48,54,61,0.9)] shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)] rounded-2xl";
+const glassCard = "glass";
 
 const staggerGrid = {
   hidden: { opacity: 0 },
@@ -72,7 +71,7 @@ export default function CommandCenterView({
           </div>
           <Link
             href="/dashboard/scans"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#2DD4BF] text-black font-semibold hover:bg-[#14B8A6] transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary text-white font-semibold hover:bg-primary/90 transition-colors"
           >
             Launch Scan
             <ArrowRight className="w-4 h-4" />
@@ -110,7 +109,7 @@ export default function CommandCenterView({
                 Active
               </span>
             </div>
-            <div className="text-3xl font-bold text-red-400 mt-2">
+            <div className="text-3xl font-bold text-danger mt-2">
               {maliciousScans}
             </div>
           </motion.div>
@@ -124,7 +123,7 @@ export default function CommandCenterView({
                 Active Incidents
               </span>
             </div>
-            <div className="text-3xl font-bold text-amber-300 mt-2">
+            <div className="text-3xl font-bold text-warning mt-2">
               {activeIncidents}
             </div>
             <span className="text-xs text-white/50">
@@ -139,7 +138,7 @@ export default function CommandCenterView({
             <div className="flex justify-between items-start">
               <span className="text-white/70 font-medium">Intel Vault</span>
             </div>
-            <div className="text-3xl font-bold text-[#2DD4BF] mt-2">
+            <div className="text-3xl font-bold text-accent mt-2">
               {intelVaultSize}
             </div>
           </motion.div>
@@ -155,7 +154,7 @@ export default function CommandCenterView({
               Network Telemetry (Live)
             </h2>
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+              <div className="w-2 h-2 rounded-full bg-accent animate-pulse"></div>
               <span className="text-xs text-white/50 uppercase tracking-wider">
                 Live
               </span>
@@ -175,18 +174,18 @@ export default function CommandCenterView({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Link
                 href="/dashboard/scans"
-                className="p-4 rounded-xl bg-[rgba(23,28,35,0.85)] border border-[rgba(48,54,61,0.9)] flex flex-col items-center justify-center gap-3 text-center transition-colors hover:bg-white/10"
+                className="p-4 rounded-xl glass flex flex-col items-center justify-center gap-3 text-center transition-colors hover:bg-white/10"
               >
-                <Activity className="w-6 h-6 text-[#2DD4BF]" />
+                <Activity className="w-6 h-6 text-accent" />
                 <span className="text-sm font-bold text-white">
                   Run System Diagnostic
                 </span>
               </Link>
               <Link
                 href="/dashboard/incidents"
-                className="p-4 rounded-xl bg-[rgba(23,28,35,0.85)] border border-[rgba(48,54,61,0.9)] flex flex-col items-center justify-center gap-3 text-center transition-colors hover:bg-white/10"
+                className="p-4 rounded-xl glass flex flex-col items-center justify-center gap-3 text-center transition-colors hover:bg-white/10"
               >
-                <Shield className="w-6 h-6 text-white" />
+                <Shield className="w-6 h-6 text-primary" />
                 <span className="text-sm font-bold text-white">
                   Isolate Compromised Nodes
                 </span>
@@ -203,7 +202,7 @@ export default function CommandCenterView({
               <h2 className="text-xl font-bold text-white">Event Feed</h2>
               <Link
                 href="/dashboard/threats"
-                className="text-xs text-[#2DD4BF] hover:underline"
+                className="text-xs text-accent hover:underline"
               >
                 View All
               </Link>
@@ -232,11 +231,11 @@ export default function CommandCenterView({
                   <motion.div
                     key={`${scan.target}-${index}`}
                     variants={gridItem}
-                    className="p-3 rounded-lg bg-[rgba(23,28,35,0.85)] border border-[rgba(48,54,61,0.9)] flex items-start gap-3"
+                    className="p-3 rounded-lg glass flex items-start gap-3"
                   >
                     <div
                       className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${
-                        isMalicious ? "bg-red-500" : "bg-[#2DD4BF]"
+                        isMalicious ? "bg-danger" : "bg-accent"
                       }`}
                     ></div>
                     <div className="flex flex-col">

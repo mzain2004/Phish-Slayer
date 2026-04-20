@@ -26,7 +26,7 @@ function severityClass(severity: EscalationRow["severity"]): string {
   if (severity === "medium") {
     return "bg-yellow-500/20 text-yellow-300 border-yellow-400/40";
   }
-  return "bg-emerald-500/20 text-emerald-300 border-emerald-400/40";
+  return "bg-accent/15 text-accent border-accent/30";
 }
 
 function timeAgo(timestamp: string): string {
@@ -115,7 +115,7 @@ export default function EscalationQueue() {
   };
 
   return (
-    <div className="p-6 bg-[rgba(23,28,35,0.85)] backdrop-blur-3xl border border-[rgba(48,54,61,0.9)] rounded-2xl flex flex-col gap-4 h-full">
+    <div className="p-6 glass flex flex-col gap-4 h-full">
       <h2 className="text-xl font-bold text-white">Escalation Queue</h2>
 
       {loading ? (
@@ -124,7 +124,7 @@ export default function EscalationQueue() {
           Loading queue...
         </div>
       ) : rows.length === 0 ? (
-        <p className="text-sm text-emerald-300">✅ No pending escalations</p>
+        <p className="text-sm text-accent">✅ No pending escalations</p>
       ) : (
         <div className="flex flex-col gap-3">
           {rows.map((row) => (
@@ -145,7 +145,7 @@ export default function EscalationQueue() {
 
               <p className="text-white font-semibold">{row.title}</p>
 
-              <div className="text-xs uppercase tracking-[0.12em] text-cyan-300 border border-cyan-400/30 rounded-full px-2.5 py-1 w-fit">
+              <div className="text-xs uppercase tracking-[0.12em] text-accent border border-accent/30 rounded-full px-2.5 py-1 w-fit">
                 {row.recommended_action}
               </div>
 
@@ -154,7 +154,7 @@ export default function EscalationQueue() {
                   type="button"
                   onClick={() => patchStatus(row.id, "approve")}
                   disabled={busyId === row.id}
-                  className="rounded-full px-3 py-1.5 text-xs font-semibold text-black bg-[#2DD4BF] disabled:opacity-60"
+                  className="rounded-full px-3 py-1.5 text-xs font-semibold text-white bg-primary hover:bg-primary/90 disabled:opacity-60"
                 >
                   Approve
                 </button>

@@ -58,7 +58,7 @@ export default function L1DecisionLog() {
   }, []);
 
   return (
-    <div className="p-6 bg-[rgba(23,28,35,0.85)] backdrop-blur-3xl border border-[rgba(48,54,61,0.9)] rounded-2xl flex flex-col gap-4">
+    <div className="p-6 glass flex flex-col gap-4">
       <h2 className="text-xl font-bold text-white">
         L1 Autonomous Decision Log
       </h2>
@@ -78,16 +78,13 @@ export default function L1DecisionLog() {
               : "UNKNOWN";
 
             return (
-              <div
-                key={row.id}
-                className="rounded-xl border border-[rgba(48,54,61,0.9)] bg-black/20 p-3"
-              >
+              <div key={row.id} className="glass p-3">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <span
                     className={`text-[10px] uppercase tracking-[0.14em] font-semibold rounded-full px-2 py-1 border ${
                       escalated
-                        ? "text-red-200 border-red-400/40 bg-red-500/20"
-                        : "text-emerald-200 border-emerald-400/40 bg-emerald-500/20"
+                        ? "text-danger border-danger/30 bg-danger/20"
+                        : "text-accent border-accent/30 bg-accent/15"
                     }`}
                   >
                     {escalated ? "ESCALATED" : "CLOSED"}
