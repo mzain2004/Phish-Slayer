@@ -7,6 +7,13 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 async function getBillingPortal() {
+  if (!process.env.POLAR_ACCESS_TOKEN) {
+    return NextResponse.json(
+      { error: "Service unavailable" },
+      { status: 503 },
+    );
+  }
+
   try {
     const supabase = await createClient();
 

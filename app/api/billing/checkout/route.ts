@@ -12,6 +12,13 @@ const CheckoutSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  if (!process.env.POLAR_ACCESS_TOKEN) {
+    return NextResponse.json(
+      { error: "Service unavailable" },
+      { status: 503 },
+    );
+  }
+
   try {
     const payload = CheckoutSchema.safeParse(await request.json());
     if (!payload.success) {

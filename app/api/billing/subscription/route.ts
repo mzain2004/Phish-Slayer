@@ -10,6 +10,13 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function GET() {
+  if (!process.env.POLAR_ACCESS_TOKEN) {
+    return NextResponse.json(
+      { error: "Service unavailable" },
+      { status: 503 },
+    );
+  }
+
   try {
     const supabase = await createClient();
     const {

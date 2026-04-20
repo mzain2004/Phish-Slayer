@@ -37,17 +37,22 @@ export async function getEndpointEvents(limit = 100): Promise<EndpointEvent[]> {
     } = await supabase.auth.getUser();
     if (!user) return [];
 
-    const { data, error } = await supabase
-      .from('endpoint_events')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(limit);
+    try {
+      const { data, error } = await supabase
+        .from('endpoint_events')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(limit);
 
-    if (error) {
-      console.error('[agentQueries] getEndpointEvents error:', error);
+      if (error) {
+        console.error('[agentQueries] getEndpointEvents error:', error);
+        return [];
+      }
+      return (data || []) as EndpointEvent[];
+    } catch (error) {
+      console.error('[agentQueries] getEndpointEvents query error:', error);
       return [];
     }
-    return (data || []) as EndpointEvent[];
   } catch (err) {
     console.error('[agentQueries] getEndpointEvents exception:', err);
     return [];
@@ -67,11 +72,22 @@ export async function getEndpointStats(): Promise<EndpointStats> {
     } = await supabase.auth.getUser();
     if (!user) return empty;
 
-    const { data, error } = await supabase
-      .from('endpoint_events')
-      .select('threat_level, remote_address, process_name');
-
-    if (error || !data) return empty;
+    let data: any[] | null = null;
+    try {
+      const response = await supabase
+        .from('endpoint_events')
+        .select('threat_level, remote_address, process_name');
+      if (response.error || !response.data) {
+        if (response.error) {
+          console.error('[agentQueries] getEndpointStats error:', response.error);
+        }
+        return empty;
+      }
+      data = response.data as any[];
+    } catch (error) {
+      console.error('[agentQueries] getEndpointStats query error:', error);
+      return empty;
+    }
 
     const stats: EndpointStats = { ...empty, total: data.length };
     const ipSet = new Set<string>();
@@ -110,19 +126,24 @@ export async function getRecentCriticalEvents(limit = 5): Promise<EndpointEvent[
     if (!user) return [];
 
     const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const { data, error } = await supabase
-      .from('endpoint_events')
-      .select('*')
-      .in('threat_level', ['critical', 'high'])
-      .gte('created_at', cutoff)
-      .order('created_at', { ascending: false })
-      .limit(limit);
+    try {
+      const { data, error } = await supabase
+        .from('endpoint_events')
+        .select('*')
+        .in('threat_level', ['critical', 'high'])
+        .gte('created_at', cutoff)
+        .order('created_at', { ascending: false })
+        .limit(limit);
 
-    if (error) {
-      console.error('[agentQueries] getRecentCriticalEvents error:', error);
+      if (error) {
+        console.error('[agentQueries] getRecentCriticalEvents error:', error);
+        return [];
+      }
+      return (data || []) as EndpointEvent[];
+    } catch (error) {
+      console.error('[agentQueries] getRecentCriticalEvents query error:', error);
       return [];
     }
-    return (data || []) as EndpointEvent[];
   } catch (err) {
     console.error('[agentQueries] getRecentCriticalEvents exception:', err);
     return [];

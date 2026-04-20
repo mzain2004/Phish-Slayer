@@ -47,17 +47,19 @@ function extractUserId(data: any): string | null {
 }
 
 export async function POST(request: Request) {
+  if (!process.env.POLAR_WEBHOOK_SECRET) {
+    return NextResponse.json(
+      { error: "Service unavailable" },
+      { status: 503 },
+    );
+  }
+
   const client = adminClient();
-  const webhookSecret = process.env.POLAR_WEBHOOK_SECRET || "";
+  const webhookSecret = process.env.POLAR_WEBHOOK_SECRET;
 
   try {
     const body = await request.text();
     const headers = Object.fromEntries(request.headers.entries());
-
-    if (!webhookSecret) {
-      console.error("POLAR_WEBHOOK_SECRET is not configured");
-      return NextResponse.json({ received: true });
-    }
 
     let event: any;
     try {
