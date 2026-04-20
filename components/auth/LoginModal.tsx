@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Github, KeyRound, Shield, X } from "lucide-react";
@@ -9,6 +9,7 @@ import {
   createClientWithRememberMe,
   setRememberMePreference,
 } from "@/utils/supabase/client";
+import { signInWithSocial } from "@/lib/supabase/auth-actions";
 
 type LoginModalProps = {
   onClose: () => void;
@@ -29,6 +30,7 @@ export default function LoginModal({
   onSwitchToForgot,
 }: LoginModalProps) {
   const router = useRouter();
+  const [isPending, startTransition] = useTransition();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
@@ -56,6 +58,12 @@ export default function LoginModal({
   const completeLogin = () => {
     router.push("/dashboard");
     router.refresh();
+  };
+
+  const handleOAuth = (provider: "google" | "github") => {
+    startTransition(async () => {
+      await signInWithSocial(provider);
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -275,7 +283,9 @@ export default function LoginModal({
             <motion.button
               {...tactileProps}
               type="button"
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-white text-black font-medium hover:shadow-[0_0_18px_rgba(255,255,255,0.3)] transition-all"
+              onClick={() => handleOAuth("google")}
+              disabled={isPending}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-white text-black font-medium hover:shadow-[0_0_18px_rgba(255,255,255,0.3)] transition-all disabled:opacity-60"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path
@@ -300,7 +310,9 @@ export default function LoginModal({
             <motion.button
               {...tactileProps}
               type="button"
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-[#24292F] text-white font-medium hover:shadow-[0_0_18px_rgba(124,106,247,0.28)] transition-all"
+              onClick={() => handleOAuth("github")}
+              disabled={isPending}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-[#24292F] text-white font-medium hover:shadow-[0_0_18px_rgba(124,106,247,0.28)] transition-all disabled:opacity-60"
             >
               <Github className="w-5 h-5" />
               Continue with GitHub

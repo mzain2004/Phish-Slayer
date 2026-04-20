@@ -7,6 +7,8 @@ import { motion } from "framer-motion";
 import { Mail, Bug, TrendingUp, Clock, CheckCircle2, AlertCircle } from "lucide-react";
 import { submitContact } from "./actions";
 
+export const dynamic = "force-dynamic";
+
 export default function ContactPage() {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<"idle" | "success" | "error">("idle");

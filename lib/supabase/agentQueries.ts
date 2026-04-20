@@ -32,6 +32,11 @@ export interface EndpointStats {
 export async function getEndpointEvents(limit = 100): Promise<EndpointEvent[]> {
   try {
     const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return [];
+
     const { data, error } = await supabase
       .from('endpoint_events')
       .select('*')
@@ -57,6 +62,11 @@ export async function getEndpointStats(): Promise<EndpointStats> {
 
   try {
     const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return empty;
+
     const { data, error } = await supabase
       .from('endpoint_events')
       .select('threat_level, remote_address, process_name');
@@ -94,6 +104,11 @@ export async function getEndpointStats(): Promise<EndpointStats> {
 export async function getRecentCriticalEvents(limit = 5): Promise<EndpointEvent[]> {
   try {
     const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return [];
+
     const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const { data, error } = await supabase
       .from('endpoint_events')
