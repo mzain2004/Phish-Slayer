@@ -18,7 +18,7 @@ type DSData = any;
 function Spinner() {
   return (
     <div className="flex items-center justify-center py-16">
-      <Loader2 className="w-7 h-7 animate-spin text-teal-500" />
+      <Loader2 className="w-7 h-7 animate-spin text-accent" />
       <span className="ml-3 text-sm text-[#8B949E] font-medium">
         Running deep scan…
       </span>
@@ -99,7 +99,7 @@ export function WhoisPanel({
       );
     } else if (days > 730) {
       ageBadge = (
-        <span className="text-[10px] font-black text-emerald-400 bg-emerald-950 px-2 py-0.5 rounded">
+        <span className="text-[10px] font-black text-accent bg-accent/10 px-2 py-0.5 rounded">
           Established Domain ({years} yrs)
         </span>
       );
@@ -113,10 +113,10 @@ export function WhoisPanel({
   }
 
   return (
-    <div className="bg-white/5 rounded-lg border border-white/10 overflow-hidden">
+    <div className="glass overflow-hidden">
       <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Globe className="w-4 h-4 text-teal-400" />
+          <Globe className="w-4 h-4 text-accent" />
           <span className="text-[10px] font-black text-[#8B949E] uppercase tracking-widest">
             WHOIS Intelligence
           </span>
@@ -164,18 +164,18 @@ export function GhostMailPanel({
   const isGhost = d.ghostMailFlag;
 
   return (
-    <div className="bg-white/5 rounded-lg border border-white/10 overflow-hidden">
+    <div className="glass overflow-hidden">
       {/* Status Banner */}
       <div
-        className={`px-4 py-4 ${isGhost ? "bg-red-950 border-b border-red-900" : "bg-emerald-950 border-b border-emerald-900"}`}
+        className={`px-4 py-4 ${isGhost ? "bg-red-950 border-b border-red-900" : "bg-accent/10 border-b border-accent/20"}`}
       >
         <div className="flex items-center gap-3">
           <Mail
-            className={`w-6 h-6 ${isGhost ? "text-red-400" : "text-emerald-400"}`}
+            className={`w-6 h-6 ${isGhost ? "text-red-400" : "text-accent"}`}
           />
           <div>
             <h4
-              className={`font-black text-sm ${isGhost ? "text-red-300" : "text-emerald-300"}`}
+              className={`font-black text-sm ${isGhost ? "text-red-300" : "text-accent"}`}
             >
               {isGhost
                 ? "🚨 NO EMAIL INFRASTRUCTURE DETECTED"
@@ -226,12 +226,12 @@ export function GhostMailPanel({
           ].map(({ label, active }) => (
             <div key={label} className="flex items-center gap-2">
               {active ? (
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <CheckCircle2 className="w-4 h-4 text-accent" />
               ) : (
                 <XCircle className="w-4 h-4 text-red-400" />
               )}
               <span
-                className={`font-mono text-xs font-bold ${active ? "text-emerald-300" : "text-red-300"}`}
+                className={`font-mono text-xs font-bold ${active ? "text-accent" : "text-red-300"}`}
               >
                 {label}
               </span>
@@ -265,7 +265,7 @@ export function SslPanel({
     days === null
       ? "text-[#8B949E]"
       : days > 90
-        ? "text-emerald-400"
+        ? "text-accent"
         : days > 30
           ? "text-orange-400"
           : "text-red-400";
@@ -273,15 +273,15 @@ export function SslPanel({
     days === null
       ? "bg-white/10"
       : days > 90
-        ? "bg-emerald-950"
+        ? "bg-accent/10"
         : days > 30
           ? "bg-orange-950"
           : "bg-red-950";
 
   return (
-    <div className="bg-white/5 rounded-lg border border-white/10 overflow-hidden">
+    <div className="glass overflow-hidden">
       <div className="px-4 py-3 border-b border-white/10 flex items-center gap-2">
-        <Lock className="w-4 h-4 text-teal-400" />
+        <Lock className="w-4 h-4 text-accent" />
         <span className="text-[10px] font-black text-[#8B949E] uppercase tracking-widest">
           SSL Certificate Profile
         </span>
@@ -318,7 +318,7 @@ export function SslPanel({
           </span>
         )}
         {s.valid && (
-          <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950 px-2 py-0.5 rounded">
+          <span className="text-[10px] font-bold text-accent bg-accent/10 px-2 py-0.5 rounded">
             Valid
           </span>
         )}
@@ -377,7 +377,7 @@ export function TyposquatPanel({
             return (
               <span
                 key={i}
-                className={`px-1 rounded ${match ? "text-emerald-300" : "text-emerald-400 bg-emerald-950 font-black"}`}
+                className={`px-1 rounded ${match ? "text-accent" : "text-accent bg-accent/10 font-black"}`}
               >
                 {c}
               </span>
@@ -393,7 +393,7 @@ export function TyposquatPanel({
   };
 
   return (
-    <div className="bg-white/5 rounded-lg border border-white/10 overflow-hidden">
+    <div className="glass overflow-hidden">
       {t.isTyposquat ? (
         <div className="px-4 py-4 bg-red-950 border-b border-red-900">
           <div className="flex items-center gap-3">
@@ -410,11 +410,11 @@ export function TyposquatPanel({
           </div>
         </div>
       ) : (
-        <div className="px-4 py-4 bg-emerald-950 border-b border-emerald-900">
+        <div className="px-4 py-4 bg-accent/10 border-b border-accent/20">
           <div className="flex items-center gap-3">
-            <CheckCircle2 className="w-6 h-6 text-emerald-400" />
+            <CheckCircle2 className="w-6 h-6 text-accent" />
             <div>
-              <h4 className="font-black text-sm text-emerald-300">
+              <h4 className="font-black text-sm text-accent">
                 ✓ No brand impersonation detected
               </h4>
               <p className="text-[11px] text-[#8B949E] mt-0.5">
@@ -435,7 +435,7 @@ export function TyposquatPanel({
           Homoglyphs
         </span>
         <span
-          className={`font-mono text-xs font-bold ${t.homoglyphsDetected ? "text-red-400" : "text-emerald-400"}`}
+          className={`font-mono text-xs font-bold ${t.homoglyphsDetected ? "text-red-400" : "text-accent"}`}
         >
           {t.homoglyphsDetected ? "Detected" : "None"}
         </span>
@@ -459,9 +459,9 @@ export function DomTreePanel({
   if (!d) return <Unavailable label="DOM Tree" />;
 
   return (
-    <div className="bg-white/5 rounded-lg border border-white/10 overflow-hidden">
+    <div className="glass overflow-hidden">
       <div className="px-4 py-3 border-b border-white/10 flex items-center gap-2">
-        <Eye className="w-4 h-4 text-teal-400" />
+        <Eye className="w-4 h-4 text-accent" />
         <span className="text-[10px] font-black text-[#8B949E] uppercase tracking-widest">
           DOM Analysis
         </span>
@@ -541,6 +541,3 @@ export function DomTreePanel({
     </div>
   );
 }
-
-
-

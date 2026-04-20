@@ -565,7 +565,10 @@ export default function AgentSwarmPanel() {
         <div className="flex flex-col gap-4">
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {[l1Agent, l2Agent, l3Agent].filter(Boolean).map((agent, index) => (
-              <div key={agent!.id} className="rounded-xl glass p-4 flex flex-col gap-3">
+              <div
+                key={agent!.id}
+                className="rounded-xl glass p-4 flex flex-col gap-3"
+              >
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-white font-semibold">{agent!.name}</p>
                   <span
@@ -654,7 +657,10 @@ export default function AgentSwarmPanel() {
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                 {l2RecentDecisions.map((item) => (
-                  <div key={item.id} className="rounded-lg glass px-3 py-2 text-xs text-white/80">
+                  <div
+                    key={item.id}
+                    className="rounded-lg glass px-3 py-2 text-xs text-white/80"
+                  >
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-semibold text-white">
                         {item.decision}

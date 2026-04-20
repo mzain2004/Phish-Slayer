@@ -103,7 +103,7 @@ export default function AgentDashboard() {
                   </div>
                 </div>
                 <span
-                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase ${agent.status === "online" ? "bg-accent/15 text-accent border border-accent/30" : "bg-white/5 text-white/50 border border-white/10"}`}
+                  className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase ${agent.status === "online" ? "bg-accent/15 text-accent border border-accent/30" : "bg-white/5 text-white/50 border border-white/10"}`}
                 >
                   {agent.status}
                 </span>
@@ -144,7 +144,7 @@ export default function AgentDashboard() {
                   disabled={agent.status === "offline"}
                   title={
                     agent.status === "offline"
-                      ? "Agent offline â€” cannot send commands"
+                        ? "Agent offline - cannot send commands"
                       : ""
                   }
                   className="py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-[#e6edf3] text-xs font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -159,10 +159,10 @@ export default function AgentDashboard() {
                   disabled={agent.status === "offline"}
                   title={
                     agent.status === "offline"
-                      ? "Agent offline â€” cannot send commands"
+                      ? "Agent offline - cannot send commands"
                       : ""
                   }
-                  className="py-1.5 bg-accent/15 hover:bg-accent/25 border border-accent/30 text-accent text-xs font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="py-1.5 bg-primary text-white hover:bg-primary/90 border border-primary/30 text-xs font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Block IP
                 </button>

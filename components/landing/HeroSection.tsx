@@ -51,11 +51,11 @@ export function HeroSection() {
           <motion.div variants={fadeInUp} className="mb-8 inline-flex">
             <div className="inline-flex items-center gap-2 bg-primary/15 border border-primary/30 rounded-[4px] px-3.5 py-1.5 font-mono text-[11px] tracking-[0.1em] text-primary uppercase">
               <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-              ADAPTIVE AI DEFENSE â€” IN DEVELOPMENT
+              ADAPTIVE AI DEFENSE - IN DEVELOPMENT
             </div>
           </motion.div>
 
-          {/* H1 â€” Price Contrast Headline */}
+          {/* H1 - Price Contrast Headline */}
           <motion.h1 variants={fadeInUp} className="mb-6">
             <span className="block text-[40px] lg:text-[72px] font-extrabold text-[#E6EDF3] leading-[1.1] tracking-[-0.02em]">
               Enterprise Threat Intelligence.
@@ -66,12 +66,19 @@ export function HeroSection() {
           </motion.h1>
 
           {/* Subtext */}
-          <motion.p variants={fadeInUp} className="text-[16px] text-[#8B949E] mb-8 leading-[1.7] max-w-2xl mx-auto">
-            Deploy military-grade EDR starting at $588/year. Uncompromising security without the legacy enterprise bloat.
+          <motion.p
+            variants={fadeInUp}
+            className="text-[16px] text-[#8B949E] mb-8 leading-[1.7] max-w-2xl mx-auto"
+          >
+            Deploy military-grade EDR starting at $588/year. Uncompromising
+            security without the legacy enterprise bloat.
           </motion.p>
 
           {/* Buttons */}
-          <motion.div variants={fadeInUp} className="flex flex-col sm:flex-row justify-center gap-4 mb-10">
+          <motion.div
+            variants={fadeInUp}
+            className="flex flex-col sm:flex-row justify-center gap-4 mb-10"
+          >
             <Link
               href="/auth/signup"
               className="inline-flex justify-center items-center gap-2 bg-primary hover:bg-primary/90 text-white font-bold text-[15px] px-8 py-3 rounded-full tracking-[0.01em] transition-all hover:-translate-y-[1px] hover:shadow-[0_12px_30px_rgba(124,106,247,0.35)]"
@@ -89,7 +96,10 @@ export function HeroSection() {
           </motion.div>
 
           {/* Stats Row */}
-          <motion.div variants={fadeInUp} className="flex items-center justify-center gap-0">
+          <motion.div
+            variants={fadeInUp}
+            className="flex items-center justify-center gap-0"
+          >
             {[
               { value: "30 sec", label: "verdict time" },
               { value: "95", label: "scan engines" },
@@ -99,8 +109,12 @@ export function HeroSection() {
                 key={i}
                 className={`flex flex-col items-center px-6 ${i > 0 ? "border-l border-white/10" : ""}`}
               >
-                <span className="text-[28px] font-bold text-[#E6EDF3] tracking-tight">{stat.value}</span>
-                <span className="text-[12px] font-mono text-[#8B949E] uppercase tracking-[0.15em]">{stat.label}</span>
+                <span className="text-[28px] font-bold text-[#E6EDF3] tracking-tight">
+                  {stat.value}
+                </span>
+                <span className="text-[12px] font-mono text-[#8B949E] uppercase tracking-[0.15em]">
+                  {stat.label}
+                </span>
               </div>
             ))}
           </motion.div>
@@ -109,4 +123,3 @@ export function HeroSection() {
     </section>
   );
 }
-
