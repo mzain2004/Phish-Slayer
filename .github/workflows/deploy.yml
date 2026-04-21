@@ -170,9 +170,6 @@ jobs:
           GROQ_MODEL=llama-3.3-70b-versatile
           NEXT_PUBLIC_APP_URL=http://localhost:3000
           INTERNAL_API_URL=http://localhost:3000
-          NEXT_PUBLIC_PADDLE_CLIENT_TOKEN=${{ secrets.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN }}
-          NEXT_PUBLIC_PADDLE_SOC_PRO_PRICE_ID=${{ secrets.NEXT_PUBLIC_PADDLE_SOC_PRO_PRICE_ID }}
-          NEXT_PUBLIC_PADDLE_CC_PRICE_ID=${{ secrets.NEXT_PUBLIC_PADDLE_CC_PRICE_ID }}
           RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}
           ENVEOF
 

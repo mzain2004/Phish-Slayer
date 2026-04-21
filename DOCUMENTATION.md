@@ -820,7 +820,6 @@ All route files audited under `app/api/**/route.ts`.
 | GET      | /api/v2/identity/signins                | Raw sign-in events                           | query `hours`                                       | sign-ins JSON                                                     | authenticated                                       | identity dashboard           |
 | GET      | /api/v2/identity/timeline               | Timeline + MTTR                              | query `hours`                                       | `{ timeline, mttr, anomalyCounts, summary }`                      | authenticated                                       | MTTR dashboard               |
 | POST     | /api/waitlist                           | Waitlist signup                              | validated waitlist payload                          | success/error JSON                                                | public/validated                                    | landing page                 |
-| POST     | /api/webhooks/paddle                    | Paddle billing webhook                       | webhook event payload                               | ack JSON                                                          | `PADDLE_WEBHOOK_SECRET` verification                | Paddle                       |
 
 ### 6. GITHUB ACTIONS WORKFLOWS
 
@@ -861,9 +860,6 @@ Requested names vs repository names:
   - `DO_SSH_PRIVATE_KEY`
   - `CLOUDFLARE_API_TOKEN`
   - `CLOUDFLARE_ZONE_ID`
-  - `NEXT_PUBLIC_PADDLE_CLIENT_TOKEN`
-  - `NEXT_PUBLIC_PADDLE_SOC_PRO_PRICE_ID`
-  - `NEXT_PUBLIC_PADDLE_CC_PRICE_ID`
   - `DO_SSH_PRIVATE_KEY_RAW`
   - `GITHUB_TOKEN`
 
@@ -976,13 +972,6 @@ Observed from source and workflows.
 | NEXT_PUBLIC_APP_URL                 | workflow target URL                          | GitHub workflows                                      | Required in workflows            | `https://phishslayer.tech`             |
 | INTERNAL_API_URL                    | internal server-to-server calls              | cron routes                                           | Required for cron chaining       | `http://localhost:3000`                |
 | NEXT_PUBLIC_SITE_URL                | canonical site URL                           | deploy/build/runtime metadata                         | Optional                         | `https://phishslayer.tech`             |
-| PADDLE_API_KEY                      | Paddle server API                            | billing routes/lib                                    | Required for Paddle operations   | `******`                               |
-| PADDLE_WEBHOOK_SECRET               | Paddle webhook validation                    | `/api/webhooks/paddle`                                | Required for webhook safety      | `******`                               |
-| NEXT_PUBLIC_PADDLE_CLIENT_TOKEN     | Paddle client token                          | billing UI                                            | Required for checkout UI         | `******`                               |
-| NEXT_PUBLIC_PADDLE_SOC_PRO_PRICE_ID | SOC Pro price                                | pricing/billing                                       | Required for priced checkout     | `pri_***`                              |
-| NEXT_PUBLIC_PADDLE_CC_PRICE_ID      | Command & Control price                      | pricing/billing                                       | Required for priced checkout     | `pri_***`                              |
-| PADDLE_SOC_PRO_PRICE_ID             | server price id                              | billing server actions                                | Optional if only public ids used | `pri_***`                              |
-| PADDLE_CC_PRICE_ID                  | server price id                              | billing server actions                                | Optional if only public ids used | `pri_***`                              |
 | RESEND_API_KEY                      | outbound email provider                      | email service                                         | Optional (build warned missing)  | `re_***`                               |
 | RESEND_FROM_EMAIL                   | sender identity                              | email service                                         | Optional                         | `soc@phishslayer.tech`                 |
 | DO_SSH_PRIVATE_KEY                  | remote infra operations                      | update routes/workflow scripts                        | Optional                         | `-----BEGIN...`                        |
@@ -1207,7 +1196,7 @@ Business context available from codebase:
 
 - Product positioning in `README.md`: enterprise AI security platform focused on identity continuity over alert volume.
 - Audience in `README.md`: incident responders, SOC engineers, detection engineers, security leadership.
-- Pricing UI exists in `app/pricing/page.tsx` with tiered plans and Paddle integration.
+- Pricing UI exists in `app/pricing/page.tsx` with tiered plans.
 
 Requested business details:
 

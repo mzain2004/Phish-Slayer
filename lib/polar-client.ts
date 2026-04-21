@@ -10,13 +10,13 @@ export const POLAR_ORG_SLUG = process.env.POLAR_ORG_SLUG || "";
 
 export const POLAR_FREE_PRODUCT_ID = process.env.POLAR_FREE_PRODUCT_ID || "";
 export const POLAR_PRO_MONTHLY_PRODUCT_ID =
-  process.env.POLAR_PRO_MONTHLY_PRODUCT_ID || "";
+  process.env.POLAR_SOC_PRO_MONTHLY_ID || "";
 export const POLAR_PRO_ANNUAL_PRODUCT_ID =
-  process.env.POLAR_PRO_ANNUAL_PRODUCT_ID || "";
+  process.env.POLAR_SOC_PRO_ANNUAL_ID || "";
 export const POLAR_ENTERPRISE_MONTHLY_PRODUCT_ID =
-  process.env.POLAR_ENTERPRISE_MONTHLY_PRODUCT_ID || "";
+  process.env.POLAR_CC_MONTHLY_ID || "";
 export const POLAR_ENTERPRISE_ANNUAL_PRODUCT_ID =
-  process.env.POLAR_ENTERPRISE_ANNUAL_PRODUCT_ID || "";
+  process.env.POLAR_CC_ANNUAL_ID || "";
 
 export const TIER_FEATURE_LIMITS = {
   free: { scans: 100, users: 1, agents: 1, orgs: 1 },

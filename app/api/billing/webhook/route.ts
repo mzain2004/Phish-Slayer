@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { validateEvent } from "@polar-sh/sdk/webhooks";
-import { productIdToTier, type BillingTier } from "@/lib/polar-client";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -14,18 +13,23 @@ function adminClient() {
   );
 }
 
-function roleForTier(tier: BillingTier): "analyst" | "pro" | "enterprise" {
-  if (tier === "enterprise") return "enterprise";
-  if (tier === "pro") return "pro";
-  return "analyst";
-}
+type BillingPlan =
+  | "free"
+  | "pro_monthly"
+  | "pro_annual"
+  | "enterprise_monthly"
+  | "enterprise_annual";
 
-function profileTierForBillingTier(
-  tier: BillingTier,
-): "recon" | "soc_pro" | "command_control" {
-  if (tier === "enterprise") return "command_control";
-  if (tier === "pro") return "soc_pro";
-  return "recon";
+function planFromProductId(productId: string | null | undefined): BillingPlan {
+  if (!productId) return "free";
+
+  if (productId === process.env.POLAR_SOC_PRO_MONTHLY_ID) return "pro_monthly";
+  if (productId === process.env.POLAR_SOC_PRO_ANNUAL_ID) return "pro_annual";
+  if (productId === process.env.POLAR_CC_MONTHLY_ID) return "enterprise_monthly";
+  if (productId === process.env.POLAR_CC_ANNUAL_ID) return "enterprise_annual";
+  if (productId === process.env.POLAR_FREE_PRODUCT_ID) return "free";
+
+  return "free";
 }
 
 function extractProductId(data: any): string {
@@ -46,12 +50,25 @@ function extractUserId(data: any): string | null {
   return null;
 }
 
+function extractCustomerExternalId(data: any): string | null {
+  const externalId = data?.customer?.externalId || data?.customer?.external_id;
+  if (typeof externalId === "string" && externalId.length > 0) {
+    return externalId;
+  }
+  return null;
+}
+
+function extractCustomerEmail(data: any): string | null {
+  const email = data?.customer?.email || data?.customerEmail || data?.customer_email;
+  if (typeof email === "string" && email.length > 0) {
+    return email;
+  }
+  return null;
+}
+
 export async function POST(request: Request) {
   if (!process.env.POLAR_WEBHOOK_SECRET) {
-    return NextResponse.json(
-      { error: "Service unavailable" },
-      { status: 503 },
-    );
+    return NextResponse.json({ error: "Service unavailable" }, { status: 503 });
   }
 
   const client = adminClient();
@@ -72,10 +89,16 @@ export async function POST(request: Request) {
     const type = event?.type;
     const data = event?.data || {};
 
+    if (type === "checkout.created") {
+      console.info("Polar checkout created", { id: data?.id || null });
+      return NextResponse.json({ received: true });
+    }
+
     if (type === "subscription.created" || type === "subscription.updated") {
       const productId = extractProductId(data);
-      const tier = productIdToTier(productId);
-      const userIdFromMetadata = extractUserId(data);
+      const plan = planFromProductId(productId);
+      const userIdFromMetadata = extractUserId(data) || extractCustomerExternalId(data);
+      const customerEmail = extractCustomerEmail(data);
 
       let userId = userIdFromMetadata;
       if (!userId && data?.id) {
@@ -87,34 +110,24 @@ export async function POST(request: Request) {
         userId = (existingSub?.user_id as string | undefined) || null;
       }
 
-      if (userId) {
-        await client.from("subscriptions").upsert(
-          {
-            user_id: userId,
-            tier,
-            status: "active",
-            polar_subscription_id: data.id || null,
-            polar_customer_id: data.customerId || data.customer_id || null,
-            current_period_end:
-              data.currentPeriodEnd || data.current_period_end || null,
-            product_id: productId || null,
-          },
-          { onConflict: "user_id" },
-        );
+      const updatePayload = {
+        plan,
+        polar_customer_id: data.customerId || data.customer_id || data?.customer?.id || null,
+        subscription_status: data.status || "active",
+      };
 
-        await client
-          .from("profiles")
-          .update({
-            role: roleForTier(tier),
-            subscription_tier: profileTierForBillingTier(tier),
-          })
-          .eq("id", userId);
+      if (userId) {
+        await client.from("users").update(updatePayload).eq("id", userId);
+      } else if (customerEmail) {
+        await client.from("users").update(updatePayload).eq("email", customerEmail);
       }
     }
 
     if (type === "subscription.canceled" || type === "subscription.revoked") {
       const userIdFromMetadata = extractUserId(data);
-      let userId = userIdFromMetadata;
+      const customerExternalId = extractCustomerExternalId(data);
+      const customerEmail = extractCustomerEmail(data);
+      let userId = userIdFromMetadata || customerExternalId;
 
       if (!userId && data?.id) {
         const { data: existingSub } = await client
@@ -125,16 +138,14 @@ export async function POST(request: Request) {
         userId = (existingSub?.user_id as string | undefined) || null;
       }
 
-      if (userId) {
-        await client
-          .from("subscriptions")
-          .update({ status: "canceled", tier: "free" })
-          .eq("user_id", userId);
+      const updatePayload = {
+        subscription_status: "canceled",
+      };
 
-        await client
-          .from("profiles")
-          .update({ role: "analyst", subscription_tier: "recon" })
-          .eq("id", userId);
+      if (userId) {
+        await client.from("users").update(updatePayload).eq("id", userId);
+      } else if (customerEmail) {
+        await client.from("users").update(updatePayload).eq("email", customerEmail);
       }
     }
   } catch (error) {
