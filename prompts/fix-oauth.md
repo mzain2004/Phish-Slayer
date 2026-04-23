@@ -1,12 +1,13 @@
-Task: Create MITRE ATT&CK auto-tagger
+Task: Wire Wazuh active response API endpoints
 
-Create file lib/soc/mitre.ts only
-Function tagWithMITRE taking RawAlert returning tactic, technique, technique_id
+Create these 3 files only:
+app/api/response/isolate/route.ts
+app/api/response/kill-process/route.ts
+app/api/response/quarantine/route.ts
 
-Map these types:
-brute_force to T1110, phishing to T1566, lateral_movement to T1021
-data_exfiltration to T1041, malware to T1204, privilege_escalation to T1068, persistence to T1053
-
-Use Gemini API for unknown types not in the map
+Wazuh Manager API base URL is http://167.172.85.62:55000
+Auth via WAZUH_API_USER and WAZUH_API_PASSWORD from env
+Each route: auth check then Zod validation then call Wazuh API then log to case timeline
+All routes need dynamic and runtime exports
 Do not touch any other file.
-Run npm run build, fix errors, commit: feat: MITRE ATT&CK tagger, push.
+Run npm run build, fix errors, commit: feat: Wazuh active response, push.
