@@ -1,11 +1,11 @@
-Task: Create playbook engine with phishing playbook
+Task: Create IOC enrichment pipeline
 
-Create these 3 files only:
-lib/soc/playbooks/types.ts with Playbook, PlaybookStep, PlaybookResult types
-lib/soc/playbooks/engine.ts with PlaybookEngine class
-lib/soc/playbooks/phishing.ts with full phishing response playbook
+Create these 4 files only:
+lib/soc/enrichment/ip.ts using AbuseIPDB free API
+lib/soc/enrichment/domain.ts using VirusTotal API key already in env
+lib/soc/enrichment/hash.ts using MalwareBazaar free API
+lib/soc/enrichment/index.ts exporting enrichIOC function
 
-Phishing steps: extractIOCs then enrichIOCs then blockSender then notifyUsers then createReport
-Each step logs to case timeline via Supabase using createClient from @/lib/supabase/server
+Cache results in ioc_store table — same IOC enriched once per 24 hours
 Do not touch any other file.
-Run npm run build, fix errors, commit: feat: playbook engine, push.
+Run npm run build, fix errors, commit: feat: IOC enrichment pipeline, push.
