@@ -1,68 +1,75 @@
-import { createClient } from "@/lib/supabase/server";
+import { SupabaseClient } from "@supabase/supabase-js";
+import { EnrichmentResult, IOC } from "../types";
 import { enrichIP } from "./ip";
 import { enrichDomain } from "./domain";
 import { enrichHash } from "./hash";
+import { enrichEmail } from "./email";
 
-export type IOCType = "ip" | "domain" | "hash";
-
-export async function enrichIOC(type: IOCType, value: string, caseId?: string) {
-  const supabase = await createClient();
-
-  // Check cache (last 24 hours)
-  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  
-  const { data: cached } = await supabase
-    .from("ioc_store")
-    .select("*")
-    .eq("ioc_type", type)
-    .eq("value", value)
-    .gte("last_seen", twentyFourHoursAgo)
-    .maybeSingle();
-
-  if (cached && cached.enrichment) {
-    return cached.enrichment;
-  }
-
-  // Perform enrichment
-  let enrichment: any;
-  let malicious = false;
-  let confidence = 0;
-
-  switch (type) {
+export async function enrichIOC(ioc: IOC, supabase: SupabaseClient): Promise<EnrichmentResult> {
+  switch (ioc.type) {
     case "ip":
-      enrichment = await enrichIP(value);
-      malicious = (enrichment.abuseConfidenceScore || 0) > 50;
-      confidence = enrichment.abuseConfidenceScore || 0;
-      break;
+      return enrichIP(ioc.value, supabase);
     case "domain":
-      enrichment = await enrichDomain(value);
-      const stats = enrichment?.attributes?.last_analysis_stats;
-      malicious = (stats?.malicious || 0) > 0;
-      confidence = malicious ? 100 : 0;
-      break;
+      return enrichDomain(ioc.value, supabase);
     case "hash":
-      enrichment = await enrichHash(value);
-      malicious = enrichment.query_status === "ok";
-      confidence = malicious ? 100 : 0;
-      break;
+      return enrichHash(ioc.value, supabase);
+    case "email":
+      return enrichEmail(ioc.value, supabase);
+    case "url":
+      try {
+        const url = new URL(ioc.value);
+        return enrichDomain(url.hostname, supabase);
+      } catch {
+        return enrichDomain(ioc.value, supabase);
+      }
+    default:
+      throw new Error(`Unsupported IOC type: ${ioc.type}`);
   }
+}
 
-  // Store in cache
-  const iocData = {
-    case_id: caseId,
-    ioc_type: type,
-    value: value,
-    enrichment: enrichment,
-    malicious: malicious,
-    confidence_score: confidence,
-    last_seen: new Date().toISOString()
+export async function enrichBatch(iocs: IOC[], supabase: SupabaseClient): Promise<EnrichmentResult[]> {
+  const startTime = Date.now();
+  const results = await Promise.allSettled(iocs.map(ioc => enrichIOC(ioc, supabase)));
+  
+  const finalResults: EnrichmentResult[] = results.map((res, i) => {
+    if (res.status === "fulfilled") {
+      return res.value;
+    } else {
+      // Fallback for failed enrichment
+      return {
+        ioc_type: iocs[i].type,
+        value: iocs[i].value,
+        malicious: false,
+        confidence_score: 0,
+        sources: [{ name: "Error", malicious: null, score: null, raw: null, error: String(res.reason) }],
+        cached: false,
+        enriched_at: new Date(),
+        raw_data: null,
+        tags: [],
+        country: null,
+        asn: null,
+        threat_type: "Enrichment Error"
+      } as EnrichmentResult;
+    }
+  });
+
+  const duration = Date.now() - startTime;
+  const cacheHits = finalResults.filter(r => r.cached).length;
+  console.info(`[enrichment] batch_size=${iocs.length} duration_ms=${duration} cache_hits=${cacheHits}`);
+
+  return finalResults;
+}
+
+export function getEnrichmentSummary(results: EnrichmentResult[]) {
+  const malicious = results.filter(r => r.malicious);
+  const suspicious = results.filter(r => !r.malicious && r.confidence_score > 50);
+  const clean = results.filter(r => !r.malicious && r.confidence_score <= 50);
+
+  return {
+    malicious_count: malicious.length,
+    suspicious_count: suspicious.length,
+    clean_count: clean.length,
+    cache_hit_rate: results.length > 0 ? (results.filter(r => r.cached).length / results.length) * 100 : 0,
+    top_threats: malicious.sort((a, b) => b.confidence_score - a.confidence_score).slice(0, 5)
   };
-
-  if (cached?.id) {
-    await supabase.from("ioc_store").update(iocData).eq("id", cached.id);
-  } else {
-    await supabase.from("ioc_store").insert({ ...iocData, first_seen: new Date().toISOString() });
-  }
-
-  return enrichment;
 }

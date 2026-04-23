@@ -44,18 +44,13 @@ const enrich_iocs: PlaybookStep = {
   description: "Enrich each extracted IOC with threat intelligence.",
   action: async (context) => {
     const startTime = Date.now();
+    const supabase = await createClient();
     for (const ioc of context.iocs) {
-      if (ioc.type === "ip" || ioc.type === "domain" || ioc.type === "hash") {
+      if (ioc.type === "ip" || ioc.type === "domain" || ioc.type === "hash" || ioc.type === "email" || ioc.type === "url") {
         try {
-          const result = await enrichIOC(ioc.type, ioc.value, context.case_id);
-          // Simplified mapping for the sake of the playbook
-          if (ioc.type === "ip") {
-            ioc.malicious = (result.abuseConfidenceScore || 0) > 50;
-            ioc.confidence = result.abuseConfidenceScore || 0;
-          } else if (ioc.type === "domain") {
-            ioc.malicious = (result.attributes?.last_analysis_stats?.malicious || 0) > 0;
-            ioc.confidence = ioc.malicious ? 100 : 0;
-          }
+          const result = await enrichIOC(ioc, supabase);
+          ioc.malicious = result.malicious;
+          ioc.confidence = result.confidence_score;
         } catch (e) {
           console.error(`Enrichment failed for ${ioc.value}`, e);
         }

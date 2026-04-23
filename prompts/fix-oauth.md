@@ -1,95 +1,145 @@
-Task: Build complete Playbook Engine with all 4 playbooks for PhishSlayer SOC platform
+Task: Build complete IOC Enrichment Pipeline for PhishSlayer SOC platform
 
 Read ONLY these files:
+lib/soc/enrichment/index.ts
 lib/soc/types.ts
-lib/soc/playbooks/engine.ts
-lib/soc/playbooks/phishing.ts
+lib/soc/enrichment/ip.ts
 
 Do not read any other file.
 
 Requirements:
 
-1. Update lib/soc/types.ts to add these types:
+1. Update lib/soc/types.ts to add these enrichment types if not present:
 
-PlaybookStep with fields: id string, name string, description string,
-action async function taking PlaybookContext returning StepResult,
-rollback optional async function taking PlaybookContext returning void,
-timeout_ms number default 30000, required boolean default true
+EnrichmentResult with fields: ioc_type ip or domain or hash or email or url,
+value string, malicious boolean, confidence_score number 0-100,
+sources EnrichmentSource array, cached boolean, enriched_at Date,
+raw_data jsonb, tags string array, country string or null,
+asn string or null, threat_type string or null
 
-StepResult with fields: success boolean, output jsonb or null,
-error string or null, duration_ms number
+EnrichmentSource with fields: name string, malicious boolean or null,
+score number or null, raw jsonb or null, error string or null
 
-PlaybookContext with fields: case_id string, alert RawAlert,
-iocs IOC array, org_id string, analyst_id string or null,
-wazuh_agent_id string or null, previous_steps Record of string to StepResult
+2. Rewrite lib/soc/enrichment/ip.ts for IP enrichment:
 
-PlaybookResult with fields: playbook_id string, case_id string,
-success boolean, steps_executed number, steps_failed number,
-total_duration_ms number, step_results Record of string to StepResult,
-escalate_to_l3 boolean, escalation_reason string or null
+Function enrichIP taking ip string and supabase client returning EnrichmentResult:
 
-IOC with fields: type ip or domain or hash or email or url,
-value string, malicious boolean or null, confidence number or null,
-source string or null
+Check ioc_store table first — if same IP enriched in last 24 hours return cached result with cached true
 
-2. Rewrite lib/soc/playbooks/engine.ts with PlaybookEngine class:
+Call these 4 sources in parallel using Promise.allSettled:
 
-Constructor takes supabase client from @/lib/supabase/server
+Source 1 VirusTotal: GET https://www.virustotal.com/api/v3/ip_addresses/{ip}
+Header x-apikey from process.env.VIRUSTOTAL_API_KEY
+Extract: malicious count from last_analysis_stats, country, asn, tags
+Mark malicious if malicious count is greater than 2
 
-Method executePlaybook taking playbook_id string and context PlaybookContext:
-Fetch playbook steps from registered playbooks map
-Execute each step in sequence with timeout enforcement using Promise.race
-On step failure: log error to case_timeline, continue if required is false, abort if required is true
-Log every step result to case_timeline via Supabase insert with actor system
-Update case status to investigating on start
-Update case status to contained on full success
-Set escalate_to_l3 true if any critical step fails
-Return PlaybookResult
+Source 2 AbuseIPDB: GET https://api.abuseipdb.com/api/v2/check?ipAddress={ip}&maxAgeInDays=90
+Header Key from process.env.ABUSEIPDB_API_KEY
+Extract: abuseConfidenceScore, countryCode, isp, usageType, totalReports
+Mark malicious if abuseConfidenceScore is greater than 25
 
-Method registerPlaybook taking id string and steps PlaybookStep array:
-Add to internal playbooks Map
+Source 3 IPInfo: GET https://ipinfo.io/{ip}/json — no auth needed for 50k/mo free
+Extract: country, org, hostname, bogon flag
+Mark bogon IPs as non-malicious automatically
 
-Private method logToTimeline taking case_id string, action string, details jsonb:
-Insert into case_timeline table with actor system and created_at now
+Source 4 Shodan: GET https://api.shodan.io/shodan/host/{ip}?key={key} — no key needed for basic
+Use https://internetdb.shodan.io/{ip} instead — completely free no key required
+Extract: ports, tags, cpes, vulns array
+Mark malicious if vulns array is not empty
 
-Private method enforceTimeout taking promise and ms number:
-Return Promise.race of promise and timeout rejection
+Combine all source results:
+Final malicious true if 2 or more sources say malicious
+Final confidence_score as weighted average: VirusTotal 40 percent, AbuseIPDB 40 percent, Shodan 10 percent, IPInfo 10 percent
 
-3. Create lib/soc/playbooks/phishing.ts:
-Phishing playbook with these steps in order:
-Step 1 extract_iocs: Parse alert raw_log and extract all IPs, domains, email addresses, URLs
-Use regex patterns for each IOC type
-Step 2 enrich_iocs: Call enrichIOC from lib/soc/enrichment/index.ts for each extracted IOC
-Step 3 block_sender: If malicious email found call /api/response/isolate with source_ip
-Step 4 notify_users: Log notification action to case timeline — actual email via future integration
-Step 5 create_report: Update case with all findings, set status to contained if no escalation needed
+Upsert result into ioc_store table with enrichment jsonb, malicious bool, confidence_score, first_seen, last_seen
 
-4. Create lib/soc/playbooks/malware.ts:
-Malware playbook steps in order:
-Step 1 isolate_host: POST to /api/response/isolate with wazuh_agent_id from context
-Step 2 kill_process: POST to /api/response/kill-process with PID from alert raw_log
-Step 3 quarantine_file: POST to /api/response/quarantine with file path from alert raw_log
-Step 4 scan_for_spread: Query Supabase for other alerts with same rule_id in last 24 hours
-Step 5 create_report: Summarize all actions taken, update case status
+3. Create lib/soc/enrichment/domain.ts for domain enrichment:
 
-5. Create lib/soc/playbooks/bruteforce.ts:
-Brute force playbook steps in order:
-Step 1 block_ip: POST to /api/response/isolate with source_ip
-Step 2 check_successful_logins: Query alert raw_log for any successful auth after brute force
-Step 3 disable_account: Log disable action to timeline — wire to Microsoft Graph in Phase 2
-Step 4 notify_user: Log notification to timeline with affected username from raw_log
-Step 5 create_report: Set escalate_to_l3 true if successful login was found in step 2
+Function enrichDomain taking domain string and supabase client returning EnrichmentResult:
 
-6. Create lib/soc/playbooks/exfiltration.ts:
-Exfiltration playbook steps in order:
-Step 1 isolate_host: POST to /api/response/isolate with wazuh_agent_id — mark required true
-Step 2 revoke_tokens: Log token revocation to timeline — wire to Microsoft Graph in Phase 2
-Step 3 preserve_logs: Copy raw_log and all context to case_evidence table in Supabase
-Step 4 escalate: Set escalate_to_l3 true always — exfiltration always escalates
-Step 5 create_report: Update case severity to P1, update sla_deadline to 15 minutes from now
+Check ioc_store cache first — same 24 hour rule
 
-7. Update lib/soc/playbooks/engine.ts to register all 4 playbooks in constructor:
-Register phishing, malware, brute_force, exfiltration playbooks
+Call these 3 sources in parallel using Promise.allSettled:
+
+Source 1 VirusTotal: GET https://www.virustotal.com/api/v3/domains/{domain}
+Header x-apikey from process.env.VIRUSTOTAL_API_KEY
+Extract: malicious count from last_analysis_stats, categories, creation_date, registrar
+Mark malicious if malicious count is greater than 2
+
+Source 2 WHOIS via whoisjson: GET https://whoisjson.com/api/v1/whois?domain={domain} — free no key
+Extract: registrar, creation_date, expiry_date, registrant_country
+Flag if domain created less than 30 days ago — newly registered domain is suspicious
+
+Source 3 DNS history via SecurityTrails free: GET https://api.securitytrails.com/v1/domain/{domain} — skip if no key
+If SECURITYTRAILS_API_KEY not in env skip this source gracefully with no error
+
+Final malicious true if VirusTotal says malicious OR domain is newly registered plus VirusTotal score above 0
+
+Upsert into ioc_store
+
+4. Create lib/soc/enrichment/hash.ts for file hash enrichment:
+
+Function enrichHash taking hash string and supabase client returning EnrichmentResult:
+
+Check ioc_store cache first
+
+Call these 2 sources in parallel:
+
+Source 1 VirusTotal: GET https://www.virustotal.com/api/v3/files/{hash}
+Header x-apikey from process.env.VIRUSTOTAL_API_KEY
+Extract: malicious count, file type, file names, tags, signature info
+Mark malicious if malicious count is greater than 3
+
+Source 2 MalwareBazaar: POST https://mb-api.abuse.ch/api/v1/
+Body: query=get_info&hash={hash} — completely free no key needed
+Extract: file_type, file_name, tags, signature, first_seen
+Mark malicious if query_status is ok meaning hash found in database
+
+Final malicious true if either source says malicious
+
+Upsert into ioc_store
+
+5. Create lib/soc/enrichment/email.ts for email header enrichment:
+
+Function enrichEmail taking email string and supabase client returning EnrichmentResult:
+
+Check if email is in ioc_store cache
+
+Extract domain from email address after @ symbol
+Call enrichDomain on the extracted domain
+
+Additionally check these:
+SPF: Use dns.promises.resolveTxt on domain — look for v=spf1 record
+DKIM: Use dns.promises.resolveTxt on selector._domainkey.domain — check if record exists
+DMARC: Use dns.promises.resolveTxt on _dmarc.domain — check policy p=reject or p=quarantine
+
+Spoofing risk score:
+Add 30 points if no SPF record found
+Add 30 points if no DMARC record found
+Add 20 points if DMARC policy is none not reject or quarantine
+Add 20 points if domain is newly registered under 30 days
+
+Mark malicious if spoofing risk score is above 60 or domain enrichment says malicious
+
+Upsert into ioc_store
+
+6. Rewrite lib/soc/enrichment/index.ts as main enrichment router:
+
+Export function enrichIOC taking ioc IOC and supabase client returning EnrichmentResult:
+Route to enrichIP if type is ip
+Route to enrichDomain if type is domain
+Route to enrichHash if type is hash
+Route to enrichEmail if type is email
+For url type: extract domain from URL and call enrichDomain
+
+Export function enrichBatch taking iocs IOC array and supabase client returning EnrichmentResult array:
+Process all IOCs in parallel using Promise.allSettled
+Return results array maintaining same order as input
+Log total enrichment time and cache hit rate to console
+
+Export function getEnrichmentSummary taking EnrichmentResult array:
+Return malicious_count, suspicious_count where confidence above 50,
+clean_count, cache_hit_rate, top_threats array of malicious results sorted by confidence
 
 Run npm run build, fix all errors.
-Commit: feat: complete playbook engine with all 4 playbooks, push.
+Commit: feat: complete IOC enrichment pipeline all sources, push.

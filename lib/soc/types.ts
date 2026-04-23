@@ -90,3 +90,26 @@ export interface PlaybookResult {
   escalate_to_l3: boolean;
   escalation_reason: string | null;
 }
+
+export interface EnrichmentSource {
+  name: string;
+  malicious: boolean | null;
+  score: number | null;
+  raw: any | null;
+  error: string | null;
+}
+
+export interface EnrichmentResult {
+  ioc_type: "ip" | "domain" | "hash" | "email" | "url";
+  value: string;
+  malicious: boolean;
+  confidence_score: number; // 0-100
+  sources: EnrichmentSource[];
+  cached: boolean;
+  enriched_at: Date;
+  raw_data: any;
+  tags: string[];
+  country: string | null;
+  asn: string | null;
+  threat_type: string | null;
+}
