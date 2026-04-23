@@ -8,6 +8,8 @@ CREATE TABLE IF NOT EXISTS public.attack_paths (
     root_cause_alert_id UUID REFERENCES public.alerts(id),
     org_id TEXT NOT NULL,
     nodes JSONB NOT NULL DEFAULT '[]'::JSONB,
+    kill_chain_stages JSONB DEFAULT '[]'::JSONB,
+    hardening_recommendations JSONB DEFAULT '[]'::JSONB,
     risk_score INTEGER DEFAULT 0,
     target_asset TEXT,
     created_at TIMESTAMPTZ DEFAULT now()

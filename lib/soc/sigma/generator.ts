@@ -191,6 +191,10 @@ export class SigmaGenerator {
 
     try {
       const token = await getWazuhApiToken();
+      
+      // Note: Wazuh REST API does not support dynamic rule push via HTTP.
+      // This stores the rule locally and marks deployed false until manual filesystem deployment.
+      // Wazuh API call below is for future custom plugin support.
       const response = await fetch("https://167.172.85.62:55000/rules", {
         method: "POST",
         headers: {
@@ -209,6 +213,7 @@ export class SigmaGenerator {
       }
     } catch (e) {
       console.error("[sigma] deployment failed:", e);
+      // Ensure deployed is false (implicitly handled by not updating DB to true)
     }
 
     return null;
