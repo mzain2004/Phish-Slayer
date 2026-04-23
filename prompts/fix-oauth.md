@@ -4,10 +4,11 @@ Read ONLY: next.config.ts, app/api/webhooks/clerk/route.ts if exists
 Do not read any other file.
 
 PART 1 - CSP fix in next.config.ts:
-Add to script-src: https://accounts.google.com https://clerk.com https://clerk.phishslayer.tech.clerk.accounts.dev
-Add to connect-src: https://accounts.google.com https://clerk.com https://clerk.phishslayer.tech.clerk.accounts.dev
-Add to frame-src: https://accounts.google.com https://clerk.com https://clerk.phishslayer.tech.clerk.accounts.dev
+Add to script-src: https://accounts.google.com https://clerk.com https://clerk.phishslayer.tech
+Add to connect-src: https://accounts.google.com https://clerk.com https://clerk.phishslayer.tech
+Add to frame-src: https://accounts.google.com https://clerk.com https://clerk.phishslayer.tech
 Add to img-src: https://img.clerk.com
+
 
 PART 2 - Create app/api/webhooks/clerk/route.ts:
 export const dynamic = force-dynamic
