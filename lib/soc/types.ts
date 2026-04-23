@@ -276,3 +276,64 @@ export interface SigmaGenerationResult {
   deployed: boolean;
   wazuh_rule_id: string | null;
 }
+
+export interface ThreatIntelEntry {
+  id: string;
+  source: "otx" | "misp" | "internal";
+  ioc_type: "ip" | "domain" | "hash" | "email" | "url";
+  value: string;
+  threat_type: string;
+  confidence: number; // 0-100
+  severity: "low" | "medium" | "high" | "critical";
+  tags: string[];
+  mitre_techniques: string[];
+  first_seen: Date;
+  last_seen: Date;
+  expiry: Date | null;
+  active: boolean;
+  raw_data: any;
+  case_id: string | null;
+}
+
+export interface OTXPulse {
+  id: string;
+  name: string;
+  description: string;
+  tags: string[];
+  indicators: OTXIndicator[];
+  created: Date;
+  modified: Date;
+}
+
+export interface OTXIndicator {
+  type: string;
+  indicator: string;
+  description: string | null;
+}
+
+export interface MISPEvent {
+  id: string;
+  info: string;
+  threat_level_id: string;
+  attributes: MISPAttribute[];
+  tags: string[];
+  date: string;
+}
+
+export interface MISPAttribute {
+  type: string;
+  value: string;
+  comment: string | null;
+  to_ids: boolean;
+  timestamp: string;
+}
+
+export interface ThreatIntelStats {
+  total_indicators: number;
+  active_indicators: number;
+  sources_breakdown: Record<string, number>;
+  last_sync_otx: Date | null;
+  last_sync_misp: Date | null;
+  top_threat_types: string[];
+  indicators_added_24h: number;
+}

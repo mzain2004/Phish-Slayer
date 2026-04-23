@@ -4,8 +4,28 @@ import { enrichIP } from "./ip";
 import { enrichDomain } from "./domain";
 import { enrichHash } from "./hash";
 import { enrichEmail } from "./email";
+import { checkIOCAgainstIntel } from "../intel/index";
 
 export async function enrichIOC(ioc: IOC, supabase: SupabaseClient): Promise<EnrichmentResult> {
+  // Check Threat Intel first (Fast Lookup)
+  const intelHit = await checkIOCAgainstIntel(ioc.value, ioc.type, supabase);
+  if (intelHit && intelHit.confidence > 80) {
+    return {
+      ioc_type: ioc.type,
+      value: ioc.value,
+      malicious: true,
+      confidence_score: intelHit.confidence,
+      sources: [{ name: intelHit.source, malicious: true, score: intelHit.confidence, raw: intelHit.raw_data, error: null }],
+      cached: true,
+      enriched_at: new Date(intelHit.last_seen),
+      raw_data: intelHit.raw_data,
+      tags: intelHit.tags,
+      country: null,
+      asn: null,
+      threat_type: intelHit.threat_type
+    };
+  }
+
   switch (ioc.type) {
     case "ip":
       return enrichIP(ioc.value, supabase);

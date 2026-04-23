@@ -1,9 +1,9 @@
-Task: Build complete Sigma Rule Auto-Generator for PhishSlayer SOC platform
+Task: Build complete Threat Intel Feeds system for PhishSlayer SOC platform
 
 Read ONLY these files:
-lib/soc/hunting/engine.ts
-lib/soc/hunting/hypotheses.ts
 lib/soc/types.ts
+lib/soc/enrichment/index.ts
+lib/soc/sigma/generator.ts
 
 Do not read any other file.
 
@@ -11,139 +11,168 @@ Requirements:
 
 1. Update lib/soc/types.ts to add these types:
 
-SigmaRule with fields: id string, title string, description string,
-status enum experimental or test or stable, level enum low or medium or high or critical,
-logsource SigmaLogsource, detection SigmaDetection, falsepositives string array,
-tags string array of MITRE tags like attack.t1059, author string default PhishSlayer,
-created_at Date, hunt_finding_id string or null, tested boolean, deployed boolean,
-wazuh_rule_id string or null
+ThreatIntelEntry with fields: id string, source enum otx or misp or internal,
+ioc_type enum ip or domain or hash or email or url, value string,
+threat_type string, confidence number 0-100, severity enum low or medium or high or critical,
+tags string array, mitre_techniques string array, first_seen Date, last_seen Date,
+expiry Date or null, active boolean, raw_data jsonb, case_id string or null
 
-SigmaLogsource with fields: category string, product string, service string or null
+OTXPulse with fields: id string, name string, description string,
+tags string array, indicators OTXIndicator array, created Date, modified Date
 
-SigmaDetection with fields: selection jsonb, condition string,
-timeframe string or null like 15m or 1h
+OTXIndicator with fields: type string, indicator string, description string or null
 
-SigmaGenerationResult with fields: rule SigmaRule, yaml_content string,
-test_result SigmaTestResult or null, deployed boolean, wazuh_rule_id string or null
+MISPEvent with fields: id string, info string, threat_level_id string,
+attributes MISPAttribute array, tags string array, date string
 
-SigmaTestResult with fields: matched_alerts number, false_positive_rate number,
-test_duration_ms number, sample_matches jsonb array, approved boolean
+MISPAttribute with fields: type string, value string, comment string or null,
+to_ids boolean, timestamp string
 
-2. Create lib/soc/sigma/generator.ts with SigmaGenerator class:
+ThreatIntelStats with fields: total_indicators number, active_indicators number,
+sources_breakdown Record of string to number, last_sync_otx Date or null,
+last_sync_misp Date or null, top_threat_types string array,
+indicators_added_24h number
 
-Constructor takes supabase client
+2. Create lib/soc/intel/otx.ts for AlienVault OTX integration:
 
-Method generateFromFinding taking finding HuntFinding returning SigmaGenerationResult:
+OTX_BASE_URL constant: https://otx.alienvault.com/api/v1
+OTX_API_KEY from process.env.OTX_API_KEY — if not set log warning and return empty array gracefully
 
-Step 1 build detection logic:
-Analyze finding.evidence jsonb to extract key indicators
-Extract process names, command patterns, file paths, registry keys, network indicators
-Build selection object mapping fieldnames to indicator values
-Example: if evidence contains powershell and encodedcommand
-Selection becomes: CommandLine contains powershell and contains encodedcommand
+Function fetchOTXPulses taking days_back number default 7 returning OTXPulse array:
+GET https://otx.alienvault.com/api/v1/pulses/subscribed?limit=50&modified_since={date}
+Header X-OTX-API-KEY from process.env.OTX_API_KEY
+date is ISO string of now minus days_back days
+Extract pulses array from response
+Return OTXPulse array
 
-Step 2 determine logsource:
-If finding.mitre_tactic contains Execution or Defense Evasion set category process_creation
-If finding.mitre_tactic contains Network or Exfiltration set category network_connection
-If finding.mitre_tactic contains Persistence set category registry_event
-Otherwise default to category process_creation with product windows
+Function fetchOTXIndicatorsForIP taking ip string returning ThreatIntelEntry or null:
+GET https://otx.alienvault.com/api/v1/indicators/IPv4/{ip}/general
+If pulse_info.count greater than 0 return ThreatIntelEntry with source otx
+confidence based on pulse count: 1 pulse is 40, 2-5 pulses is 70, more than 5 is 90
+Return null if no pulses found
 
-Step 3 build complete SigmaRule object:
-Title: Auto-Generated: {finding.title}
-Description: {finding.description}
-Status: experimental always for auto-generated rules
-Level: map finding severity — critical to critical, high to high, medium to medium
-Tags: array with attack.{finding.mitre_technique.toLowerCase()} and
-attack.{finding.mitre_tactic.toLowerCase().replace space with underscore}
-Author: PhishSlayer AutoGen
-Falsepositives: array with legitimate administrative activity and authorized security tools
+Function fetchOTXIndicatorsForDomain taking domain string returning ThreatIntelEntry or null:
+GET https://otx.alienvault.com/api/v1/indicators/domain/{domain}/general
+Same confidence logic as IP lookup
 
-Step 4 convert to YAML string:
-Generate valid Sigma YAML format:
-title field, id field as uuid, status field, description field,
-logsource block with category and product,
-detection block with selection and condition: selection,
-falsepositives list, level field, tags list
-Use proper YAML indentation — 4 spaces for nested fields
-Wrap string values containing special characters in quotes
+Function syncOTXFeed taking supabase client returning number count of new entries:
+Call fetchOTXPulses with days_back 1 for daily sync
+For each pulse for each indicator:
+Check if value already exists in threat_intel table
+If not exists: insert new ThreatIntelEntry with source otx
+If exists: update last_seen and raw_data
+Return count of new entries inserted
 
-Step 5 insert into sigma_rules table:
-Store rule object and yaml_content
-Set tested false and deployed false initially
-Link to hunt_finding_id
+3. Create lib/soc/intel/misp.ts for MISP integration:
 
-Return SigmaGenerationResult with rule and yaml_content
+MISP_URL from process.env.MISP_URL — if not set return empty gracefully
+MISP_API_KEY from process.env.MISP_API_KEY — if not set return empty gracefully
 
-Method testRule taking rule SigmaRule returning SigmaTestResult:
+Function fetchMISPEvents taking limit number default 100 returning MISPEvent array:
+GET {MISP_URL}/events/index.json
+Header Authorization from process.env.MISP_API_KEY
+Header Accept application/json
+Extract events array
+Return MISPEvent array
 
-Query alerts table from last 7 days
-Apply detection selection conditions against raw_log jsonb field
-Use Supabase contains operator for jsonb matching
-Count matching alerts as matched_alerts
-Sample up to 5 matching alerts as sample_matches
+Function syncMISPFeed taking supabase client returning number:
+Call fetchMISPEvents
+For each event for each attribute where to_ids is true:
+Map MISP attribute type to our ioc_type:
+ip-src and ip-dst map to ip
+domain and hostname map to domain
+md5 and sha1 and sha256 map to hash
+email-src maps to email
+url maps to url
+Skip unknown types
+Check threat_intel table for existing entry
+Upsert with source misp and confidence 75 default
+Return count of new entries
 
-Calculate false_positive_rate:
-Query suppression_rules and feedback_entries for same indicators
-If known FP indicators match more than 30 percent of results set approved false
-Otherwise set approved true if matched_alerts is less than 1000
+4. Create lib/soc/intel/internal.ts for internal threat intel from cases:
 
-Update sigma_rules table: set tested true, test results in evidence jsonb
-Return SigmaTestResult
+Function buildInternalIntel taking supabase client returning number:
+Query ioc_store table where malicious is true and confidence_score greater than 70
+For each IOC: upsert into threat_intel table with source internal
+Set confidence from confidence_score, set case_id reference
+This creates internal intel from analyst-confirmed malicious IOCs
+Return count of entries synced
 
-Method deployToWazuh taking rule SigmaRule returning string wazuh_rule_id:
+Function checkInternalIntel taking value string and ioc_type string and supabase client:
+Query threat_intel table where value equals input and source is internal and active is true
+Return ThreatIntelEntry or null
 
-Convert Sigma rule to Wazuh XML format:
-Build XML string with group name PhishSlayer_AutoGen
-Rule id: generate numeric ID starting from 200000 incremented per rule
-Level: map critical to 15, high to 12, medium to 8, low to 5
-Description from rule title
-Match on full_log field using regex patterns extracted from selection
-Add mitre tags using mitre block with id tags
+5. Create lib/soc/intel/index.ts as main intel router:
 
-POST converted XML to Wazuh Manager API:
-URL: http://167.172.85.62:55000/rules — auth via WAZUH_API_USER and WAZUH_API_PASSWORD
-If Wazuh API unavailable: save rule locally in sigma_rules table with deployed false
-Log error but do not throw — deployment failure is non-critical
+Export function syncAllFeeds taking supabase client returning ThreatIntelStats:
+Run otxSync, mispSync, internalSync in sequence
+Log results: OTX added {n}, MISP added {n}, Internal added {n}
+Update last_sync timestamps in a intel_sync_log table
+Return ThreatIntelStats
 
-Update sigma_rules table: set deployed true, wazuh_rule_id
-Return wazuh_rule_id string
+Export function checkIOCAgainstIntel taking value string and ioc_type string and supabase client:
+Query threat_intel table where value equals input and active is true
+Return ThreatIntelEntry or null
+This is called by enrichment pipeline to cross-reference against known threats
 
-Method generateAndDeploy taking finding HuntFinding returning SigmaGenerationResult:
-Call generateFromFinding then testRule then if approved call deployToWazuh
-Return complete SigmaGenerationResult with all fields populated
+Export function getIntelStats taking supabase client returning ThreatIntelStats:
+Query threat_intel table for counts by source and ioc_type
+Return ThreatIntelStats object
 
-Method getPendingRules returning SigmaRule array:
-Query sigma_rules where tested false or deployed false
-Return array for manual review
+6. Update lib/soc/enrichment/index.ts:
+Import checkIOCAgainstIntel from lib/soc/intel/index
+In enrichIOC function: before calling external APIs check internal intel first
+If internal intel hit found with confidence above 80: return immediately with cached result
+This means known-bad IOCs resolve instantly without burning API quota
 
-3. Update lib/soc/hunting/engine.ts:
-Import SigmaGenerator from lib/soc/sigma/generator
-After runHunt completes and findings exist:
-For each finding with severity critical or high:
-Call sigmaGenerator.generateAndDeploy with the finding
-Update hunt_missions sigma_rule_generated to true
-Log: Sigma rule generated and deployed for finding {finding.title}
+7. Create supabase/migrations/20260424000007_intel.sql:
 
-4. Update supabase sigma_rules table — add missing columns if table exists:
-Create supabase/migrations/20260424000006_sigma.sql:
-ALTER TABLE public.sigma_rules ADD COLUMN IF NOT EXISTS hunt_finding_id UUID;
-ALTER TABLE public.sigma_rules ADD COLUMN IF NOT EXISTS yaml_content TEXT;
-ALTER TABLE public.sigma_rules ADD COLUMN IF NOT EXISTS tested BOOLEAN DEFAULT false;
-ALTER TABLE public.sigma_rules ADD COLUMN IF NOT EXISTS deployed BOOLEAN DEFAULT false;
-ALTER TABLE public.sigma_rules ADD COLUMN IF NOT EXISTS wazuh_rule_id TEXT;
-ALTER TABLE public.sigma_rules ADD COLUMN IF NOT EXISTS test_results JSONB;
-ALTER TABLE public.sigma_rules ADD COLUMN IF NOT EXISTS author TEXT DEFAULT PhishSlayer;
+ALTER TABLE public.threat_intel ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'internal';
+ALTER TABLE public.threat_intel ADD COLUMN IF NOT EXISTS ioc_type TEXT;
+ALTER TABLE public.threat_intel ADD COLUMN IF NOT EXISTS confidence INTEGER DEFAULT 50;
+ALTER TABLE public.threat_intel ADD COLUMN IF NOT EXISTS expiry TIMESTAMPTZ;
+ALTER TABLE public.threat_intel ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true;
+ALTER TABLE public.threat_intel ADD COLUMN IF NOT EXISTS case_id UUID;
+ALTER TABLE public.threat_intel ADD COLUMN IF NOT EXISTS mitre_techniques TEXT[];
+ALTER TABLE public.threat_intel ADD COLUMN IF NOT EXISTS raw_data JSONB;
 
-5. Create app/api/sigma/route.ts:
-GET endpoint returning all sigma rules with tested and deployed status
-Auth required, add dynamic and runtime exports
+CREATE TABLE IF NOT EXISTS public.intel_sync_log (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  source TEXT NOT NULL,
+  entries_added INTEGER DEFAULT 0,
+  entries_updated INTEGER DEFAULT 0,
+  sync_duration_ms INTEGER,
+  error TEXT,
+  synced_at TIMESTAMPTZ DEFAULT now()
+);
 
-6. Create app/api/sigma/[id]/deploy/route.ts:
-POST endpoint to manually trigger deployment of a specific rule to Wazuh
-Auth required
-Call sigmaGenerator.deployToWazuh with rule fetched from sigma_rules table
-Return deployment result with wazuh_rule_id
+ALTER TABLE public.intel_sync_log ENABLE ROW LEVEL SECURITY;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'intel_sync_log' AND policyname = 'intel_sync_log_policy') THEN
+    CREATE POLICY "intel_sync_log_policy" ON public.intel_sync_log USING (auth.jwt() IS NOT NULL);
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_threat_intel_value ON public.threat_intel(value);
+CREATE INDEX IF NOT EXISTS idx_threat_intel_source ON public.threat_intel(source);
+CREATE INDEX IF NOT EXISTS idx_threat_intel_active ON public.threat_intel(active);
+
+8. Create app/api/intel/sync/route.ts:
+POST endpoint to manually trigger full feed sync
+Auth required, protect with admin check
+Call syncAllFeeds and return ThreatIntelStats
 Add dynamic and runtime exports
 
+9. Create app/api/intel/stats/route.ts:
+GET endpoint returning current intel stats
+Auth required
+Call getIntelStats and return result
+Add dynamic and runtime exports
+
+10. Update cron route to sync intel feeds daily at 01:00 UTC before hunts run:
+Add call to syncAllFeeds in cron handler before huntEngine.scheduleHunts
+This ensures fresh intel is available when hunts run at 02:00 UTC
+
 Run npm run build, fix all errors.
-Commit: feat: complete Sigma rule auto-generator with Wazuh deployment, push.
+Commit: feat: complete threat intel feeds OTX MISP internal store, push.  
