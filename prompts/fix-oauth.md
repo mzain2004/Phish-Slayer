@@ -1,145 +1,112 @@
-Task: Build complete IOC Enrichment Pipeline for PhishSlayer SOC platform
+Task: Build complete Auto-Close Engine for PhishSlayer SOC platform
 
 Read ONLY these files:
-lib/soc/enrichment/index.ts
 lib/soc/types.ts
-lib/soc/enrichment/ip.ts
+lib/soc/deduplication.ts
+supabase/migrations/20260424000002_dedup.sql
 
 Do not read any other file.
 
 Requirements:
 
-1. Update lib/soc/types.ts to add these enrichment types if not present:
+1. Update lib/soc/types.ts to add these types:
 
-EnrichmentResult with fields: ioc_type ip or domain or hash or email or url,
-value string, malicious boolean, confidence_score number 0-100,
-sources EnrichmentSource array, cached boolean, enriched_at Date,
-raw_data jsonb, tags string array, country string or null,
-asn string or null, threat_type string or null
+SuppressionRule with fields: id string, rule_type enum ip or cidr or rule_id or
+hostname or application, value string, reason string, created_by string,
+hit_count number, last_hit Date or null, active boolean
 
-EnrichmentSource with fields: name string, malicious boolean or null,
-score number or null, raw jsonb or null, error string or null
+AutoCloseResult with fields: case_id string, action enum suppressed or auto_closed
+or escalated, reason string, suppression_rule_id string or null,
+confidence number 0-100, timestamp Date
 
-2. Rewrite lib/soc/enrichment/ip.ts for IP enrichment:
+FeedbackEntry with fields: id string, case_id string, original_action string,
+analyst_decision enum true_positive or false_positive or benign,
+analyst_id string, notes string or null, created_at Date,
+alert_type string, source_ip string, rule_id string
 
-Function enrichIP taking ip string and supabase client returning EnrichmentResult:
+2. Create lib/soc/autoclose.ts with AutoCloseEngine class:
 
-Check ioc_store table first — if same IP enriched in last 24 hours return cached result with cached true
+Constructor takes supabase client
 
-Call these 4 sources in parallel using Promise.allSettled:
+Method evaluateCase taking case_id string and alert RawAlert returning AutoCloseResult:
 
-Source 1 VirusTotal: GET https://www.virustotal.com/api/v3/ip_addresses/{ip}
-Header x-apikey from process.env.VIRUSTOTAL_API_KEY
-Extract: malicious count from last_analysis_stats, country, asn, tags
-Mark malicious if malicious count is greater than 2
+Step 1 check IP whitelist:
+Query suppression_rules table where rule_type is ip and value equals alert source_ip and active is true
+If match found: update case status to closed, log to case_timeline with actor system,
+increment hit_count on rule, return AutoCloseResult with action suppressed
 
-Source 2 AbuseIPDB: GET https://api.abuseipdb.com/api/v2/check?ipAddress={ip}&maxAgeInDays=90
-Header Key from process.env.ABUSEIPDB_API_KEY
-Extract: abuseConfidenceScore, countryCode, isp, usageType, totalReports
-Mark malicious if abuseConfidenceScore is greater than 25
+Step 2 check CIDR ranges:
+Query suppression_rules where rule_type is cidr and active is true
+Check if alert source_ip falls within any CIDR using simple IP range comparison
+Known scanner CIDRs to always include: 45.33.32.0/24, 209.197.3.0/24, 71.6.135.0/24
+These are Shodan, Censys, and known research scanners
+If match: auto-close case with reason known_scanner
 
-Source 3 IPInfo: GET https://ipinfo.io/{ip}/json — no auth needed for 50k/mo free
-Extract: country, org, hostname, bogon flag
-Mark bogon IPs as non-malicious automatically
+Step 3 check rule_id suppression:
+Query suppression_rules where rule_type is rule_id and value equals alert rule_id
+Known Wazuh false positive rule IDs to always suppress: 5706, 5710, 5712, 5716, 554
+If match: auto-close with reason known_false_positive_rule
 
-Source 4 Shodan: GET https://api.shodan.io/shodan/host/{ip}?key={key} — no key needed for basic
-Use https://internetdb.shodan.io/{ip} instead — completely free no key required
-Extract: ports, tags, cpes, vulns array
-Mark malicious if vulns array is not empty
+Step 4 check application whitelist:
+Query suppression_rules where rule_type is application
+Check if alert raw_log contains any whitelisted application name
+If match: auto-close with reason whitelisted_application
 
-Combine all source results:
-Final malicious true if 2 or more sources say malicious
-Final confidence_score as weighted average: VirusTotal 40 percent, AbuseIPDB 40 percent, Shodan 10 percent, IPInfo 10 percent
+Step 5 check FP feedback loop:
+Query feedback_entries table where source_ip equals alert source_ip
+and rule_id equals alert rule_id and analyst_decision is false_positive
+Count matching entries
+If count is greater than or equal to 3: auto-close with reason learned_false_positive
+This is the feedback loop — analyst decisions train suppression automatically
 
-Upsert result into ioc_store table with enrichment jsonb, malicious bool, confidence_score, first_seen, last_seen
+If no rule matches: return AutoCloseResult with action escalated meaning needs human review
 
-3. Create lib/soc/enrichment/domain.ts for domain enrichment:
+Method recordFeedback taking FeedbackEntry returning void:
+Insert into feedback_entries table
+Check if this pushes any source_ip plus rule_id combination to 3 or more false_positive decisions
+If threshold reached: automatically insert new suppression_rule with rule_type ip
+Log to console: Auto-suppression rule created for {source_ip} based on analyst feedback
 
-Function enrichDomain taking domain string and supabase client returning EnrichmentResult:
+Method getSuppressionsStats returning object:
+Query suppression_rules count by rule_type
+Query feedback_entries count by analyst_decision
+Query cases closed in last 24 hours with actor system meaning auto-closed
+Return total_suppressions, rules_by_type, fp_rate, auto_close_rate last 24h
 
-Check ioc_store cache first — same 24 hour rule
+Method addSuppressionRule taking SuppressionRule returning void:
+Insert into suppression_rules table
+Validate no duplicate value plus rule_type combination
 
-Call these 3 sources in parallel using Promise.allSettled:
+3. Create supabase/migrations/20260424000003_autoclose.sql:
 
-Source 1 VirusTotal: GET https://www.virustotal.com/api/v3/domains/{domain}
-Header x-apikey from process.env.VIRUSTOTAL_API_KEY
-Extract: malicious count from last_analysis_stats, categories, creation_date, registrar
-Mark malicious if malicious count is greater than 2
+Table feedback_entries: id uuid primary key, case_id uuid references cases,
+original_action text, analyst_decision text true_positive or false_positive or benign,
+analyst_id text, notes text, alert_type text, source_ip text, rule_id text,
+created_at timestamptz default now()
 
-Source 2 WHOIS via whoisjson: GET https://whoisjson.com/api/v1/whois?domain={domain} — free no key
-Extract: registrar, creation_date, expiry_date, registrant_country
-Flag if domain created less than 30 days ago — newly registered domain is suspicious
+Table auto_close_log: id uuid primary key, case_id uuid references cases,
+action text, reason text, suppression_rule_id uuid references suppression_rules,
+confidence integer, created_at timestamptz default now()
 
-Source 3 DNS history via SecurityTrails free: GET https://api.securitytrails.com/v1/domain/{domain} — skip if no key
-If SECURITYTRAILS_API_KEY not in env skip this source gracefully with no error
+Add index on feedback_entries source_ip and rule_id for fast FP lookup
+Add index on suppression_rules value and rule_type for fast matching
+Add RLS policies using auth.jwt() ->> sub pattern same as existing tables
 
-Final malicious true if VirusTotal says malicious OR domain is newly registered plus VirusTotal score above 0
+4. Create app/api/cases/[id]/feedback/route.ts:
+POST endpoint accepting analyst_decision and notes and case_id
+Auth: const userId from auth() from @clerk/nextjs/server
+Zod validation: analyst_decision must be true_positive or false_positive or benign
+Call autoCloseEngine.recordFeedback with validated payload
+Return updated case with new suppression rule if auto-created
+Add dynamic and runtime exports
 
-Upsert into ioc_store
-
-4. Create lib/soc/enrichment/hash.ts for file hash enrichment:
-
-Function enrichHash taking hash string and supabase client returning EnrichmentResult:
-
-Check ioc_store cache first
-
-Call these 2 sources in parallel:
-
-Source 1 VirusTotal: GET https://www.virustotal.com/api/v3/files/{hash}
-Header x-apikey from process.env.VIRUSTOTAL_API_KEY
-Extract: malicious count, file type, file names, tags, signature info
-Mark malicious if malicious count is greater than 3
-
-Source 2 MalwareBazaar: POST https://mb-api.abuse.ch/api/v1/
-Body: query=get_info&hash={hash} — completely free no key needed
-Extract: file_type, file_name, tags, signature, first_seen
-Mark malicious if query_status is ok meaning hash found in database
-
-Final malicious true if either source says malicious
-
-Upsert into ioc_store
-
-5. Create lib/soc/enrichment/email.ts for email header enrichment:
-
-Function enrichEmail taking email string and supabase client returning EnrichmentResult:
-
-Check if email is in ioc_store cache
-
-Extract domain from email address after @ symbol
-Call enrichDomain on the extracted domain
-
-Additionally check these:
-SPF: Use dns.promises.resolveTxt on domain — look for v=spf1 record
-DKIM: Use dns.promises.resolveTxt on selector._domainkey.domain — check if record exists
-DMARC: Use dns.promises.resolveTxt on _dmarc.domain — check policy p=reject or p=quarantine
-
-Spoofing risk score:
-Add 30 points if no SPF record found
-Add 30 points if no DMARC record found
-Add 20 points if DMARC policy is none not reject or quarantine
-Add 20 points if domain is newly registered under 30 days
-
-Mark malicious if spoofing risk score is above 60 or domain enrichment says malicious
-
-Upsert into ioc_store
-
-6. Rewrite lib/soc/enrichment/index.ts as main enrichment router:
-
-Export function enrichIOC taking ioc IOC and supabase client returning EnrichmentResult:
-Route to enrichIP if type is ip
-Route to enrichDomain if type is domain
-Route to enrichHash if type is hash
-Route to enrichEmail if type is email
-For url type: extract domain from URL and call enrichDomain
-
-Export function enrichBatch taking iocs IOC array and supabase client returning EnrichmentResult array:
-Process all IOCs in parallel using Promise.allSettled
-Return results array maintaining same order as input
-Log total enrichment time and cache hit rate to console
-
-Export function getEnrichmentSummary taking EnrichmentResult array:
-Return malicious_count, suspicious_count where confidence above 50,
-clean_count, cache_hit_rate, top_threats array of malicious results sorted by confidence
+5. Create app/api/autoclose/stats/route.ts:
+GET endpoint returning suppression statistics
+Auth required
+Call autoCloseEngine.getSuppressionsStats
+Return stats as JSON
+Add dynamic and runtime exports
 
 Run npm run build, fix all errors.
-Commit: feat: complete IOC enrichment pipeline all sources, push.
+Apply migration 20260424000003_autoclose.sql in Supabase Dashboard SQL Editor manually.
+Commit: feat: complete auto-close engine with FP feedback loop, push.

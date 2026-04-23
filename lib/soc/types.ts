@@ -113,3 +113,36 @@ export interface EnrichmentResult {
   asn: string | null;
   threat_type: string | null;
 }
+
+export interface SuppressionRule {
+  id: string;
+  rule_type: "ip" | "cidr" | "rule_id" | "hostname" | "application";
+  value: string;
+  reason: string;
+  created_by: string;
+  hit_count: number;
+  last_hit: Date | null;
+  active: boolean;
+}
+
+export interface AutoCloseResult {
+  case_id: string;
+  action: "suppressed" | "auto_closed" | "escalated";
+  reason: string;
+  suppression_rule_id: string | null;
+  confidence: number; // 0-100
+  timestamp: Date;
+}
+
+export interface FeedbackEntry {
+  id?: string;
+  case_id: string;
+  original_action: string;
+  analyst_decision: "true_positive" | "false_positive" | "benign";
+  analyst_id: string;
+  notes: string | null;
+  created_at: Date;
+  alert_type: string;
+  source_ip: string;
+  rule_id: string;
+}
