@@ -1,7 +1,7 @@
 const cspHeader = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://app.termly.io https://public.profitwell.com https://accounts.google.com https://clerk.com https://clerk.phishslayer.tech",
-  "script-src-elem 'self' 'unsafe-inline' 'unsafe-eval' https://app.termly.io https://public.profitwell.com https://accounts.google.com https://clerk.com https://clerk.phishslayer.tech",
+  "script-src-elem 'self' 'unsafe-inline' 'unsafe-eval' https://app.termly.io https://public.profitwell.com https://accounts.google.com https://clerk.com https://clerk.phishslayer.tech https://static.cloudflareinsights.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://app.termly.io",
   "style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com https://app.termly.io",
   "img-src * data: blob: https://img.clerk.com",
