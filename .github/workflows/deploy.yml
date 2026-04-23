@@ -182,6 +182,7 @@ jobs:
           RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}
           NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
           CLERK_SECRET_KEY=${{ secrets.CLERK_SECRET_KEY }}
+          CLERK_WEBHOOK_SECRET=${{ secrets.CLERK_WEBHOOK_SECRET }}
           ENVEOF
 
             echo "=== Pulling latest image from GHCR ==="
