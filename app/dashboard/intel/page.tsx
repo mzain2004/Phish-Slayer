@@ -1,478 +1,257 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useTransition } from "react";
-import { motion } from "framer-motion";
-import { toast } from "sonner";
-import {
-  Trash2,
-  Loader2,
-  ShieldCheck,
-  Database,
-  ListPlus,
-  AlertTriangle,
-  Code,
-  Copy,
-} from "lucide-react";
-import {
-  getWhitelist,
-  removeFromWhitelist,
-  getIntelIndicators,
-  removeIntelIndicator,
-} from "@/lib/supabase/actions";
-import { useRole } from "@/lib/rbac/useRole";
-import { canManageIntelVault } from "@/lib/rbac/roles";
-import { useTier } from "@/hooks/useTier";
-import { UpgradeBanner } from "@/components/ui/UpgradeBanner";
-import PhishButton from "@/components/ui/PhishButton";
-import StatusBadge from "@/components/dashboard/StatusBadge";
+import { useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import DashboardCard from '@/components/dashboard/DashboardCard';
+import { Database, Zap, RefreshCw, AlertTriangle, Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
 
-const cardHover = {
-  whileHover: {
-    scale: 1.02,
-    boxShadow: "0 8px 32px rgba(45,212,191,0.15)",
-  },
-  transition: { type: "spring" as const, stiffness: 300, damping: 20 },
-};
+const PAGE_SIZE = 25;
 
-function TypeBadge({ value }: { value: string | null }) {
-  const t = (value || "").toUpperCase();
-  const isKnownType = t === "DOMAIN" || t === "IPV4" || t === "URL";
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-[10px] py-[2px] text-[11px] font-bold uppercase tracking-wider ${
-        isKnownType
-          ? "bg-[rgba(45,212,191,0.15)] text-[#2DD4BF] border border-[rgba(45,212,191,0.35)]"
-          : "bg-white/10 text-[#E6EDF3] border border-[rgba(48,54,61,0.9)]"
-      }`}
-    >
-      {value || "N/A"}
-    </span>
-  );
-}
+export default function ThreatIntelPage() {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [iocs, setIocs] = useState<any[]>([]);
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [severityFilter, setSeverityFilter] = useState('all');
+  const supabase = createClient();
 
-/* ── Main Page ────────────────────────────────────────────────────── */
-export default function IntelVaultPage() {
-  const [whitelist, setWhitelist] = useState<any[]>([]);
-  const [indicators, setIndicators] = useState<any[]>([]);
-  const [loaded, setLoaded] = useState(false);
-  const [isPending, startTransition] = useTransition();
+  const feeds = [
+    { name: 'AlienVault OTX', count: '45.2k', status: 'active', lastSync: '12m ago' },
+    { name: 'MISP Feed', count: '12.8k', status: 'active', lastSync: '1h ago' },
+    { name: 'PhishSlayer Internal', count: '2.4k', status: 'active', lastSync: 'Just now' },
+    { name: 'MalwareBazaar', count: '89.1k', status: 'syncing', lastSync: '2m ago' },
+  ];
 
   useEffect(() => {
-    Promise.all([
-      getWhitelist().then((data: any[]) => setWhitelist(data)),
-      getIntelIndicators().then((data: any[]) => setIndicators(data)),
-    ]).finally(() => setLoaded(true));
-  }, []);
-
-  const { role, loading: roleLoading } = useRole();
-  const isManager = role && canManageIntelVault(role);
-
-  const handleRemoveWhitelist = (id: string) => {
-    startTransition(async () => {
+    async function fetchData() {
       try {
-        await removeFromWhitelist(id);
-        const data = await getWhitelist();
-        setWhitelist(data);
-        toast.success("Target removed from whitelist.");
+        setLoading(true);
+        let query = supabase
+          .from('threat_intel')
+          .select('id, indicator, type, source, severity, first_seen, last_seen', { count: 'exact' });
+
+        if (typeFilter !== 'all') {
+          query = query.eq('type', typeFilter);
+        }
+        if (severityFilter !== 'all') {
+          query = query.eq('severity', severityFilter);
+        }
+
+        const { data, error, count } = await query
+          .order('last_seen', { ascending: false })
+          .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
+
+        if (error) throw error;
+        setIocs(data || []);
+        setTotalCount(count || 0);
       } catch (err: any) {
-        toast.error(err.message || "Failed to remove target.");
+        console.error('Error fetching threat intel:', err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
       }
-    });
-  };
+    }
 
-  const handleRemoveIndicator = (id: string) => {
-    startTransition(async () => {
-      try {
-        await removeIntelIndicator(id);
-        const data = await getIntelIndicators();
-        setIndicators(data);
-        toast.success("Indicator removed from Intel Vault.");
-      } catch (err: any) {
-        toast.error(err.message || "Failed to remove indicator.");
-      }
-    });
-  };
+    fetchData();
+  }, [page, typeFilter, severityFilter]);
 
-  const { limits, isSuperAdmin, loading: tierLoading } = useTier();
-
-  /* ── Loading ─────────────────────────────────────────────────────── */
-  if (!loaded || roleLoading || tierLoading) {
+  if (loading && page === 1) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
-      </div>
-    );
-  }
-
-  if (!limits.canUseIntelVault && !isSuperAdmin) {
-    return (
-      <div className="text-white font-sans min-h-screen pt-20">
-        <UpgradeBanner
-          feature="Proprietary Intel Vault"
-          requiredTier="Command & Control"
-        />
-      </div>
-    );
-  }
-
-  /* ── Page ─────────────────────────────────────────────────────────── */
-  return (
-    <div className="text-white font-sans min-h-screen flex flex-col w-full overflow-x-hidden">
-      <main data-stagger-container className="flex-1 w-full max-w-7xl mx-auto">
-        {/* Page Header */}
-        <div className="mb-8">
-          <h1 className="dashboard-page-title text-white tracking-tight flex items-center gap-3">
-            <Database className="w-7 h-7 text-teal-400" />
-            Intel Vault
-          </h1>
-          <p className="text-[#8B949E] mt-2 text-sm">
-            Manage your organization&apos;s whitelisted targets and proprietary
-            threat intelligence indicators.
-          </p>
-        </div>
-
-        {!isManager && (
-          <div className="mb-8 rounded-xl bg-blue-500/10 border border-blue-500/20 p-4 flex items-center gap-3">
-            <ShieldCheck className="w-5 h-5 text-blue-400" />
-            <p className="text-sm font-medium text-blue-300">
-              You have view-only access to the Intel Vault. Only SOC Managers
-              and Super Admins can add or remove items.
-            </p>
-          </div>
-        )}
-
-        {/* KPI strip */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          {[
-            {
-              label: "Whitelisted",
-              value: whitelist.length,
-              icon: ShieldCheck,
-              color: "text-green-400 bg-green-500/10 border-green-500/20",
-            },
-            {
-              label: "Total Indicators",
-              value: indicators.length,
-              icon: Database,
-              color: "text-teal-400 bg-teal-500/10 border-teal-500/20",
-            },
-            {
-              label: "Critical",
-              value: indicators.filter(
-                (i) => i.severity?.toLowerCase() === "critical",
-              ).length,
-              icon: AlertTriangle,
-              color: "text-red-400 bg-red-500/10 border-red-500/20",
-            },
-            {
-              label: "High",
-              value: indicators.filter(
-                (i) => i.severity?.toLowerCase() === "high",
-              ).length,
-              icon: AlertTriangle,
-              color: "text-orange-400 bg-orange-500/10 border-orange-500/20",
-            },
-          ].map((kpi) => (
-            <motion.div
-              {...cardHover}
-              key={kpi.label}
-              className={`rounded-[12px] border bg-[rgba(23,28,35,0.88)] border-[rgba(48,54,61,0.9)] p-4 flex items-center gap-4 backdrop-blur-[8px] ${kpi.color}`}
-            >
-              <kpi.icon className="w-6 h-6 shrink-0 opacity-80" />
-              <div>
-                <p className="text-2xl font-bold leading-none">{kpi.value}</p>
-                <p className="text-xs font-semibold mt-1 uppercase tracking-wider opacity-70">
-                  {kpi.label}
-                </p>
-              </div>
-            </motion.div>
+      <div className="flex flex-col gap-6 animate-pulse">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className="h-24 bg-white/5 rounded-xl border border-white/10" />
           ))}
         </div>
-
-        <div className="flex flex-col xl:flex-row gap-8 items-start">
-          {/* ────────────── Whitelist Table ────────────── */}
-          <motion.div
-            {...cardHover}
-            className="w-full xl:w-[380px] xl:min-w-[340px] bg-[rgba(255,255,255,0.04)] rounded-2xl border border-[rgba(255,255,255,0.08)] backdrop-blur-[8px] overflow-hidden flex flex-col"
-          >
-            {/* Header */}
-            <div className="px-5 py-4 border-b border-white/10 flex items-center gap-2 text-[#E6EDF3]">
-              <ListPlus className="w-5 h-5 text-teal-400" />
-              <h2 className="text-base font-semibold text-white">
-                Target Whitelist
-              </h2>
-              <span className="ml-auto text-xs font-bold text-[#8B949E] bg-[rgba(23,28,35,0.85)] rounded-full px-2.5 py-0.5 border border-[rgba(48,54,61,0.9)]">
-                {whitelist.length}
-              </span>
-            </div>
-
-            {/* Table header */}
-            <div className="bg-[rgba(23,28,35,0.85)] px-5 py-2 border-b border-white/10 flex items-center justify-between">
-              <span className="text-[11px] font-bold text-[#E6EDF3] uppercase tracking-wider">
-                Target
-              </span>
-              <span className="text-[11px] font-bold text-[#E6EDF3] uppercase tracking-wider">
-                Date Added
-              </span>
-            </div>
-
-            {/* Body */}
-            {whitelist.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center px-6">
-                <ListPlus className="w-8 h-8 text-slate-300 mb-3" />
-                <p className="text-sm font-medium text-slate-600">
-                  No whitelisted targets found.
-                </p>
-                <p className="text-xs text-[#8B949E] mt-1 max-w-[220px]">
-                  Targets added from the Threat Intel dashboard will appear
-                  here.
-                </p>
-              </div>
-            ) : (
-              <ul className="divide-y divide-slate-800 max-h-[480px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700">
-                {whitelist.map((item) => (
-                  <li
-                    key={item.id}
-                    className="px-5 py-3.5 flex items-center justify-between gap-3 hover:bg-[rgba(255,255,255,0.04)] transition-colors group"
-                  >
-                    <div className="flex flex-col min-w-0">
-                      <span className="text-sm font-semibold text-[#E6EDF3] truncate">
-                        {item.target}
-                      </span>
-                      <span className="text-[11px] text-[#E6EDF3] mt-0.5">
-                        {new Date(item.created_at).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
-                      </span>
-                    </div>
-                    {isManager && (
-                      <PhishButton
-                        onClick={() => handleRemoveWhitelist(item.id)}
-                        disabled={isPending}
-                        aria-label={`Remove ${item.target} from whitelist`}
-                        className="p-1.5 rounded-md text-[#8B949E] hover:text-red-400 hover:bg-red-500/10 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 disabled:opacity-50"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </PhishButton>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </motion.div>
-
-          {/* ────────────── Intel Vault Table ────────────── */}
-          <motion.div
-            {...cardHover}
-            className="flex-1 w-full bg-[rgba(255,255,255,0.04)] rounded-2xl border border-[rgba(255,255,255,0.08)] backdrop-blur-[8px] overflow-hidden flex flex-col"
-          >
-            {/* Header */}
-            <div className="px-5 py-4 border-b border-white/10 flex items-center gap-2 text-[#E6EDF3]">
-              <Database className="w-5 h-5 text-teal-400" />
-              <h2 className="text-base font-semibold text-white">
-                Proprietary Intel Vault
-              </h2>
-              <span className="ml-auto text-xs font-bold text-[#8B949E] bg-[rgba(23,28,35,0.85)] border border-[rgba(48,54,61,0.9)] rounded-full px-2.5 py-0.5">
-                {indicators.length}
-              </span>
-            </div>
-
-            {/* Table header */}
-            <div className="bg-[rgba(23,28,35,0.85)] px-5 py-2 border-b border-white/10 grid grid-cols-12 gap-3 items-center">
-              <span className="col-span-5 text-[11px] font-bold text-[#E6EDF3] uppercase tracking-wider">
-                Indicator
-              </span>
-              <span className="col-span-2 text-[11px] font-bold text-[#E6EDF3] uppercase tracking-wider">
-                Type
-              </span>
-              <span className="col-span-2 text-[11px] font-bold text-[#E6EDF3] uppercase tracking-wider">
-                Severity
-              </span>
-              <span className="col-span-2 text-[11px] font-bold text-[#E6EDF3] uppercase tracking-wider">
-                Source
-              </span>
-              <span className="col-span-1" />
-            </div>
-
-            {/* Body */}
-            {indicators.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-center px-6">
-                <Database className="w-10 h-10 text-slate-300 mb-3" />
-                <p className="text-sm font-medium text-slate-600">
-                  No threat indicators found.
-                </p>
-                <p className="text-xs text-[#8B949E] mt-1 max-w-sm">
-                  Run the intel harvester or manually add indicators to populate
-                  this vault.
-                </p>
-              </div>
-            ) : (
-              <ul className="divide-y divide-slate-800 max-h-[520px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700">
-                {indicators.map((item) => (
-                  <li
-                    key={item.id}
-                    className="px-5 py-3 grid grid-cols-12 gap-3 items-center hover:bg-[rgba(255,255,255,0.04)] transition-colors group"
-                  >
-                    {/* Indicator */}
-                    <div className="col-span-5 min-w-0">
-                      <p
-                        className="text-sm font-semibold text-[#E6EDF3] truncate"
-                        title={item.indicator}
-                      >
-                        {item.indicator}
-                      </p>
-                    </div>
-
-                    {/* Type */}
-                    <div className="col-span-2">
-                      <TypeBadge value={item.type || null} />
-                    </div>
-
-                    {/* Severity */}
-                    <div className="col-span-2">
-                      <StatusBadge status={item.severity || "pending"} />
-                    </div>
-
-                    {/* Source */}
-                    <div className="col-span-2">
-                      <span className="text-xs font-medium text-[#E6EDF3] truncate block">
-                        {item.source || "—"}
-                      </span>
-                    </div>
-
-                    {/* Action */}
-                    <div className="col-span-1 flex justify-end">
-                      {isManager && (
-                        <PhishButton
-                          onClick={() => handleRemoveIndicator(item.id)}
-                          disabled={isPending}
-                          aria-label={`Remove indicator ${item.indicator}`}
-                          className="p-1.5 rounded-md text-[#8B949E] hover:text-red-400 hover:bg-red-500/10 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 disabled:opacity-50"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </PhishButton>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </motion.div>
-        </div>
-
-        {/* ────────────── API Documentation ────────────── */}
-        <motion.div
-          {...cardHover}
-          className="mt-10 bg-[rgba(15,23,42,0.58)] rounded-xl border border-[rgba(45,212,191,0.16)] overflow-hidden"
-        >
-          <div className="px-5 py-4 border-b border-white/10 bg-[rgba(23,28,35,0.85)] flex items-center gap-3">
-            <Code className="w-5 h-5 text-teal-400" />
-            <h2 className="text-base font-semibold text-white">
-              Public API v1
-            </h2>
-            <span className="ml-auto text-[10px] font-bold text-teal-400 bg-teal-500/10 rounded-full px-2.5 py-0.5 border border-teal-500/20">
-              BETA
-            </span>
-          </div>
-
-          <div className="p-6 space-y-6">
-            {/* Endpoint */}
-            <div>
-              <h3 className="text-sm font-bold text-white mb-2 uppercase tracking-wide">
-                Endpoint
-              </h3>
-              <div className="bg-black border border-[rgba(48,54,61,0.9)] rounded-lg px-4 py-3 font-mono text-sm text-green-400 flex items-center justify-between gap-4">
-                <span>
-                  <span className="text-teal-400 font-bold">GET</span>{" "}
-                  <span className="text-slate-300">/api/v1/scan</span>
-                  <span className="text-[#8B949E]">?target=example.com</span>
-                </span>
-              </div>
-            </div>
-
-            {/* Auth */}
-            <div>
-              <h3 className="text-sm font-bold text-white mb-2 uppercase tracking-wide">
-                Authentication
-              </h3>
-              <p className="text-sm text-[#8B949E] mb-3">
-                Include your API key in the{" "}
-                <code className="text-xs bg-black px-1.5 py-0.5 rounded font-mono text-teal-400 border border-[rgba(48,54,61,0.9)]">
-                  x-api-key
-                </code>{" "}
-                header. Set{" "}
-                <code className="text-xs bg-black px-1.5 py-0.5 rounded font-mono text-teal-400 border border-[rgba(48,54,61,0.9)]">
-                  PHISH_SLAYER_API_KEY
-                </code>{" "}
-                in your environment.
-              </p>
-            </div>
-
-            {/* cURL Example */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-sm font-bold text-white uppercase tracking-wide">
-                  cURL Example
-                </h3>
-                <PhishButton
-                  onClick={() => {
-                    navigator.clipboard.writeText(
-                      `curl -X GET "https://your-domain.com/api/v1/scan?target=example.com" -H "x-api-key: YOUR_API_KEY"`,
-                    );
-                    toast.success("Copied to clipboard!");
-                  }}
-                  className="flex items-center gap-1.5 text-xs font-semibold text-teal-400 hover:text-teal-300 transition-colors"
-                >
-                  <Copy className="w-3.5 h-3.5" /> Copy
-                </PhishButton>
-              </div>
-              <pre className="bg-black text-slate-300 rounded-lg p-4 text-xs font-mono overflow-x-auto leading-relaxed border border-[rgba(48,54,61,0.9)]">
-                {`curl -X GET \\
-  "https://your-domain.com/api/v1/scan?target=example.com" \\
-  -H "x-api-key: YOUR_API_KEY"`}
-              </pre>
-            </div>
-
-            {/* POST Example */}
-            <div>
-              <h3 className="text-sm font-bold text-white mb-2 uppercase tracking-wide">
-                POST Example
-              </h3>
-              <pre className="bg-black text-slate-300 rounded-lg p-4 text-xs font-mono overflow-x-auto leading-relaxed border border-[rgba(48,54,61,0.9)]">
-                {`curl -X POST "https://your-domain.com/api/v1/scan" \\
-  -H "x-api-key: YOUR_API_KEY" \\
-  -H "Content-Type: application/json" \\
-  -d '{"target": "suspicious-domain.xyz"}'`}
-              </pre>
-            </div>
-
-            {/* Response */}
-            <div>
-              <h3 className="text-sm font-bold text-white mb-2 uppercase tracking-wide">
-                Response Format
-              </h3>
-              <pre className="bg-black text-green-400 rounded-lg p-4 text-xs font-mono overflow-x-auto leading-relaxed border border-[rgba(48,54,61,0.9)]">
-                {`{
-  "success": true,
-  "data": {
-    "target": "example.com",
-    "verdict": "malicious",
-    "risk_score": 85,
-    "threat_category": "phishing",
-    "ai_summary": "AI-generated threat analysis...",
-    "malicious_count": 12,
-    "total_engines": 70,
-    "source": "virustotal",
-    "scan_date": "2026-03-06T..."
+        <div className="h-20 bg-white/5 rounded-xl border border-white/10" />
+        <div className="h-96 bg-white/5 rounded-xl border border-white/10" />
+      </div>
+    );
   }
-}`}
-              </pre>
-            </div>
+
+  return (
+    <div className="flex flex-col gap-8">
+      <div>
+        <h1 className="text-2xl font-bold text-white">Threat Intelligence</h1>
+        <p className="text-gray-400">Feed sync status and global IOC repository</p>
+      </div>
+
+      {/* Stats Row */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <DashboardCard className="flex items-center gap-4 p-5">
+          <div className="p-3 rounded-lg bg-white/5 text-blue-400">
+            <Database className="w-6 h-6" />
           </div>
-        </motion.div>
-      </main>
+          <div>
+            <p className="dashboard-card-label">Total IOCs</p>
+            <p className="dashboard-metric-value">{totalCount.toLocaleString()}</p>
+          </div>
+        </DashboardCard>
+        <DashboardCard className="flex items-center gap-4 p-5">
+          <div className="p-3 rounded-lg bg-white/5 text-green-400">
+            <Zap className="w-6 h-6" />
+          </div>
+          <div>
+            <p className="dashboard-card-label">Added Today</p>
+            <p className="dashboard-metric-value">1,284</p>
+          </div>
+        </DashboardCard>
+        <DashboardCard className="flex items-center gap-4 p-5">
+          <div className="p-3 rounded-lg bg-white/5 text-purple-400">
+            <RefreshCw className="w-6 h-6" />
+          </div>
+          <div>
+            <p className="dashboard-card-label">Active Feeds</p>
+            <p className="dashboard-metric-value">{feeds.length}</p>
+          </div>
+        </DashboardCard>
+        <DashboardCard className="flex items-center gap-4 p-5">
+          <div className="p-3 rounded-lg bg-white/5 text-yellow-400">
+            <AlertTriangle className="w-6 h-6" />
+          </div>
+          <div>
+            <p className="dashboard-card-label">Last Sync</p>
+            <p className="dashboard-metric-value text-xl">Just now</p>
+          </div>
+        </DashboardCard>
+      </div>
+
+      {/* Feed Status Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {feeds.map((feed, i) => (
+          <DashboardCard key={i} className="p-4 bg-white/5 border-white/10 relative overflow-hidden group">
+            <div className="flex justify-between items-start mb-4">
+              <span className="text-sm font-bold text-white">{feed.name}</span>
+              <span className={`badge ${feed.status === 'active' ? 'badge-clean' : 'badge-info animate-pulse'}`}>
+                {feed.status}
+              </span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-2xl font-bold text-[#22d3ee] font-mono">{feed.count}</span>
+              <span className="text-xs text-gray-500 mt-1">Synced {feed.lastSync}</span>
+            </div>
+          </DashboardCard>
+        ))}
+      </div>
+
+      {/* Filter Bar */}
+      <DashboardCard className="p-4 flex flex-col md:flex-row gap-4 items-center justify-between">
+        <div className="flex items-center gap-4 w-full md:w-auto">
+          <div className="relative flex-1 md:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+            <input 
+              type="text" 
+              placeholder="Search indicators..." 
+              className="w-full pl-10 pr-4 py-2 bg-white/5 border border-white/10 rounded-lg text-sm focus:outline-none focus:border-[#22d3ee]/50"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-gray-400" />
+            <select 
+              value={typeFilter}
+              onChange={(e) => { setTypeFilter(e.target.value); setPage(1); }}
+              className="bg-white/5 border border-white/10 rounded-lg text-sm px-3 py-2 outline-none"
+            >
+              <option value="all">All Types</option>
+              <option value="ip">IP Address</option>
+              <option value="domain">Domain</option>
+              <option value="url">URL</option>
+              <option value="hash">File Hash</option>
+            </select>
+            <select 
+              value={severityFilter}
+              onChange={(e) => { setSeverityFilter(e.target.value); setPage(1); }}
+              className="bg-white/5 border border-white/10 rounded-lg text-sm px-3 py-2 outline-none"
+            >
+              <option value="all">All Severities</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select>
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <span className="text-xs text-gray-500">
+            Showing {(page-1)*PAGE_SIZE + 1} - {Math.min(page*PAGE_SIZE, totalCount)} of {totalCount}
+          </span>
+          <div className="flex gap-2">
+            <button 
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="p-2 border border-white/10 rounded-lg hover:bg-white/5 disabled:opacity-50"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <button 
+              onClick={() => setPage(p => p + 1)}
+              disabled={page * PAGE_SIZE >= totalCount}
+              className="p-2 border border-white/10 rounded-lg hover:bg-white/5 disabled:opacity-50"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </DashboardCard>
+
+      {/* IOC Table */}
+      <DashboardCard className="overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-white/5 text-gray-400 text-xs uppercase tracking-wider">
+                <th className="px-6 py-4 font-semibold">Indicator</th>
+                <th className="px-6 py-4 font-semibold">Type</th>
+                <th className="px-6 py-4 font-semibold">Source</th>
+                <th className="px-6 py-4 font-semibold">Severity</th>
+                <th className="px-6 py-4 font-semibold">First Seen</th>
+                <th className="px-6 py-4 font-semibold">Last Seen</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {iocs.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                    No indicators found matching filters.
+                  </td>
+                </tr>
+              ) : (
+                iocs.map((ioc) => (
+                  <tr key={ioc.id} className="hover:bg-white/[0.02] transition-colors">
+                    <td className="px-6 py-4">
+                      <span className="text-white font-mono text-sm break-all">{ioc.indicator}</span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-xs text-[#22d3ee] uppercase tracking-widest font-bold">
+                        {ioc.type}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-400">
+                      {ioc.source}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`badge ${
+                        ioc.severity?.toLowerCase() === 'high' ? 'badge-risk' :
+                        ioc.severity?.toLowerCase() === 'medium' ? 'badge-medium' :
+                        'badge-info'
+                      }`}>
+                        {ioc.severity}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-xs text-gray-500 font-mono">
+                      {ioc.first_seen ? new Date(ioc.first_seen).toLocaleDateString() : 'N/A'}
+                    </td>
+                    <td className="px-6 py-4 text-xs text-gray-500 font-mono">
+                      {ioc.last_seen ? new Date(ioc.last_seen).toLocaleDateString() : 'N/A'}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </DashboardCard>
     </div>
   );
 }
