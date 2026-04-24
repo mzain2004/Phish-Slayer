@@ -1,13 +1,13 @@
 const cspHeader = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://clerk.phishslayer.tech https://accounts.phishslayer.tech https://challenges.cloudflare.com https://static.cloudflareinsights.com https://app.termly.io",
-  "script-src-elem 'self' 'unsafe-inline' https://clerk.phishslayer.tech https://accounts.phishslayer.tech https://challenges.cloudflare.com https://static.cloudflareinsights.com https://app.termly.io",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://clerk.phishslayer.tech https://accounts.phishslayer.tech https://challenges.cloudflare.com https://static.cloudflareinsights.com https://*.clerk.com",
+  "script-src-elem 'self' 'unsafe-inline' https://clerk.phishslayer.tech https://accounts.phishslayer.tech https://challenges.cloudflare.com https://static.cloudflareinsights.com https://*.clerk.com",
   "worker-src 'self' blob:",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
-  "connect-src 'self' https://clerk.phishslayer.tech https://accounts.phishslayer.tech https://challenges.cloudflare.com https://*.clerk.accounts.dev https://*.supabase.co wss://*.supabase.co https://api.clerk.com",
-  "frame-src 'self' https://challenges.cloudflare.com https://accounts.phishslayer.tech",
+  "connect-src 'self' https://clerk.phishslayer.tech https://accounts.phishslayer.tech https://challenges.cloudflare.com https://*.clerk.accounts.dev https://*.supabase.co wss://*.supabase.co https://api.clerk.com https://*.clerk.com",
+  "frame-src 'self' https://challenges.cloudflare.com https://accounts.phishslayer.tech https://*.clerk.com",
   "frame-ancestors 'none'",
 ].join("; ");
 

@@ -1,54 +1,36 @@
-Task: Fix CORS and CSP issues blocking dashboard redirect after Clerk signup
+Read ONLY these files:
+- app/layout.tsx
+- next.config.js
+- app/page.tsx
+- middleware.ts
 
-Read ONLY this file:
-next.config.ts
+ISSUE 1 — Remove Termly from layout.tsx:
+Delete the entire <Script> block with id="termly-blocker" that loads from app.termly.io.
+Also remove the ConsentBanner import line and <ConsentBanner /> usage.
+Do NOT touch any other part of layout.tsx.
 
-Do not read any other file.
+ISSUE 2 — Fix CSP in next.config.js:
+In the cspHeader array, make these exact changes:
+- In script-src: remove https://app.termly.io, add https://*.clerk.com
+- In script-src-elem: remove https://app.termly.io, add https://*.clerk.com
+- In connect-src: add https://*.clerk.com after https://api.clerk.com
+- In frame-src: add https://*.clerk.com
+Do NOT change any other CSP directives.
 
-The current CSP is blocking Clerk's post-signup redirect to /dashboard.
-Errors seen:
-- accounts.phishslayer.tech blocked by CORS
-- script-src was not explicitly set so default-src used as fallback
-- Cloudflare Turnstile CAPTCHA TrustedHTML blocked
+ISSUE 3 — Rebuild landing page in app/page.tsx:
+Replace the entire file with a proper dark SaaS landing page.
+Keep the auth() check at top — if userId exists, redirect('/dashboard').
+The page must include:
+- Full-width hero: headline "PhishSlayer" in white, subheadline "Autonomous SOC Platform. Zero L1/L2/L3 analysts." in gray
+- Three feature cards: "Autonomous Triage", "AI Threat Intel", "Zero Human L1/L2/L3" with brief descriptions
+- Two CTA buttons: "Get Started Free" → /sign-up, "Sign In" → /sign-in
+- Design: background #0a0a0a, accent #22d3ee (cyan), font Inter, NO rounded buttons (use rounded-none), IBM Plex Mono for any code/IOC text
+- No external dependencies — use only Tailwind classes already in the project
 
-Replace the entire Content-Security-Policy header value with exactly this:
+ISSUE 4 — Fix middleware.ts:
+After the isProtectedRoute block, add this logic:
+If the user IS authenticated (userId exists) AND the request is for /sign-in or /sign-up, redirect them to /dashboard.
+Use auth() to get userId, check against isAuthRoute matcher for ['/sign-in(.*)', '/sign-up(.*)'].
 
-default-src 'self';
-script-src 'self' 'unsafe-inline' 'unsafe-eval'
-  https://clerk.phishslayer.tech
-  https://accounts.phishslayer.tech
-  https://challenges.cloudflare.com
-  https://static.cloudflareinsights.com
-  https://app.termly.io;
-script-src-elem 'self' 'unsafe-inline'
-  https://clerk.phishslayer.tech
-  https://accounts.phishslayer.tech
-  https://challenges.cloudflare.com
-  https://static.cloudflareinsights.com
-  https://app.termly.io;
-worker-src 'self' blob:;
-style-src 'self' 'unsafe-inline';
-img-src 'self' data: blob: https:;
-font-src 'self' data:;
-connect-src 'self'
-  https://clerk.phishslayer.tech
-  https://accounts.phishslayer.tech
-  https://challenges.cloudflare.com
-  https://*.clerk.accounts.dev
-  https://*.supabase.co
-  wss://*.supabase.co
-  https://api.clerk.com;
-frame-src 'self'
-  https://challenges.cloudflare.com
-  https://accounts.phishslayer.tech;
-frame-ancestors 'none';
-
-Make sure the CSP is a single string with semicolons between directives.
-Make sure worker-src includes blob: — this is required for Cloudflare Turnstile.
-Make sure script-src includes 'unsafe-inline' — required for Clerk components.
-
-Do not touch any other configuration in next.config.ts.
-Do not modify any other file.
-
-Run npm run build, fix all errors.
-Commit: fix: complete CSP overhaul for Clerk CORS and Cloudflare Turnstile, push.
+After all changes: run npm run build, fix ALL errors, commit and push.
+Never modify .env. Never commit broken code.
