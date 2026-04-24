@@ -15,16 +15,7 @@ export async function POST() {
   try {
     const supabase = await createClient();
     const pipeline = new IngestionPipeline(supabase);
-    
-    const config = {
-      host: process.env.IMAP_HOST,
-      port: parseInt(process.env.IMAP_PORT || "993"),
-      user: process.env.IMAP_USER,
-      password: process.env.IMAP_PASSWORD,
-      tls: true
-    };
-
-    const count = await pipeline.ingestEmail(config);
+    const count = await pipeline.ingestEmail();
 
     return NextResponse.json({ processed: count });
   } catch (error) {

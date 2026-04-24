@@ -2,6 +2,8 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import { RawLogEntry, LogIngestionStats, RawAlert } from "../soc/types";
 import { autoDetectAndNormalize } from "./normalizer";
 import { v4 as uuidv4 } from "uuid";
+import Imap from "node-imap";
+import { simpleParser } from "mailparser";
 
 export class IngestionPipeline {
   private supabase: SupabaseClient;
@@ -11,9 +13,9 @@ export class IngestionPipeline {
   }
 
   public async ingestLog(
-    raw_content: string, 
-    source_type: string, 
-    org_id: string, 
+    raw_content: string,
+    source_type: string,
+    org_id: string,
     source_ip: string | null = null
   ): Promise<RawLogEntry> {
     const normalized = autoDetectAndNormalize(raw_content);
@@ -24,42 +26,47 @@ export class IngestionPipeline {
       source_type: source_type as any,
       source_ip,
       raw_content,
-      parsed_fields: normalized.extra_fields,
+      parsed_fields: normalized,
       ingested_at: new Date(),
       normalized,
       org_id
     };
 
-    // 1. Store in raw_logs
+    // 1. Insert into raw_logs
     await this.supabase.from("raw_logs").insert({
       id: entry.id,
       org_id: entry.org_id,
       source_type: entry.source_type,
       source_ip: entry.source_ip,
       raw_content: entry.raw_content,
-      parsed_fields: entry.parsed_fields,
+      parsed_fields: entry.normalized,
       normalized: entry.normalized,
-      ingested_at: entry.ingested_at.toISOString(),
-      processed: true
+      processed: false,
+      alert_created: false
     });
 
-    // 2. High severity detection -> Auto-create alert
+    // 2. High severity detection -> Alert
     if (normalized.severity > 8) {
-      await this.supabase.from("alerts").insert({
-        id: uuidv4(),
+      const severityMap: Record<number, string> = {
+        9: "p3", 10: "p3", 11: "p2", 12: "p2", 13: "p1", 14: "p1", 15: "p1"
+      };
+      
+      const { data: alertData, error: alertError } = await this.supabase.from("alerts").insert({
         org_id: entry.org_id,
-        rule_id: entry.normalized?.raw_event_id || "high_severity_log",
-        rule_description: `High severity log detected from ${entry.source_type}: ${normalized.action}`,
-        source_ip: entry.source_ip,
+        alert_type: normalized.category,
         severity_level: normalized.severity,
-        timestamp: entry.ingested_at.toISOString(),
-        raw_log: entry.normalized,
-        alert_type: "high_severity_event",
-        agent_id: entry.normalized?.hostname || null,
-        title: `Security Alert: ${normalized.action}`
-      });
+        source_ip: entry.source_ip,
+        raw_log: normalized,
+        status: "open",
+        title: `Auto-Alert: ${normalized.action}`
+      }).select("id").single();
 
-      await this.supabase.from("raw_logs").update({ alert_created: true }).eq("id", entry.id);
+      if (!alertError) {
+        await this.supabase.from("raw_logs").update({
+          processed: true,
+          alert_created: true
+        }).eq("id", entry.id);
+      }
     }
 
     return entry;
@@ -67,9 +74,9 @@ export class IngestionPipeline {
 
   public async ingestBatch(entries: any[], org_id: string): Promise<LogIngestionStats> {
     const startTime = Date.now();
-    let parsedCount = 0;
-    let failedCount = 0;
-    const breakdown: Record<string, number> = {};
+    let totalParsed = 0;
+    let totalFailed = 0;
+    const sourcesBreakdown: Record<string, number> = {};
 
     const results = await Promise.allSettled(entries.map(e => 
       this.ingestLog(e.raw_content, e.source_type, org_id, e.source_ip)
@@ -77,35 +84,96 @@ export class IngestionPipeline {
 
     results.forEach((res, i) => {
       const type = entries[i].source_type;
-      breakdown[type] = (breakdown[type] || 0) + 1;
-      if (res.status === "fulfilled") parsedCount++;
-      else failedCount++;
+      sourcesBreakdown[type] = (sourcesBreakdown[type] || 0) + 1;
+      if (res.status === "fulfilled") totalParsed++;
+      else totalFailed++;
     });
 
     return {
       total_received: entries.length,
-      total_parsed: parsedCount,
-      total_failed: failedCount,
-      sources_breakdown: breakdown,
+      total_parsed: totalParsed,
+      total_failed: totalFailed,
+      sources_breakdown: sourcesBreakdown,
       avg_parse_time_ms: (Date.now() - startTime) / (entries.length || 1),
       last_ingested_at: new Date()
     };
   }
 
-  /**
-   * Stub for Email Ingestion
-   */
-  public async ingestEmail(config: any): Promise<number> {
-    console.info(`[ingestion] IMAP sync triggered for ${config.user} - Node-IMAP integration pending environment installation`);
-    // Mock processing 1 email if triggered manually for UI testing
-    return 0;
+  public async ingestEmail(): Promise<number> {
+    const config: any = {
+      user: process.env.IMAP_USER,
+      password: process.env.IMAP_PASSWORD,
+      host: process.env.IMAP_HOST,
+      port: parseInt(process.env.IMAP_PORT || "993"),
+      tls: (process.env.IMAP_PORT || "993") === "993"
+    };
+
+    if (!config.user || !config.password || !config.host) {
+      console.warn("[ingestion] IMAP not configured — skipping");
+      return 0;
+    }
+
+    return new Promise((resolve) => {
+      const imap = new Imap(config);
+      let count = 0;
+
+      imap.once("ready", () => {
+        imap.openBox("INBOX", false, (err) => {
+          if (err) { resolve(0); return; }
+          imap.search(["UNSEEN"], (err, results) => {
+            if (err || !results.length) { imap.end(); resolve(0); return; }
+            
+            const f = imap.fetch(results, { bodies: "" });
+            f.on("message", (msg) => {
+              msg.on("body", (stream) => {
+                simpleParser(stream as any, async (err, parsed) => {
+                  if (err) return;
+                  const raw_content = `From: ${parsed?.from?.text} Subject: ${parsed?.subject} Body: ${parsed?.text?.slice(0, 500)}`;
+                  await this.ingestLog(raw_content, "email", "system");
+                  count++;
+                });
+              });
+              msg.once("attributes", (attrs) => {
+                imap.addFlags(attrs.uid, ["\\Seen"], () => {});
+              });
+            });
+            f.once("end", () => {
+              imap.end();
+              resolve(count);
+            });
+          });
+        });
+      });
+
+      imap.once("error", (err: any) => {
+        console.error("[imap] error:", err);
+        resolve(count);
+      });
+
+      imap.connect();
+    });
   }
 
-  /**
-   * Stub for CloudTrail Ingestion
-   */
-  public async ingestCloudTrail(s3_bucket: string, prefix: string): Promise<number> {
-    console.info(`[ingestion] CloudTrail ingestion from ${s3_bucket}/${prefix} - AWS SDK integration pending`);
-    return 0;
+  public async getStats(org_id: string): Promise<LogIngestionStats> {
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { data: logs } = await this.supabase
+      .from("raw_logs")
+      .select("source_type")
+      .eq("org_id", org_id)
+      .gte("ingested_at", twentyFourHoursAgo);
+
+    const breakdown: Record<string, number> = {};
+    logs?.forEach(l => {
+      breakdown[l.source_type] = (breakdown[l.source_type] || 0) + 1;
+    });
+
+    return {
+      total_received: logs?.length || 0,
+      total_parsed: logs?.length || 0, // Simplified
+      total_failed: 0,
+      sources_breakdown: breakdown,
+      avg_parse_time_ms: 0,
+      last_ingested_at: new Date()
+    };
   }
 }

@@ -18,11 +18,8 @@ export async function POST(req: Request) {
     
     // 1. Ingest emails at 00:00 UTC
     const pipeline = new IngestionPipeline(supabase);
-    await pipeline.ingestEmail({
-        host: process.env.IMAP_HOST,
-        user: process.env.IMAP_USER,
-        password: process.env.IMAP_PASSWORD
-    });
+    const emailCount = await pipeline.ingestEmail();
+    console.info(`[cron] Ingested ${emailCount} emails`);
 
     // 2. Sync Threat Intel daily at 01:00 UTC (triggered by cron)
     await syncAllFeeds(supabase);
