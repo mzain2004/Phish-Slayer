@@ -407,3 +407,65 @@ export interface CEFEvent {
   severity: string;
   extensions: Record<string, string>;
 }
+
+export interface SLAConfig {
+  p1_response_minutes: number;
+  p2_response_minutes: number;
+  p3_response_minutes: number;
+  p4_response_minutes: number;
+  breach_notify_email: string | null;
+}
+
+export interface TenantBranding {
+  logo_url: string | null;
+  primary_color: string;
+  company_name: string;
+  report_footer: string | null;
+}
+
+export interface Tenant {
+  id: string;
+  name: string;
+  slug: string;
+  plan: "starter" | "professional" | "enterprise";
+  status: "active" | "suspended" | "trial";
+  owner_user_id: string;
+  sla_config: SLAConfig;
+  branding: TenantBranding;
+  created_at: Date;
+  trial_ends_at: Date | null;
+  alert_quota_monthly: number;
+  alerts_used_this_month: number;
+}
+
+export interface TenantUser {
+  id: string;
+  tenant_id: string;
+  user_id: string;
+  role: "owner" | "analyst" | "manager" | "readonly";
+  invited_at: Date;
+  accepted_at: Date | null;
+  active: boolean;
+}
+
+export interface TenantStats {
+  tenant_id: string;
+  alerts_24h: number;
+  open_cases: number;
+  mttd_minutes: number;
+  mttr_minutes: number;
+  sla_breaches_24h: number;
+  top_alert_types: string[];
+  risk_score: number; // 0-100
+}
+
+export interface WhitelabelAPIKey {
+  id: string;
+  tenant_id: string;
+  key_hash: string;
+  label: string;
+  created_at: Date;
+  last_used_at: Date | null;
+  permissions: string[];
+  active: boolean;
+}

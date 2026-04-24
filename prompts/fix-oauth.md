@@ -1,204 +1,241 @@
-Task: Build complete Log Ingestion Pipeline for PhishSlayer SOC platform
+Task: Build complete Multi-Tenant MSSP Portal for PhishSlayer SOC platform
 
 Read ONLY these files:
 lib/soc/types.ts
-lib/soc/deduplication.ts
 app/api/alerts/route.ts
+app/api/cases/route.ts
+middleware.ts
 
 Do not read any other file.
 
 Requirements:
 
-1. Run this first before writing any code:
-npm install node-imap @types/node-imap mailparser @types/mailparser
+1. Update lib/soc/types.ts to add these types:
 
-2. Update lib/soc/types.ts to add these types:
+Tenant with fields: id string, name string, slug string unique,
+plan enum starter or professional or enterprise, status enum active or suspended or trial,
+owner_user_id string, sla_config SLAConfig, branding TenantBranding,
+created_at Date, trial_ends_at Date or null, alert_quota_monthly number,
+alerts_used_this_month number
 
-RawLogEntry with fields: id string, source_type enum syslog or cef or leef or
-json or email or cloudtrail or azure_activity, source_ip string or null,
-raw_content string, parsed_fields jsonb, ingested_at Date,
-normalized NormalizedLog or null, org_id string
+SLAConfig with fields: p1_response_minutes number default 15,
+p2_response_minutes number default 60, p3_response_minutes number default 240,
+p4_response_minutes number default 1440, breach_notify_email string or null
 
-NormalizedLog with fields: timestamp Date, source_ip string or null,
-destination_ip string or null, user string or null, hostname string or null,
-action string, outcome enum success or failure or unknown,
-severity number 1-15, category string, raw_event_id string or null,
-mitre_tactic string or null, mitre_technique string or null,
-extra_fields jsonb
+TenantBranding with fields: logo_url string or null, primary_color string default #22d3ee,
+company_name string, report_footer string or null
 
-LogIngestionStats with fields: total_received number, total_parsed number,
-total_failed number, sources_breakdown Record of string to number,
-avg_parse_time_ms number, last_ingested_at Date or null
+TenantUser with fields: id string, tenant_id string, user_id string,
+role enum owner or analyst or manager or readonly, invited_at Date,
+accepted_at Date or null, active boolean
 
-CEFEvent with fields: version string, device_vendor string, device_product string,
-device_version string, signature_id string, name string, severity string,
-extensions Record of string to string
+TenantStats with fields: tenant_id string, alerts_24h number,
+open_cases number, mttd_minutes number, mttr_minutes number,
+sla_breaches_24h number, top_alert_types string array,
+risk_score number 0-100
 
-3. Create lib/ingestion/normalizer.ts:
+WhitelabelAPIKey with fields: id string, tenant_id string, key_hash string,
+label string, created_at Date, last_used_at Date or null,
+permissions string array, active boolean
 
-Function normalizeSyslog taking raw string returning NormalizedLog:
-Parse RFC 5424 format: priority facility severity timestamp hostname app_name msg
-Extract PRI value: facility = Math.floor(pri/8), severity = pri % 8
-Handle both RFC 3164 and RFC 5424 timestamp formats
-Map syslog severity 0-7 to 1-15 scale: (severity * 2) + 1
-Return NormalizedLog with all extracted fields
-Wrap entire function in try-catch — on error return best-effort NormalizedLog with
-action: parse_error, outcome: unknown, severity: 5
-
-Function normalizeCEF taking raw string returning NormalizedLog:
-Parse CEF:0|vendor|product|version|sig_id|name|severity|extensions format
-Split on pipe — first 7 fields are header
-Parse extensions as key=value pairs
-Map CEF severity 0-10 to 1-15 scale: Math.round((sev / 10) * 14) + 1
-Extract src, dst, suser, duser, act from extensions
-Wrap in try-catch same as above
-
-Function normalizeLEEF taking raw string returning NormalizedLog:
-Parse LEEF:2.0|vendor|product|version|eventid|attrs format
-Split on pipe for header, parse tab-separated attributes
-Extract src, dst, usrName, proto, devTime
-Wrap in try-catch same as above
-
-Function normalizeJSON taking raw string returning NormalizedLog:
-Parse JSON with try-catch
-Look for timestamp: check fields timestamp, time, @timestamp, eventTime, TimeGenerated
-Look for source IP: check src, source, sourceIP, source_ip, remoteIP
-Look for user: check user, username, userId, actor
-Return NormalizedLog with best-effort field mapping
-Never throw — always return something
-
-Function normalizeCloudTrail taking raw string returning NormalizedLog:
-Parse AWS CloudTrail event JSON
-Extract: eventTime, sourceIPAddress, userIdentity.userName or userIdentity.arn,
-eventName, errorCode, awsRegion
-Map errorCode present to outcome failure otherwise success
-Set category to cloudtrail
-Wrap in try-catch
-
-Function normalizeAzureActivity taking raw string returning NormalizedLog:
-Parse Azure Activity Log JSON
-Extract: eventTimestamp, callerIpAddress, caller, operationName.value,
-resultType, resourceType
-Map resultType Failed to outcome failure otherwise success
-Set category to azure_activity
-Wrap in try-catch
-
-Function autoDetectAndNormalize taking raw string returning NormalizedLog:
-If starts with CEF:0 — call normalizeCEF
-Else if starts with LEEF: — call normalizeLEEF
-Else if matches regex ^\<\d+\> — call normalizeSyslog
-Else if valid JSON — call normalizeJSON
-Else call normalizeSyslog as fallback
-Never throw — always return NormalizedLog
-
-4. Create lib/ingestion/pipeline.ts with IngestionPipeline class:
+2. Create lib/tenant/manager.ts with TenantManager class:
 
 Constructor takes supabase client
 
-Method ingestLog taking raw_content string and source_type string
-and org_id string and source_ip string or null returning RawLogEntry:
-Call autoDetectAndNormalize from normalizer.ts
-Insert into raw_logs table: org_id, source_type, source_ip,
-raw_content, parsed_fields as normalized, normalized as normalized,
-processed false, alert_created false
-If normalized.severity is above 8:
-Insert into alerts table: org_id, alert_type from normalized.category,
-severity mapped to p1/p2/p3/p4, source_ip, raw_log as normalized jsonb,
-status open
-Update raw_logs row: processed true, alert_created true
-Return RawLogEntry
+Method createTenant taking name string and owner_user_id string
+and plan string returning Tenant:
+Generate slug from name: lowercase, replace spaces with hyphens,
+append 4 random chars to ensure uniqueness
+Insert into tenants table
+Insert into tenant_users table with role owner
+Return created Tenant
 
-Method ingestBatch taking entries array of raw_content plus source_type
-plus org_id plus source_ip objects returning LogIngestionStats:
-Use Promise.allSettled to process all in parallel
-Track fulfilled count as total_parsed, rejected count as total_failed
-Record start time and calculate avg_parse_time_ms
-Return LogIngestionStats
+Method getTenant taking tenant_id string returning Tenant or null:
+Query tenants table by id
+Return Tenant or null
 
-Method ingestEmail taking supabase client returning number:
-Import Imap from node-imap and simpleParser from mailparser
-Read config from env: IMAP_HOST, IMAP_PORT, IMAP_USER, IMAP_PASSWORD
-If any env var missing: log warning IMAP not configured — skipping and return 0
-Connect to IMAP with tls: IMAP_PORT equals 993
-Search UNSEEN in INBOX
-For each email message:
-Use simpleParser to extract subject, from.text, text body, attachments list
-Build raw_content string: From: {from} Subject: {subject} Body: {body preview 500 chars}
-Call ingestLog with source_type email and org_id system
-Mark message as seen with imap.addFlags
-Catch all errors per-message and continue to next
-On complete return total count processed
+Method getTenantBySlug taking slug string returning Tenant or null:
+Query tenants table where slug equals input
+Return Tenant or null
 
-Method getStats taking org_id string returning LogIngestionStats:
-Query raw_logs table count by source_type for this org_id last 24h
-Return LogIngestionStats
+Method getUserTenants taking user_id string returning Tenant array:
+Query tenant_users table where user_id equals input and active true
+Join with tenants table
+Return array of Tenants the user belongs to
 
-5. Create app/api/ingest/route.ts:
-POST endpoint for single log entry
-Header auth: validate x-api-key header against process.env.INGEST_API_KEY
-If INGEST_API_KEY not set in env: return 503 ingestion not configured
-Zod body validation: raw_content string, source_type string, org_id string,
-source_ip string optional
-Call pipeline.ingestLog and return result
+Method addUser taking tenant_id string and user_id string
+and role string returning TenantUser:
+Check if user already in tenant — if yes update role
+Otherwise insert new tenant_users row
+Return TenantUser
+
+Method removeUser taking tenant_id string and user_id string returning void:
+Update tenant_users set active false where tenant_id and user_id match
+
+Method getTenantStats taking tenant_id string returning TenantStats:
+Query alerts table where org_id equals tenant_id and created_at last 24h
+Count total as alerts_24h
+Query cases table where org_id equals tenant_id and status open for open_cases
+Calculate MTTD: average of first_enriched_at minus created_at in minutes
+Calculate MTTR: average of closed_at minus created_at in minutes for closed cases
+Count SLA breaches: cases where updated_at minus created_at exceeds sla_config thresholds
+Calculate risk_score: weighted formula
+  open P1 cases times 20 plus open P2 cases times 10 plus
+  sla_breaches times 15 plus alerts_24h divided by 10
+  cap at 100
+Return TenantStats
+
+Method checkQuota taking tenant_id string returning boolean:
+Query tenants table for alert_quota_monthly and alerts_used_this_month
+Return true if alerts_used_this_month less than alert_quota_monthly
+Return false if quota exceeded
+
+Method incrementAlertCount taking tenant_id string returning void:
+UPDATE tenants SET alerts_used_this_month = alerts_used_this_month + 1
+WHERE id = tenant_id
+
+Method resetMonthlyQuotas returning void:
+Called by cron on first day of month
+UPDATE tenants SET alerts_used_this_month = 0
+
+3. Create lib/tenant/api-keys.ts:
+
+Function generateAPIKey returning string:
+Generate cryptographically secure key: ps_ prefix plus 48 random bytes as hex
+This is shown ONCE to user — never stored in plain text
+
+Function hashAPIKey taking key string returning string:
+Return SHA-256 hash of key using Node crypto module
+
+Function createAPIKey taking tenant_id string and label string
+and permissions string array and supabase client returning object
+with key string and record WhitelabelAPIKey:
+Generate key and hash
+Insert into whitelabel_api_keys table with key_hash not the plain key
+Return both the plain key for display and the record
+Warn in comment: plain key is returned once — not stored — cannot be recovered
+
+Function validateAPIKey taking raw_key string and supabase client
+returning WhitelabelAPIKey or null:
+Hash the raw_key
+Query whitelabel_api_keys where key_hash equals hash and active true
+If found: update last_used_at to now
+Return record or null
+
+4. Create middleware.ts update — add tenant resolution:
+In existing middleware.ts after Clerk auth check:
+Read x-tenant-id header or tenant slug from URL path if present
+If present: attach to request headers for downstream route handlers
+Do not block request if tenant header missing — some routes are global
+
+5. Create app/api/tenants/route.ts:
+GET: return all tenants for authenticated user via getUserTenants
+POST: create new tenant — body requires name string
+Zod validation on POST body
+Auth required for both
 Add dynamic export and runtime edge
 
-6. Create app/api/ingest/batch/route.ts:
-POST endpoint for batch up to 1000 entries
-Same header auth as above
-Zod validation: array max 1000 items each with raw_content and source_type
-and org_id and source_ip optional
-Call pipeline.ingestBatch and return LogIngestionStats
+6. Create app/api/tenants/[id]/route.ts:
+GET: return single tenant with stats via getTenantStats
+PATCH: update tenant name or branding — owner role required
+Zod validation: name optional string, branding optional TenantBranding
+Auth required
 Add dynamic export and runtime edge
 
-7. Create app/api/ingest/email/route.ts:
-POST endpoint to trigger IMAP ingestion manually
-Clerk auth required
-Call pipeline.ingestEmail and return count
+7. Create app/api/tenants/[id]/users/route.ts:
+GET: return all users in tenant with roles
+POST: invite user — body requires user_id and role
+DELETE: body requires user_id — sets active false
+Owner or manager role required for POST and DELETE
+Auth required
 Add dynamic export and runtime edge
 
-8. Create supabase/migrations/20260424000009_ingestion.sql:
+8. Create app/api/tenants/[id]/api-keys/route.ts:
+GET: return all API keys for tenant — never return key_hash, show label and created_at only
+POST: create new API key — return plain key ONCE in response
+Body: label string, permissions string array
+Owner role required
+Auth required
+Add dynamic export and runtime edge
 
-CREATE TABLE IF NOT EXISTS public.raw_logs (
+9. Create app/api/tenants/[id]/stats/route.ts:
+GET: return TenantStats for this tenant
+Auth required — user must belong to this tenant
+Call tenantManager.getTenantStats
+Add dynamic export and runtime edge
+
+10. Create supabase/migrations/20260424000010_tenants.sql:
+
+CREATE TABLE IF NOT EXISTS public.tenants (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  org_id TEXT NOT NULL,
-  source_type TEXT NOT NULL,
-  source_ip TEXT,
-  raw_content TEXT NOT NULL,
-  parsed_fields JSONB DEFAULT '{}'::jsonb,
-  normalized JSONB DEFAULT '{}'::jsonb,
-  ingested_at TIMESTAMPTZ DEFAULT now(),
-  processed BOOLEAN DEFAULT false,
-  alert_created BOOLEAN DEFAULT false
+  name TEXT NOT NULL,
+  slug TEXT UNIQUE NOT NULL,
+  plan TEXT DEFAULT 'starter',
+  status TEXT DEFAULT 'trial',
+  owner_user_id TEXT NOT NULL,
+  sla_config JSONB DEFAULT '{"p1_response_minutes":15,"p2_response_minutes":60,"p3_response_minutes":240,"p4_response_minutes":1440}'::jsonb,
+  branding JSONB DEFAULT '{}'::jsonb,
+  alert_quota_monthly INTEGER DEFAULT 10000,
+  alerts_used_this_month INTEGER DEFAULT 0,
+  trial_ends_at TIMESTAMPTZ DEFAULT (now() + interval '14 days'),
+  created_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_raw_logs_org_id ON public.raw_logs(org_id);
-CREATE INDEX IF NOT EXISTS idx_raw_logs_source_type ON public.raw_logs(source_type);
-CREATE INDEX IF NOT EXISTS idx_raw_logs_ingested_at ON public.raw_logs(ingested_at DESC);
-CREATE INDEX IF NOT EXISTS idx_raw_logs_processed ON public.raw_logs(processed);
+CREATE TABLE IF NOT EXISTS public.tenant_users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID REFERENCES public.tenants(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL,
+  role TEXT DEFAULT 'analyst',
+  invited_at TIMESTAMPTZ DEFAULT now(),
+  accepted_at TIMESTAMPTZ,
+  active BOOLEAN DEFAULT true,
+  UNIQUE(tenant_id, user_id)
+);
 
-ALTER TABLE public.raw_logs ENABLE ROW LEVEL SECURITY;
+CREATE TABLE IF NOT EXISTS public.whitelabel_api_keys (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID REFERENCES public.tenants(id) ON DELETE CASCADE,
+  key_hash TEXT UNIQUE NOT NULL,
+  label TEXT NOT NULL,
+  permissions TEXT[] DEFAULT ARRAY[]::TEXT[],
+  active BOOLEAN DEFAULT true,
+  last_used_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE public.tenants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tenant_users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.whitelabel_api_keys ENABLE ROW LEVEL SECURITY;
 
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'raw_logs'
-  AND policyname = 'raw_logs_policy') THEN
-    CREATE POLICY "raw_logs_policy" ON public.raw_logs
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'tenants'
+  AND policyname = 'tenants_policy') THEN
+    CREATE POLICY "tenants_policy" ON public.tenants
+    USING (auth.jwt() IS NOT NULL);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'tenant_users'
+  AND policyname = 'tenant_users_policy') THEN
+    CREATE POLICY "tenant_users_policy" ON public.tenant_users
+    USING (auth.jwt() IS NOT NULL);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'whitelabel_api_keys'
+  AND policyname = 'api_keys_policy') THEN
+    CREATE POLICY "api_keys_policy" ON public.whitelabel_api_keys
     USING (auth.jwt() IS NOT NULL);
   END IF;
 END $$;
 
-9. Add to .env.example if not present:
-IMAP_HOST=
-IMAP_PORT=993
-IMAP_USER=
-IMAP_PASSWORD=
-INGEST_API_KEY=
+CREATE INDEX IF NOT EXISTS idx_tenants_slug ON public.tenants(slug);
+CREATE INDEX IF NOT EXISTS idx_tenants_owner ON public.tenants(owner_user_id);
+CREATE INDEX IF NOT EXISTS idx_tenant_users_user_id ON public.tenant_users(user_id);
+CREATE INDEX IF NOT EXISTS idx_tenant_users_tenant_id ON public.tenant_users(tenant_id);
 
-10. Update app/api/cron/route.ts:
-Add email ingestion trigger at top of cron handler before intel sync
-Call pipeline.ingestEmail — log result
-Order must be: email ingestion first, then intel sync, then hunts
+11. Update cron route:
+Add quota reset on first day of month:
+If new Date().getDate() equals 1: call tenantManager.resetMonthlyQuotas
+Add before email ingestion step
 
 Run npm run build, fix all errors.
-Commit: feat: complete log ingestion pipeline syslog CEF LEEF JSON email, push.
-After green run migration 20260424000009 in Supabase SQL Editor.
-Ping for P19 — Multi-Tenant MSSP Portal.
+Commit: feat: complete multi-tenant MSSP portal with API keys and SLA tracking, push.
+After green run migration 20260424000010 in Supabase SQL Editor.
+Ping for P20 — Reporting: SOC dashboard metrics, executive PDF, compliance mapping.

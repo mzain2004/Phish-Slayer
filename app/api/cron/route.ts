@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { HuntEngine } from "@/lib/soc/hunting/engine";
 import { syncAllFeeds } from "@/lib/soc/intel/index";
 import { IngestionPipeline } from "@/lib/ingestion/pipeline";
+import { TenantManager } from "@/lib/tenant/manager";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -15,6 +16,13 @@ export async function POST(req: Request) {
 
   try {
     const supabase = await createClient();
+
+    // ── Monthly Tasks ──
+    if (new Date().getDate() === 1) {
+      const tenantManager = new TenantManager(supabase);
+      await tenantManager.resetMonthlyQuotas();
+      console.info("[cron] Monthly alert quotas reset");
+    }
     
     // 1. Ingest emails at 00:00 UTC
     const pipeline = new IngestionPipeline(supabase);
