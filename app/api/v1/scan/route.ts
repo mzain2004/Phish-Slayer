@@ -24,6 +24,11 @@ type ApiQuotaResult = {
   reset_at: string;
 };
 
+type ApiKeyProfile = {
+  id: string;
+  subscription_tier: string | null;
+};
+
 async function consumeApiCall(
   client: any,
   userId: string,
@@ -97,40 +102,13 @@ async function handleScan(request: NextRequest) {
     { auth: { persistSession: false, autoRefreshToken: false } },
   );
 
-  const apiKeyLast4 = apiKey.slice(-4);
-  const { data: profile, error: profileError } = await supabaseAdmin
-    .from("profiles")
-    .select(
-      "id, subscription_tier, api_calls_today, api_calls_reset_at, api_key",
-    )
-    .eq("api_key_last4", apiKeyLast4)
-    .limit(20);
+  const { data: matchedProfile, error: profileError } = (await supabaseAdmin
+    .rpc("verify_api_key", {
+      input_key: apiKey
+    })
+    .single()) as unknown as { data: ApiKeyProfile | null; error: unknown };
 
-  if (profileError || !profile || profile.length === 0) {
-    return NextResponse.json(
-      { error: "Unauthorized. Invalid API key." },
-      { status: 401, headers },
-    );
-  }
-
-  let matchedProfile:
-    | {
-        id: string;
-        subscription_tier: string | null;
-        api_calls_today: number | null;
-        api_calls_reset_at: string | null;
-        api_key: string | null;
-      }
-    | undefined;
-
-  for (const row of profile) {
-    if (row.api_key && (await bcryptCompare(apiKey, row.api_key))) {
-      matchedProfile = row;
-      break;
-    }
-  }
-
-  if (!matchedProfile) {
+  if (profileError || !matchedProfile) {
     return NextResponse.json(
       { error: "Unauthorized. Invalid API key." },
       { status: 401, headers },
