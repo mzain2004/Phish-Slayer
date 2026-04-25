@@ -1,16 +1,23 @@
-Task: Fix CSP blocking Google Fonts on sign-in page
+Read ONLY these files:
+- .github/workflows/deploy.yml
 
-Read ONLY this file:
-- next.config.ts (or next.config.js — check which exists)
+Task: The build-args section in the docker build step is missing Clerk URL 
+variables. Find the `build-args:` block and add these lines to it 
+(hardcoded values, NOT secrets):
 
-In the Content-Security-Policy header, find the style-src directive and add these two domains:
-https://fonts.googleapis.com
-https://fonts.gstatic.com
+NEXT_PUBLIC_CLERK_SIGN_IN_URL=https://phishslayer.tech/sign-in
+NEXT_PUBLIC_CLERK_SIGN_UP_URL=https://phishslayer.tech/sign-up
+NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=https://phishslayer.tech/dashboard
+NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=https://phishslayer.tech/dashboard
+NEXT_PUBLIC_APP_URL=https://phishslayer.tech
+NEXT_PUBLIC_SITE_URL=https://phishslayer.tech
 
-Also add to font-src directive:
-https://fonts.googleapis.com
-https://fonts.gstatic.com
+Add them directly under the existing build-args entries.
+Do NOT use ${{ secrets.* }} for these — hardcode them.
+Do NOT touch any other part of deploy.yml.
+Do NOT modify server.js or middleware.ts.
 
-Do not touch anything else in the file.
-Run npm run build, fix all errors.
-Commit: fix: add Google Fonts to CSP style-src and font-src, push.
+After editing:
+git add .github/workflows/deploy.yml
+git commit -m "fix: add missing Clerk URL build-args to deploy.yml"
+git push
