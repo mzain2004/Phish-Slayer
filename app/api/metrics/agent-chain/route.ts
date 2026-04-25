@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@supabase/supabase-js";
-import { getAuthenticatedUser, resolveOrganizationForUser } from "@/lib/tenancy";
+import { resolveOrganizationForUser } from "@/lib/tenancy";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -185,21 +186,32 @@ function getCurrentExecution(rows: AuditRow[]): {
 }
 
 export async function GET() {
-  const user = await getAuthenticatedUser();
-  if (!user) {
+  const { userId, orgId } = await auth();
+  
+  if (!userId) {
     return NextResponse.json(
       { success: false, error: "Unauthorized" },
       { status: 401 },
     );
   }
 
+  // If organizationId is missing from Clerk session, return 403
+  if (!orgId) {
+    return NextResponse.json(
+      { error: "No organization context" },
+      { status: 403 }
+    );
+  }
+
   const organization = await resolveOrganizationForUser({
-    userId: user.id,
+    userId: userId,
+    preferredOrganizationId: orgId,
     autoCreate: false,
   });
+  
   if (!organization) {
     return NextResponse.json(
-      { success: false, error: "Forbidden" },
+      { error: "No organization context" },
       { status: 403 },
     );
   }
