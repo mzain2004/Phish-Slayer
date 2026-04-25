@@ -115,8 +115,10 @@ jobs:
             AZURE_CLIENT_ID=${{ secrets.AZURE_CLIENT_ID }}
             AZURE_CLIENT_SECRET=${{ secrets.AZURE_CLIENT_SECRET }}
             NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
-            NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
-            NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
+            NEXT_PUBLIC_CLERK_SIGN_IN_URL=https://phishslayer.tech/sign-in
+            NEXT_PUBLIC_CLERK_SIGN_UP_URL=https://phishslayer.tech/sign-up
+            NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=https://phishslayer.tech/dashboard
+            NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=https://phishslayer.tech/dashboard
 
   deploy-azure:
     name: Deploy to Azure VM
