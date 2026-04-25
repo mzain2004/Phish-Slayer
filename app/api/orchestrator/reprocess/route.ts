@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 
 const schema = z.object({
   alert_id: z.string().uuid(),
-  org_id: z.string().optional().default("default")
+  organization_id: z.string().optional().default("default")
 });
 
 export async function POST(req: Request) {
@@ -18,11 +18,11 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { alert_id, org_id } = schema.parse(body);
+    const { alert_id, organization_id } = schema.parse(body);
 
     const supabase = await createClient();
     const orchestrator = new AutonomousOrchestrator(supabase);
-    const run = await orchestrator.processAlert(alert_id, org_id);
+    const run = await orchestrator.processAlert(alert_id, organization_id);
 
     return NextResponse.json(run);
   } catch (error) {

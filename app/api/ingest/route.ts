@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 const schema = z.object({
   raw_content: z.string().min(1),
   source_type: z.string().min(1),
-  org_id: z.string().min(1),
+  organization_id: z.string().min(1),
   source_ip: z.string().optional().nullable()
 });
 
@@ -24,11 +24,11 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { raw_content, source_type, org_id, source_ip } = schema.parse(body);
+    const { raw_content, source_type, organization_id, source_ip } = schema.parse(body);
 
     const supabase = await createClient();
     const pipeline = new IngestionPipeline(supabase);
-    const result = await pipeline.ingestLog(raw_content, source_type, org_id, source_ip);
+    const result = await pipeline.ingestLog(raw_content, source_type, organization_id, source_ip);
 
     return NextResponse.json(result);
   } catch (error) {

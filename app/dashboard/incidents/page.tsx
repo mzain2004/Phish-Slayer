@@ -39,8 +39,7 @@ type Incident = {
   title: string;
   severity: string;
   status: string;
-  assignee: string;
-  assigned_to?: string;
+  assigned_to: string | null;
   description?: string;
   risk_score?: number;
   threat_category?: string;
@@ -86,14 +85,12 @@ export default function IncidentReportsPage() {
     title: "",
     severity: "Medium",
     description: "",
-    assignee: "Unassigned",
+    assigned_to: "",
   });
 
   useEffect(() => {
     Promise.all([
       getIncidents(),
-      // Fetch users only if manager/admin, but we don't know the exact guarantee here on the client on mount
-      // We will try catching gracefully if unauthorized
       getOrgUsers().catch(() => ({ users: [] })),
     ])
       .then(([incData, usersData]) => {
@@ -201,7 +198,11 @@ export default function IncidentReportsPage() {
     }
     startTransition(async () => {
       try {
-        const res = await createIncident(newIncident);
+        const payload = {
+          ...newIncident,
+          assigned_to: newIncident.assigned_to || undefined,
+        };
+        const res = await createIncident(payload);
         if (res.error) throw new Error(res.error);
         toast.success("Incident created successfully.");
         setIsCreateModalOpen(false);
@@ -209,7 +210,7 @@ export default function IncidentReportsPage() {
           title: "",
           severity: "Medium",
           description: "",
-          assignee: "Unassigned",
+          assigned_to: "",
         });
         await refreshData();
       } catch (err: any) {
@@ -250,14 +251,14 @@ export default function IncidentReportsPage() {
     });
 
     incidents.forEach((i) => {
-      const assignedUserName = orgUsers.find(
+      const assignedUser = orgUsers.find(
         (u) => u.id === i.assigned_to,
-      )?.display_name;
+      );
       sheet.addRow({
         title: i.title,
         severity: i.severity,
         status: i.status,
-        assignee: assignedUserName || i.assignee || "Unassigned",
+        assignee: assignedUser?.display_name || "Unassigned",
         risk_score: i.risk_score ?? "N/A",
         threat_category: i.threat_category || "N/A",
         created_at: i.created_at
@@ -289,8 +290,8 @@ export default function IncidentReportsPage() {
           i.title?.toLowerCase().includes(q) ||
           i.severity?.toLowerCase().includes(q) ||
           i.status?.toLowerCase().includes(q) ||
-          i.assignee?.toLowerCase().includes(q) ||
-          i.threat_category?.toLowerCase().includes(q),
+          i.threat_category?.toLowerCase().includes(q) ||
+          orgUsers.find(u => u.id === i.assigned_to)?.display_name.toLowerCase().includes(q)
       );
     }
 
@@ -309,7 +310,7 @@ export default function IncidentReportsPage() {
     }
 
     return result;
-  }, [incidents, filter, dateRange]);
+  }, [incidents, filter, dateRange, orgUsers]);
 
   if (!loaded || roleLoading) {
     return (
@@ -567,16 +568,13 @@ export default function IncidentReportsPage() {
                             </div>
                           ) : (
                             <p className="text-sm text-[#8B949E] font-medium">
-                              {assignedUser?.display_name ||
-                                incident.assignee ||
-                                "Unassigned"}
+                              {assignedUser?.display_name || "Unassigned"}
                             </p>
                           )}
                         </td>
                         {!isViewOnly && (
                           <td className="px-6 py-4">
                             <div className="flex items-center justify-end gap-2">
-                              {/* Resolve */}
                               {!incident.status
                                 ?.toLowerCase()
                                 .includes("resolved") && (
@@ -602,7 +600,6 @@ export default function IncidentReportsPage() {
                                 </PhishButton>
                               )}
 
-                              {/* Block IP/Domain */}
                               {extractTarget(incident) && (
                                 <PhishButton
                                   onClick={() => {
@@ -629,7 +626,6 @@ export default function IncidentReportsPage() {
                                 </PhishButton>
                               )}
 
-                              {/* Delete */}
                               <PhishButton
                                 onClick={() => handleDelete(incident.id)}
                                 disabled={isPending && actionId === incident.id}
@@ -725,18 +721,18 @@ export default function IncidentReportsPage() {
                       Initial Assignee
                     </label>
                     <select
-                      value={newIncident.assignee}
+                      value={newIncident.assigned_to}
                       onChange={(e) =>
                         setNewIncident({
                           ...newIncident,
-                          assignee: e.target.value,
+                          assigned_to: e.target.value,
                         })
                       }
                       className="w-full bg-[rgba(23,28,35,0.85)] border border-[rgba(48,54,61,0.9)] rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-teal-500/50 outline-none transition-all cursor-pointer"
                     >
-                      <option value="Unassigned">Unassigned</option>
+                      <option value="">Unassigned</option>
                       {orgUsers.map((u) => (
-                        <option key={u.id} value={u.display_name}>
+                        <option key={u.id} value={u.id}>
                           {u.display_name}
                         </option>
                       ))}

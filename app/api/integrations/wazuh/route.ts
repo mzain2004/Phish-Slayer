@@ -4,14 +4,14 @@ import { currentUser } from "@clerk/nextjs/server";
 import {
   getAuthenticatedUser,
   getServiceRoleClient,
-  resolveTenantForUser,
+  resolveOrganizationForUser,
 } from "@/lib/tenancy";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 const QuerySchema = z.object({
-  tenant: z.string().uuid().optional(),
+  organization: z.string().uuid().optional(),
 });
 
 const WEBHOOK_BASE_URL = "https://phishslayer.tech/api/connectors/wazuh";
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     }
 
     const parsedQuery = QuerySchema.safeParse({
-      tenant: request.nextUrl.searchParams.get("tenant") ?? undefined,
+      organization: request.nextUrl.searchParams.get("organization") ?? undefined,
     });
 
     if (!parsedQuery.success) {
@@ -46,17 +46,17 @@ export async function GET(request: NextRequest) {
     const userEmail = clerkUser?.emailAddresses?.[0]?.emailAddress;
     const userFullName = clerkUser?.fullName || undefined;
 
-    const tenant = await resolveTenantForUser({
+    const organization = await resolveOrganizationForUser({
       userId: user.id,
-      preferredTenantId: parsedQuery.data.tenant,
-      tenantNameHint: userFullName || userEmail || undefined,
+      preferredOrganizationId: parsedQuery.data.organization,
+      organizationNameHint: userFullName || userEmail || undefined,
       userEmail: userEmail || undefined,
       autoCreate: true,
     });
 
-    if (!tenant) {
+    if (!organization) {
       return NextResponse.json(
-        { success: false, error: "Tenant access denied" },
+        { success: false, error: "Organization access denied" },
         { status: 403 },
       );
     }
@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
       .select(
         "id, connector_name, manager_ip, is_active, last_seen_at, created_at",
       )
-      .eq("organization_id", tenant.tenantId)
+      .eq("organization_id", organization.organizationId)
       .eq("connector_type", "wazuh")
       .order("created_at", { ascending: false });
 
@@ -93,12 +93,12 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      tenant: {
-        id: tenant.tenantId,
-        name: tenant.tenantName,
-        role: tenant.role,
+      organization: {
+        id: organization.organizationId,
+        name: organization.organizationName,
+        role: organization.role,
       },
-      webhook_url: `${WEBHOOK_BASE_URL}?tenant=${tenant.tenantId}`,
+      webhook_url: `${WEBHOOK_BASE_URL}?organization=${organization.organizationId}`,
       integrations,
     });
   } catch (error) {

@@ -67,7 +67,7 @@ const createIncidentSchema = z.object({
   severity: z.string().trim().optional(),
   priority: z.string().trim().optional(),
   status: z.string().trim().optional(),
-  assignee: z.string().trim().optional(),
+  assigned_to: z.string().uuid().optional(),
   description: z.string().trim().optional(),
   timeline: z.array(z.any()).optional(),
 });
@@ -151,7 +151,7 @@ export async function createIncident(data: any) {
     title: validData.title,
     severity: validData.severity || validData.priority || "Medium",
     status: validData.status || "open",
-    assignee: validData.assignee || "Unassigned",
+    assigned_to: validData.assigned_to || null,
     description: validData.description || "",
     timeline: validData.timeline || [],
     created_by: userId || null,

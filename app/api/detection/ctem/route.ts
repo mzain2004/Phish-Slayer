@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import { getAuthenticatedUser, resolveTenantForUser } from "@/lib/tenancy";
+import { getAuthenticatedUser, resolveOrganizationForUser } from "@/lib/tenancy";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -63,13 +63,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const tenant = await resolveTenantForUser({
+    const organization = await resolveOrganizationForUser({
       userId: user.id,
-      preferredTenantId: parsed.data.organization_id,
+      preferredOrganizationId: parsed.data.organization_id,
       autoCreate: false,
     });
 
-    if (!tenant || !["owner", "admin"].includes(tenant.role)) {
+    if (!organization || !["owner", "admin"].includes(organization.role)) {
       return NextResponse.json(
         { success: false, error: "Forbidden" },
         { status: 403 },
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
       .from("ctem_exposures")
       .upsert(
         {
-          organization_id: tenant.tenantId,
+          organization_id: organization.organizationId,
           asset_name: body.asset_name,
           asset_type: body.asset_type,
           exposure_type: body.exposure_type,
@@ -154,13 +154,13 @@ export async function GET(request: NextRequest) {
     }
 
     const { page, limit, status, severity, organization_id } = parsedQuery.data;
-    const tenant = await resolveTenantForUser({
+    const organization = await resolveOrganizationForUser({
       userId: user.id,
-      preferredTenantId: organization_id,
+      preferredOrganizationId: organization_id,
       autoCreate: false,
     });
 
-    if (!tenant) {
+    if (!organization) {
       return NextResponse.json(
         { success: false, error: "Forbidden" },
         { status: 403 },
@@ -173,7 +173,7 @@ export async function GET(request: NextRequest) {
     let query = adminClient
       .from("ctem_exposures")
       .select("*", { count: "exact" })
-      .eq("organization_id", tenant.tenantId)
+      .eq("organization_id", organization.organizationId)
       .order("last_seen", { ascending: false })
       .range(from, to);
 
@@ -200,7 +200,7 @@ export async function GET(request: NextRequest) {
     const { data: severityRows, error: severityError } = await adminClient
       .from("ctem_exposures")
       .select("severity")
-      .eq("organization_id", tenant.tenantId);
+      .eq("organization_id", organization.organizationId);
 
     if (severityError) {
       return NextResponse.json(

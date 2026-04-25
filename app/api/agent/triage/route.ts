@@ -82,7 +82,7 @@ type ProcessBatchOptions = {
   alertId?: string;
   alertMinAgeMinutes?: number;
   includeScans?: boolean;
-  tenantId?: string;
+  organizationId?: string;
 };
 
 function normalizeGeminiConfidence(
@@ -253,14 +253,14 @@ async function writeAuditLogSafe(
   action: string,
   severity: Severity,
   metadata: Record<string, unknown>,
-  tenantId?: string | null,
+  organizationId?: string | null,
 ) {
   const { error } = await adminClient.from("audit_logs").insert({
     action,
     severity,
-    organization_id: tenantId || null,
+    organization_id: organizationId || null,
     metadata: {
-      tenant_id: tenantId || null,
+      tenant_id: organizationId || null,
       ...metadata,
     },
     created_at: new Date().toISOString(),
@@ -278,7 +278,7 @@ async function logWazuhLifecycle(
   adminClient: ReturnType<typeof getAdminClient>,
   stage: "received" | "processed" | "decision" | "action_taken",
   record: AlertRecord,
-  tenantId: string | null,
+  organizationId: string | null,
   options?: {
     decision?: Decision;
     actionTaken?: string;
@@ -320,7 +320,7 @@ async function logWazuhLifecycle(
       escalation_id: options?.escalationId || null,
       error: errorText,
     },
-    tenantId,
+    organizationId,
   );
 }
 
@@ -482,7 +482,7 @@ async function escalateScan(
   record: QueueRecord,
   decision: Decision,
   baseUrl: string,
-  tenantId: string | null,
+  organizationId: string | null,
 ): Promise<{ escalationId: string | null }> {
   const title =
     record.source === "wazuh"
@@ -510,13 +510,13 @@ async function escalateScan(
       description: decision.reasoning,
       affectedUserId,
       affectedIp,
-      organization_id: tenantId || undefined,
-      tenantId: tenantId || undefined,
+      organization_id: organizationId || undefined,
+      organizationId: organizationId || undefined,
       recommendedAction: normalizeEscalationAction(decision),
       telemetrySnapshot: {
         ...(record as Record<string, unknown>),
-        organization_id: tenantId || null,
-        tenant_id: tenantId || null,
+        organization_id: organizationId || null,
+        tenant_id: organizationId || null,
       },
     }),
   });
@@ -545,8 +545,7 @@ async function processBatch(
   options: ProcessBatchOptions = {},
 ) {
   const adminClient = getAdminClient();
-  const tenantId = options.tenantId || null;
-  const organizationId = tenantId;
+  const organizationId = options.organizationId || null;
   const includeScans = options.includeScans ?? !options.alertId;
   const alertMinAgeMinutes =
     typeof options.alertMinAgeMinutes === "number" &&
@@ -607,14 +606,14 @@ async function processBatch(
 
     try {
       if (item.source === "wazuh") {
-        await logWazuhLifecycle(adminClient, "received", item, tenantId);
-        await logWazuhLifecycle(adminClient, "processed", item, tenantId);
+        await logWazuhLifecycle(adminClient, "received", item, organizationId);
+        await logWazuhLifecycle(adminClient, "processed", item, organizationId);
       }
 
       decision = await runGeminiTriage(item);
 
       if (item.source === "wazuh") {
-        await logWazuhLifecycle(adminClient, "decision", item, tenantId, {
+        await logWazuhLifecycle(adminClient, "decision", item, organizationId, {
           decision,
         });
       }
@@ -656,7 +655,7 @@ async function processBatch(
             severity: decision.severity,
             metadata: {
               organization_id: organizationId,
-              tenant_id: tenantId,
+              tenant_id: organizationId,
               source: item.source,
               record_id: item.id,
               reasoning: decision.reasoning,
@@ -673,7 +672,7 @@ async function processBatch(
         }
 
         if (item.source === "wazuh") {
-          await logWazuhLifecycle(adminClient, "action_taken", item, tenantId, {
+          await logWazuhLifecycle(adminClient, "action_taken", item, organizationId, {
             decision,
             actionTaken: "CLOSE",
           });
@@ -730,7 +729,7 @@ async function processBatch(
         }
 
         if (item.source === "wazuh") {
-          await logWazuhLifecycle(adminClient, "action_taken", item, tenantId, {
+          await logWazuhLifecycle(adminClient, "action_taken", item, organizationId, {
             decision,
             actionTaken: "ESCALATE",
             escalationId: escalationResult.escalationId,
@@ -759,7 +758,7 @@ async function processBatch(
       errors += 1;
 
       if (item.source === "wazuh") {
-        await logWazuhLifecycle(adminClient, "action_taken", item, tenantId, {
+        await logWazuhLifecycle(adminClient, "action_taken", item, organizationId, {
           decision: decision || undefined,
           actionTaken: "ERROR",
           error,
@@ -809,7 +808,7 @@ export async function GET(request: NextRequest) {
     request.nextUrl.searchParams.get("organization_id") ||
     request.nextUrl.searchParams.get("tenant_id") ||
     undefined;
-  let tenantId: string | undefined;
+  let organizationId: string | undefined;
 
   if (tenantParam) {
     const parsedTenant = TenantIdSchema.safeParse(tenantParam);
@@ -820,14 +819,14 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    tenantId = parsedTenant.data;
+    organizationId = parsedTenant.data;
   }
 
   return processBatch(request, {
     alertId,
     includeScans,
     alertMinAgeMinutes,
-    tenantId,
+    organizationId,
   });
 }
 
@@ -866,17 +865,17 @@ export async function POST(request: NextRequest) {
   const alertMinAgeMinutes = Number.isFinite(parsedMinAge)
     ? Math.max(0, parsedMinAge)
     : undefined;
-  const tenantIdRaw =
+  const organizationIdRaw =
     typeof body.organization_id === "string" &&
     body.organization_id.trim().length > 0
       ? body.organization_id.trim()
       : typeof body.tenant_id === "string" && body.tenant_id.trim().length > 0
         ? body.tenant_id.trim()
         : undefined;
-  let tenantId: string | undefined;
+  let organizationId: string | undefined;
 
-  if (tenantIdRaw) {
-    const parsedTenant = TenantIdSchema.safeParse(tenantIdRaw);
+  if (organizationIdRaw) {
+    const parsedTenant = TenantIdSchema.safeParse(organizationIdRaw);
     if (!parsedTenant.success) {
       return NextResponse.json(
         { success: false, error: "Invalid tenant_id" },
@@ -884,13 +883,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    tenantId = parsedTenant.data;
+    organizationId = parsedTenant.data;
   }
 
   return processBatch(request, {
     alertId,
     includeScans,
     alertMinAgeMinutes,
-    tenantId,
+    organizationId,
   });
 }

@@ -5,7 +5,8 @@ import { generateWithGemini } from "@/lib/sigma-generator";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { auth } from '@clerk/nextjs/server';
 import { checkTierAccess } from "@/lib/tier-guard";
-import { getAuthenticatedUser, resolveTenantForUser } from "@/lib/tenancy";
+import { getAuthenticatedUser, resolveOrganizationForUser } from "@/lib/tenancy";
+
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -221,12 +222,12 @@ export async function GET(request: NextRequest) {
     }
 
     const { page, limit, rule_level, rule_status } = parsedQuery.data;
-    const tenant = await resolveTenantForUser({
+    const organization = await resolveOrganizationForUser({
       userId: user.id,
       autoCreate: false,
     });
 
-    if (!tenant) {
+    if (!organization) {
       return NextResponse.json(
         { success: false, error: "Forbidden" },
         { status: 403 },
@@ -239,7 +240,7 @@ export async function GET(request: NextRequest) {
     let query = adminClient
       .from("sigma_rules")
       .select("*", { count: "exact" })
-      .eq("organization_id", tenant.tenantId)
+      .eq("organization_id", organization.organizationId)
       .order("created_at", { ascending: false })
       .range(from, to);
 

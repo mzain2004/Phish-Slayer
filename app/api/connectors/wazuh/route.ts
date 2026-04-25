@@ -9,8 +9,8 @@ export const runtime = "nodejs";
 const STAGE_TIMEOUT_MS = 30_000;
 const L3_TRIGGER_ACTIONS = new Set(["HUNT", "BLOCK_IP", "ISOLATE_IDENTITY"]);
 const TenantIdSchema = z.string().uuid();
-const TENANT_RATE_LIMIT_PER_MINUTE = 1000;
-const TENANT_RATE_LIMIT_WINDOW_MS = 60_000;
+const ORGANIZATION_RATE_LIMIT_PER_MINUTE = 1000;
+const ORGANIZATION_RATE_LIMIT_WINDOW_MS = 60_000;
 const L3_RESPONSE_CACHE_TTL_MS = 5 * 60 * 1000;
 const l3ResponseCache = new Map<
   string,
@@ -19,7 +19,7 @@ const l3ResponseCache = new Map<
     cachedAt: number;
   }
 >();
-const tenantRateLimitStore = new Map<
+const organizationRateLimitStore = new Map<
   string,
   {
     windowStartMs: number;
@@ -143,8 +143,8 @@ type StageCallResult = {
   error: string | null;
 };
 
-type TenantContext = {
-  tenantId: string;
+type OrganizationContext = {
+  organizationId: string;
   connectorId: string | null;
 };
 
@@ -212,7 +212,7 @@ async function writeAuditLogSafe(
   action: string,
   severity: Severity,
   metadata: Record<string, unknown>,
-  tenantId?: string | null,
+  organizationId?: string | null,
 ) {
   try {
     const { error } = await getAdminClient()
@@ -220,9 +220,9 @@ async function writeAuditLogSafe(
       .insert({
         action,
         severity,
-        organization_id: tenantId || null,
+        organization_id: organizationId || null,
         metadata: {
-          tenant_id: tenantId || null,
+          organization_id: organizationId || null,
           ...metadata,
         },
         created_at: new Date().toISOString(),
@@ -242,31 +242,31 @@ async function writeAuditLogSafe(
   }
 }
 
-function enforceTenantRateLimit(tenantId: string) {
+function enforceOrganizationRateLimit(organizationId: string) {
   const now = Date.now();
-  const existing = tenantRateLimitStore.get(tenantId);
+  const existing = organizationRateLimitStore.get(organizationId);
 
   if (
     !existing ||
-    now - existing.windowStartMs >= TENANT_RATE_LIMIT_WINDOW_MS
+    now - existing.windowStartMs >= ORGANIZATION_RATE_LIMIT_WINDOW_MS
   ) {
-    tenantRateLimitStore.set(tenantId, {
+    organizationRateLimitStore.set(organizationId, {
       windowStartMs: now,
       count: 1,
     });
 
     return {
       allowed: true,
-      remaining: TENANT_RATE_LIMIT_PER_MINUTE - 1,
+      remaining: ORGANIZATION_RATE_LIMIT_PER_MINUTE - 1,
       retryAfterSeconds: 0,
     };
   }
 
   existing.count += 1;
 
-  if (existing.count > TENANT_RATE_LIMIT_PER_MINUTE) {
+  if (existing.count > ORGANIZATION_RATE_LIMIT_PER_MINUTE) {
     const retryAfterMs =
-      TENANT_RATE_LIMIT_WINDOW_MS - (now - existing.windowStartMs);
+      ORGANIZATION_RATE_LIMIT_WINDOW_MS - (now - existing.windowStartMs);
 
     return {
       allowed: false,
@@ -277,7 +277,7 @@ function enforceTenantRateLimit(tenantId: string) {
 
   return {
     allowed: true,
-    remaining: Math.max(0, TENANT_RATE_LIMIT_PER_MINUTE - existing.count),
+    remaining: Math.max(0, ORGANIZATION_RATE_LIMIT_PER_MINUTE - existing.count),
     retryAfterSeconds: 0,
   };
 }
@@ -311,8 +311,8 @@ function writeL3Cache(key: string, result: L3ChainResult) {
   l3ResponseCache.set(key, { result, cachedAt: Date.now() });
 }
 
-async function verifyTenantWebhookAuth(
-  tenantId: string,
+async function verifyOrganizationWebhookAuth(
+  organizationId: string,
   apiKey: string | null,
 ): Promise<
   | {
@@ -334,7 +334,7 @@ async function verifyTenantWebhookAuth(
   const { data, error } = await getAdminClient()
     .from("connectors")
     .select("id, api_key_hash")
-    .eq("organization_id", tenantId)
+    .eq("organization_id", organizationId)
     .eq("connector_type", "wazuh")
     .eq("is_active", true);
 
@@ -616,12 +616,11 @@ async function runEventDrivenAgentChain(
   baseUrl: string,
   alertId: string,
   severity: Severity,
-  tenantId: string | null,
+  organizationId: string | null,
   alertContext: { alertType: string; ruleId: string | null },
 ): Promise<ChainExecutionResult> {
   const chainStartedAt = Date.now();
   const stagesExecuted: string[] = [];
-  const organizationId = tenantId;
 
   await writeAuditLogSafe(
     "AGENT_CHAIN_STARTED",
@@ -632,7 +631,7 @@ async function runEventDrivenAgentChain(
       source: "wazuh",
       started_at: new Date(chainStartedAt).toISOString(),
     },
-    tenantId,
+    organizationId,
   );
 
   const l1Stage = await callStageJson(
@@ -642,7 +641,6 @@ async function runEventDrivenAgentChain(
       include_scans: false,
       alert_min_age_minutes: 0,
       organization_id: organizationId,
-      tenant_id: organizationId,
     },
     STAGE_TIMEOUT_MS,
   );
@@ -727,7 +725,7 @@ async function runEventDrivenAgentChain(
           timed_out: l2Result.timed_out,
           error: l2Result.error,
         },
-        tenantId,
+        organizationId,
       );
     } else {
       const l2Stage = await callStageJson(
@@ -736,13 +734,11 @@ async function runEventDrivenAgentChain(
           escalation_id: l1Result.escalation_id,
           min_age_minutes: 0,
           organization_id: organizationId,
-          tenant_id: organizationId,
           l1_result: {
             decision: l1Result.decision,
             confidence: l1Result.confidence,
             escalation_id: l1Result.escalation_id,
             organization_id: organizationId,
-            tenant_id: organizationId,
           },
         },
         STAGE_TIMEOUT_MS,
@@ -790,7 +786,7 @@ async function runEventDrivenAgentChain(
 
     if (L3_TRIGGER_ACTIONS.has(l2Result.action)) {
       const l2Context = {
-        tenant_id: tenantId,
+        organization_id: organizationId,
         action: l2Result.action,
         confidence: l2Result.confidence,
         reasoning: l2Result.reasoning,
@@ -810,7 +806,7 @@ async function runEventDrivenAgentChain(
           reason: l2Result.action,
           l2_context: l2Context,
         },
-        tenantId,
+        organizationId,
       );
 
       const cacheKey = buildL3CacheKey(
@@ -834,7 +830,7 @@ async function runEventDrivenAgentChain(
               error: l3Result.error,
               cache_hit: true,
             },
-            tenantId,
+            organizationId,
           );
           return {
             alert_id: alertId,
@@ -888,7 +884,7 @@ async function runEventDrivenAgentChain(
               timed_out: asyncL3Result.timed_out,
               error: asyncL3Result.error,
             },
-            tenantId,
+            organizationId,
           );
         })();
       }, 0);
@@ -908,7 +904,7 @@ async function runEventDrivenAgentChain(
       stages_executed: stagesExecuted,
       chain_success: chainSuccess,
     },
-    tenantId,
+    organizationId,
   );
 
   return {
@@ -969,7 +965,7 @@ function parseIncomingAlerts(payload: unknown): {
 async function processSingleAlert(
   alert: WazuhAlert,
   baseUrl: string,
-  tenantContext: TenantContext | null,
+  organizationContext: OrganizationContext | null,
 ): Promise<{
   external_alert_id: string | null;
   internal_alert_id: string | null;
@@ -992,16 +988,16 @@ async function processSingleAlert(
       agent_name: alert.agent?.name || null,
       src_ip: alert.data?.srcip || null,
       dst_ip: alert.data?.dstip || null,
-      connector_id: tenantContext?.connectorId || null,
+      connector_id: organizationContext?.connectorId || null,
     },
-    tenantContext?.tenantId || null,
+    organizationContext?.organizationId || null,
   );
 
   let insertedAlertId: string | null = null;
   let queued = false;
 
   try {
-    insertedAlertId = await queueAlert(alert, tenantContext?.tenantId || null);
+    insertedAlertId = await queueAlert(alert, organizationContext?.organizationId || null);
     queued = Boolean(insertedAlertId);
   } catch (error) {
     console.error("[wazuh webhook] Failed to insert alert", error);
@@ -1017,7 +1013,7 @@ async function processSingleAlert(
       internal_alert_id: insertedAlertId,
       queued,
     },
-    tenantContext?.tenantId || null,
+    organizationContext?.organizationId || null,
   );
 
   let chain: ChainExecutionResult | null = null;
@@ -1028,7 +1024,7 @@ async function processSingleAlert(
       baseUrl,
       insertedAlertId,
       severity,
-      tenantContext?.tenantId || null,
+      organizationContext?.organizationId || null,
       {
         alertType: "wazuh",
         ruleId: toText(alert.rule?.id),
@@ -1046,7 +1042,7 @@ async function processSingleAlert(
         confidence: 0,
         reasoning: "Failed to queue alert for event-driven chain.",
       },
-      tenantContext?.tenantId || null,
+      organizationContext?.organizationId || null,
     );
     await writeAuditLogSafe(
       "WAZUH_ALERT_ACTION_TAKEN",
@@ -1057,7 +1053,7 @@ async function processSingleAlert(
         internal_alert_id: insertedAlertId,
         action_taken: "QUEUE_FAILED",
       },
-      tenantContext?.tenantId || null,
+      organizationContext?.organizationId || null,
     );
   }
 
@@ -1128,7 +1124,7 @@ function triggerCtemExposure(
 
 async function queueAlert(
   alert: WazuhAlert,
-  tenantId: string | null,
+  organizationId: string | null,
 ): Promise<string | null> {
   const adminClient = getAdminClient();
   const ruleLevel = alert.rule?.level ?? null;
@@ -1156,7 +1152,7 @@ async function queueAlert(
         mitre_tactic: alert.rule?.mitre?.tactic?.[0] ?? null,
         full_payload: {
           ...alert,
-          tenant_id: tenantId,
+          organization_id: organizationId,
         },
         status: "pending",
         created_at: new Date().toISOString(),
@@ -1178,44 +1174,44 @@ async function queueAlert(
 }
 
 export async function POST(request: NextRequest) {
-  const tenantParam =
-    request.nextUrl.searchParams.get("tenant") ||
-    request.nextUrl.searchParams.get("tenant_id");
+  const organizationParam =
+    request.nextUrl.searchParams.get("organization") ||
+    request.nextUrl.searchParams.get("organization_id");
   const apiKeyHeader = request.headers.get("x-api-key");
 
-  let tenantContext: TenantContext | null = null;
+  let organizationContext: OrganizationContext | null = null;
 
-  if (tenantParam) {
-    const parsedTenant = TenantIdSchema.safeParse(tenantParam);
-    if (!parsedTenant.success) {
+  if (organizationParam) {
+    const parsedOrg = TenantIdSchema.safeParse(organizationParam);
+    if (!parsedOrg.success) {
       return NextResponse.json(
-        { error: "Invalid tenant query parameter" },
+        { error: "Invalid organization query parameter" },
         { status: 400 },
       );
     }
 
-    const tenantId = parsedTenant.data;
-    const rateLimit = enforceTenantRateLimit(tenantId);
+    const organizationId = parsedOrg.data;
+    const rateLimit = enforceOrganizationRateLimit(organizationId);
 
     if (!rateLimit.allowed) {
       return NextResponse.json(
         {
           error: "Rate limit exceeded",
-          tenant_id: tenantId,
+          organization_id: organizationId,
           retry_after_seconds: rateLimit.retryAfterSeconds,
         },
         {
           status: 429,
           headers: {
             "Retry-After": String(rateLimit.retryAfterSeconds),
-            "X-RateLimit-Limit": String(TENANT_RATE_LIMIT_PER_MINUTE),
+            "X-RateLimit-Limit": String(ORGANIZATION_RATE_LIMIT_PER_MINUTE),
             "X-RateLimit-Remaining": String(rateLimit.remaining),
           },
         },
       );
     }
 
-    const authResult = await verifyTenantWebhookAuth(tenantId, apiKeyHeader);
+    const authResult = await verifyOrganizationWebhookAuth(organizationId, apiKeyHeader);
     if (!authResult.ok) {
       await writeAuditLogSafe(
         "WAZUH_WEBHOOK_AUTH_FAILED",
@@ -1225,17 +1221,17 @@ export async function POST(request: NextRequest) {
           reason: authResult.reason,
           x_api_key_present: Boolean(apiKeyHeader),
         },
-        tenantId,
+        organizationId,
       );
 
       return NextResponse.json(
-        { error: "Unauthorized", tenant_id: tenantId },
+        { error: "Unauthorized", organization_id: organizationId },
         { status: 401 },
       );
     }
 
-    tenantContext = {
-      tenantId,
+    organizationContext = {
+      organizationId,
       connectorId: authResult.connectorId,
     };
 
@@ -1247,7 +1243,7 @@ export async function POST(request: NextRequest) {
     if (lastSeenError) {
       console.error("[wazuh webhook] Failed updating integration heartbeat", {
         connector_id: authResult.connectorId,
-        tenant_id: tenantId,
+        tenant_id: organizationId,
         details: lastSeenError.message,
       });
     }
@@ -1281,7 +1277,7 @@ export async function POST(request: NextRequest) {
       console.error("[wazuh webhook] Invalid JSON payload", error);
       return NextResponse.json({
         received: true,
-        tenant_id: tenantContext?.tenantId || null,
+        organization_id: organizationContext?.organizationId || null,
         total_received: 0,
         total_valid: 0,
         total_invalid: 0,
@@ -1293,7 +1289,7 @@ export async function POST(request: NextRequest) {
     if (validAlerts.length === 0) {
       return NextResponse.json({
         received: true,
-        tenant_id: tenantContext?.tenantId || null,
+        organization_id: organizationContext?.organizationId || null,
         total_received: Array.isArray(payload) ? payload.length : 1,
         total_valid: 0,
         total_invalid: invalidCount,
@@ -1305,7 +1301,7 @@ export async function POST(request: NextRequest) {
 
     const settled = await Promise.allSettled(
       validAlerts.map((alert) =>
-        processSingleAlert(alert, baseUrl, tenantContext),
+        processSingleAlert(alert, baseUrl, organizationContext),
       ),
     );
 
@@ -1328,7 +1324,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       received: true,
-      tenant_id: tenantContext?.tenantId || null,
+      organization_id: organizationContext?.organizationId || null,
       total_received: validAlerts.length + invalidCount,
       total_valid: validAlerts.length,
       total_invalid: invalidCount,
@@ -1343,7 +1339,7 @@ export async function POST(request: NextRequest) {
     console.error("[wazuh webhook] Unexpected error", error);
     return NextResponse.json({
       received: true,
-      tenant_id: tenantContext?.tenantId || null,
+      organization_id: organizationContext?.organizationId || null,
       total_received: 0,
       total_valid: 0,
       total_invalid: 0,

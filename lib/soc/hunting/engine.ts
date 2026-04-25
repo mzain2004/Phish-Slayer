@@ -13,7 +13,7 @@ export class HuntEngine {
     this.sigmaGenerator = new SigmaGenerator(supabase);
   }
 
-  public async runHunt(hypothesis_id: string, org_id: string): Promise<HuntMission> {
+  public async runHunt(hypothesis_id: string, organization_id: string): Promise<HuntMission> {
     const hypothesis = HYPOTHESES[hypothesis_id];
     if (!hypothesis) throw new Error(`Hypothesis ${hypothesis_id} not found`);
 
@@ -26,7 +26,7 @@ export class HuntEngine {
       hypothesis_id,
       hypothesis_name: hypothesis.name,
       status: "running",
-      org_id,
+      organization_id,
       started_at: started_at.toISOString()
     });
 
@@ -35,7 +35,7 @@ export class HuntEngine {
 
     try {
       // 2. Execute Query
-      const query = this.supabase.from("alerts").select("*").eq("org_id", org_id);
+      const query = this.supabase.from("alerts").select("*").eq("org_id", organization_id);
       
       // Special logic for specific hypotheses
       if (hypothesis_id === "impossible_travel") {
@@ -59,6 +59,7 @@ export class HuntEngine {
       const huntFindings: HuntFinding[] = findings.map(f => ({
         id: uuidv4(),
         mission_id,
+        organization_id,
         hypothesis_id,
         title: `Hunt Finding: ${hypothesis.name}`,
         description: `Potential threat detected: ${hypothesis.description}`,
@@ -113,7 +114,7 @@ export class HuntEngine {
         findings: huntFindings,
         alerts_scanned: alertsScanned,
         sigma_rule_generated: huntFindings.length > 0,
-        org_id
+        organization_id
       };
     } catch (error: any) {
       await this.supabase.from("hunt_missions").update({
@@ -124,11 +125,11 @@ export class HuntEngine {
     }
   }
 
-  public async runAllHunts(org_id: string): Promise<HuntMission[]> {
+  public async runAllHunts(organization_id: string): Promise<HuntMission[]> {
     const results: HuntMission[] = [];
     for (const id of Object.keys(HYPOTHESES)) {
       try {
-        const mission = await this.runHunt(id, org_id);
+        const mission = await this.runHunt(id, organization_id);
         results.push(mission);
       } catch (e) {
         console.error(`Hunt ${id} failed`, e);
@@ -137,9 +138,9 @@ export class HuntEngine {
     return results;
   }
 
-  public async scheduleHunts(org_id: string) {
-    console.info(`[cron] Starting daily hunt mission for org ${org_id}`);
-    const results = await this.runAllHunts(org_id);
+  public async scheduleHunts(organization_id: string) {
+    console.info(`[cron] Starting daily hunt mission for org ${organization_id}`);
+    const results = await this.runAllHunts(organization_id);
     
     for (const mission of results) {
       if (mission.findings.length > 0) {
@@ -149,18 +150,18 @@ export class HuntEngine {
           severity: sevMap[HYPOTHESES[mission.hypothesis_id].severity] || "p3",
           status: "open",
           alert_type: "threat_hunt",
-          org_id: org_id,
+          organization_id: organization_id,
           details: { mission_id: mission.id, finding_count: mission.findings.length }
         });
       }
     }
   }
 
-  public async getHuntHistory(org_id: string): Promise<HuntMission[]> {
+  public async getHuntHistory(organization_id: string): Promise<HuntMission[]> {
     const { data } = await this.supabase
       .from("hunt_missions")
       .select("*")
-      .eq("org_id", org_id)
+      .eq("organization_id", organization_id)
       .order("started_at", { ascending: false })
       .limit(50);
     

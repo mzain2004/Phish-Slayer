@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { HuntEngine } from "@/lib/soc/hunting/engine";
 import { syncAllFeeds } from "@/lib/soc/intel/index";
 import { IngestionPipeline } from "@/lib/ingestion/pipeline";
-import { TenantManager } from "@/lib/tenant/manager";
+import { OrganizationManager } from "@/lib/organization/manager";
 import { syncAllConnectors } from "@/lib/connectors/index";
 
 export const dynamic = "force-dynamic";
@@ -20,8 +20,8 @@ export async function POST(req: Request) {
 
     // ── Monthly Tasks ──
     if (new Date().getDate() === 1) {
-      const tenantManager = new TenantManager(supabase);
-      await tenantManager.resetMonthlyQuotas();
+      const orgManager = new OrganizationManager(supabase);
+      await orgManager.resetMonthlyQuotas();
       console.info("[cron] Monthly alert quotas reset");
     }
     

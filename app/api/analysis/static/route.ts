@@ -4,7 +4,7 @@ import { z } from "zod";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { auth } from '@clerk/nextjs/server';
 import { checkTierAccess } from "@/lib/tier-guard";
-import { getAuthenticatedUser, resolveTenantForUser } from "@/lib/tenancy";
+import { getAuthenticatedUser, resolveOrganizationForUser } from "@/lib/tenancy";
 import {
   buildGeminiAnalysisPrompt,
   calculateEntropy,
@@ -256,12 +256,12 @@ export async function POST(request: Request) {
 
     if (!organizationId) {
       if (currentUserId) {
-        const tenant = await resolveTenantForUser({
+        const organization = await resolveOrganizationForUser({
           userId: currentUserId,
-          preferredTenantId: organization_id,
+          preferredOrganizationId: organization_id,
           autoCreate: false,
         });
-        organizationId = tenant?.tenantId || null;
+        organizationId = organization?.organizationId || null;
       } else if (organization_id) {
         organizationId = organization_id;
       }
@@ -491,12 +491,12 @@ export async function GET(request: Request) {
       );
     }
 
-    const tenant = await resolveTenantForUser({
+    const organization = await resolveOrganizationForUser({
       userId: currentUserId,
       autoCreate: false,
     });
 
-    if (!tenant) {
+    if (!organization) {
       return NextResponse.json(
         { success: false, error: "Forbidden" },
         { status: 403 },
@@ -507,7 +507,7 @@ export async function GET(request: Request) {
     let query = client
       .from("static_analysis")
       .select("*", { count: "exact" })
-      .eq("organization_id", tenant.tenantId)
+      .eq("organization_id", organization.organizationId)
       .order("created_at", { ascending: false })
       .range(from, to);
 

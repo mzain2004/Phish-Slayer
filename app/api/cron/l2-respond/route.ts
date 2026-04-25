@@ -520,11 +520,11 @@ async function writeLifecycleAudit(
   stage: LifecycleStage,
   escalation: EscalationRow,
   metadata: Record<string, unknown> = {},
-  tenantId: string | null = null,
+  organizationId: string | null = null,
 ) {
   const payload = {
-    organization_id: tenantId,
-    tenant_id: tenantId,
+    organization_id: organizationId,
+    tenant_id: organizationId,
     escalation_id: escalation.id,
     alert_id: escalation.alert_id,
     stage,
@@ -534,7 +534,7 @@ async function writeLifecycleAudit(
   const { error } = await adminClient.from("audit_logs").insert({
     action: stageToAction(stage),
     severity: escalation.severity,
-    organization_id: tenantId,
+    organization_id: organizationId,
     metadata: payload,
     created_at: new Date().toISOString(),
   });
@@ -752,8 +752,8 @@ async function runL2Responder(request: NextRequest, options: L2RunOptions) {
   for (const escalation of escalations) {
     let decision: Decision | null = null;
     const startedAt = Date.now();
-    const tenantId =
-      organizationId || resolveEscalationTenantId(escalation, options.l1Result);
+    const organizationId =
+      options.organizationId || resolveEscalationTenantId(escalation, options.l1Result);
 
     try {
       const claimState = await claimEscalation(adminClient, escalation);
@@ -766,9 +766,9 @@ async function runL2Responder(request: NextRequest, options: L2RunOptions) {
           {
             skip_reason: claimState,
             trigger_mode: options.triggerMode,
-            organization_id: tenantId,
+            organization_id: organizationId,
           },
-          tenantId,
+          organizationId,
         );
         continue;
       }
@@ -780,9 +780,9 @@ async function runL2Responder(request: NextRequest, options: L2RunOptions) {
         {
           status_before: escalation.status,
           trigger_mode: options.triggerMode,
-          organization_id: tenantId,
+          organization_id: organizationId,
         },
-        tenantId,
+        organizationId,
       );
 
       const decisionStartedAt = Date.now();
@@ -798,9 +798,9 @@ async function runL2Responder(request: NextRequest, options: L2RunOptions) {
           execute: decision.execute,
           confidence: decision.confidence,
           reasoning: decision.reasoning,
-          organization_id: tenantId,
+          organization_id: organizationId,
         },
-        tenantId,
+        organizationId,
       );
 
       const actionsTaken: string[] = [decision.decision];
@@ -817,16 +817,16 @@ async function runL2Responder(request: NextRequest, options: L2RunOptions) {
           {
             action: "ISOLATE_IDENTITY",
             target_user_id: escalation.affected_user_id,
-            organization_id: tenantId,
+            organization_id: organizationId,
           },
-          tenantId,
+          organizationId,
         );
 
         await callInternalAction(baseUrl, "/api/actions/isolate-identity", {
           targetUserId: escalation.affected_user_id,
           reason: `L2 Auto-Response: ${escalation.description}`,
-          organization_id: tenantId,
-          tenantId,
+          organization_id: organizationId,
+          organizationId,
         });
         triggerSigmaRuleGeneration(baseUrl, escalation.alert_id);
 
@@ -843,17 +843,17 @@ async function runL2Responder(request: NextRequest, options: L2RunOptions) {
           {
             action: "BLOCK_IP",
             target_ip: actionableIp,
-            organization_id: tenantId,
+            organization_id: organizationId,
           },
-          tenantId,
+          organizationId,
         );
 
         await callInternalAction(baseUrl, "/api/actions/block-ip", {
           ip: actionableIp,
           reason: `L2 Auto-Response: ${escalation.description}`,
           threatLevel: escalation.severity,
-          organization_id: tenantId,
-          tenantId,
+          organization_id: organizationId,
+          organizationId,
         });
         triggerSigmaRuleGeneration(baseUrl, escalation.alert_id);
 
@@ -872,7 +872,7 @@ async function runL2Responder(request: NextRequest, options: L2RunOptions) {
             reason: decision.reasoning,
             execute: false,
           },
-          tenantId,
+          organizationId,
         );
 
         manualReview += 1;
@@ -884,8 +884,8 @@ async function runL2Responder(request: NextRequest, options: L2RunOptions) {
         statusAfter,
         outcomeAction,
         {
-          organization_id: tenantId,
-          tenant_id: tenantId,
+          organization_id: organizationId,
+          tenant_id: organizationId,
           decision_action: decision.decision,
           confidence: decision.confidence,
           reasoning: decision.reasoning,
@@ -903,14 +903,14 @@ async function runL2Responder(request: NextRequest, options: L2RunOptions) {
           status_after: statusAfter,
           action_fired: actionFired,
           action_taken: decision.decision,
-          organization_id: tenantId,
+          organization_id: organizationId,
         },
-        tenantId,
+        organizationId,
       );
 
       const groqModel = getGroqModel();
       await saveReasoningChain({
-        organization_id: tenantId,
+        organization_id: organizationId,
         escalation_id: escalation.id,
         agent_level: "L2",
         decision: decision.decision,
@@ -921,7 +921,7 @@ async function runL2Responder(request: NextRequest, options: L2RunOptions) {
             severity: escalation.severity,
             affected_user_id: escalation.affected_user_id,
             affected_ip: escalation.affected_ip,
-            organization_id: tenantId,
+            organization_id: organizationId,
             source: inferAlertSource(escalation),
             prompt_context: buildL2ReasoningPrompt({
               alert_rule: escalation.title,
@@ -965,9 +965,9 @@ async function runL2Responder(request: NextRequest, options: L2RunOptions) {
           error:
             batchError instanceof Error ? batchError.message : "unknown_error",
           fallback_reasoning: decision?.reasoning || null,
-          organization_id: tenantId,
+          organization_id: organizationId,
         },
-        tenantId,
+        organizationId,
       );
 
       results.push({
@@ -1050,7 +1050,7 @@ export async function POST(request: NextRequest) {
     readTenantIdFromUnknown(body.organization_id) ||
     readTenantIdFromUnknown(body.organizationId) ||
     readTenantIdFromUnknown(body.tenant_id) ||
-    readTenantIdFromUnknown(body.tenantId);
+    readTenantIdFromUnknown(body.organizationId);
   const l1Result =
     body.l1_result && typeof body.l1_result === "object"
       ? (body.l1_result as Record<string, unknown>)

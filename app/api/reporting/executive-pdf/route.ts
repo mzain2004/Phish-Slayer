@@ -11,12 +11,12 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url);
   const period_days = parseInt(searchParams.get("period_days") || "30");
-  const org_id = searchParams.get("org_id") || "default";
+  const organization_id = searchParams.get("organization_id") || searchParams.get("org_id") || "default";
 
   try {
     const supabase = await createClient();
     const generator = new PDFReportGenerator(supabase);
-    const pdfBuffer = await generator.generateExecutiveReport(org_id, period_days);
+    const pdfBuffer = await generator.generateExecutiveReport(organization_id, period_days);
 
     const date = new Date().toISOString().split('T')[0];
     return new NextResponse(new Uint8Array(pdfBuffer), {

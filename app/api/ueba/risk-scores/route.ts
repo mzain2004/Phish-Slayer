@@ -13,12 +13,12 @@ export async function GET(req: Request) {
   }
 
   const { searchParams } = new URL(req.url);
-  const org_id = searchParams.get("org_id") || "default";
+  const organization_id = searchParams.get("organization_id") || searchParams.get("org_id") || "default";
 
   try {
     const supabase = await createClient();
     const engine = new UEBAEngine(supabase);
-    const highRisk = await engine.getHighRiskEntities(org_id);
+    const highRisk = await engine.getHighRiskEntities(organization_id);
 
     return NextResponse.json(highRisk);
   } catch (error) {

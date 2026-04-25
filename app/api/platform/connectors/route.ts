@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import { getAuthenticatedUser, resolveTenantForUser } from "@/lib/tenancy";
+import { getAuthenticatedUser, resolveOrganizationForUser } from "@/lib/tenancy";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -79,13 +79,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const tenant = await resolveTenantForUser({
+    const organization = await resolveOrganizationForUser({
       userId: user.id,
-      preferredTenantId: parsed.data.organization_id,
+      preferredOrganizationId: parsed.data.organization_id,
       autoCreate: false,
     });
 
-    if (!tenant || !["owner", "admin"].includes(tenant.role)) {
+    if (!organization || !["owner", "admin"].includes(organization.role)) {
       return NextResponse.json(
         { success: false, error: "Forbidden" },
         { status: 403 },
@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
       .from("connectors")
       .insert({
         ...parsed.data,
-        organization_id: tenant.tenantId,
+        organization_id: organization.organizationId,
       })
       .select("*")
       .single();
@@ -153,13 +153,13 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const tenant = await resolveTenantForUser({
+    const organization = await resolveOrganizationForUser({
       userId: user.id,
-      preferredTenantId: parsedQuery.data.organization_id,
+      preferredOrganizationId: parsedQuery.data.organization_id,
       autoCreate: false,
     });
 
-    if (!tenant) {
+    if (!organization) {
       return NextResponse.json(
         { success: false, error: "Forbidden" },
         { status: 403 },
@@ -172,7 +172,7 @@ export async function GET(request: NextRequest) {
       .select("*")
       .order("created_at", { ascending: false });
 
-    query = query.eq("organization_id", tenant.tenantId);
+    query = query.eq("organization_id", organization.organizationId);
 
     const { data, error } = await query;
 

@@ -12,21 +12,21 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url);
   const framework = searchParams.get("framework");
-  const org_id = searchParams.get("org_id") || "default";
+  const organization_id = searchParams.get("organization_id") || searchParams.get("org_id") || "default";
 
   try {
     const supabase = await createClient();
     const engine = new MetricsEngine(supabase);
 
     if (framework) {
-        const result = await engine.getComplianceMapping(org_id, framework);
+        const result = await engine.getComplianceMapping(organization_id, framework);
         return NextResponse.json(result);
     }
 
     const results = await Promise.all([
-        engine.getComplianceMapping(org_id, "nist_csf"),
-        engine.getComplianceMapping(org_id, "iso_27001"),
-        engine.getComplianceMapping(org_id, "soc2")
+        engine.getComplianceMapping(organization_id, "nist_csf"),
+        engine.getComplianceMapping(organization_id, "iso_27001"),
+        engine.getComplianceMapping(organization_id, "soc2")
     ]);
 
     return NextResponse.json(results);

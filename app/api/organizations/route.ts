@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { TenantManager } from "@/lib/tenant/manager";
+import { OrganizationManager } from "@/lib/organization/manager";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -18,9 +18,9 @@ export async function GET() {
 
   try {
     const supabase = await createClient();
-    const manager = new TenantManager(supabase);
-    const tenants = await manager.getUserTenants(userId);
-    return NextResponse.json(tenants);
+    const manager = new OrganizationManager(supabase);
+    const organizations = await manager.getUserOrganizations(userId);
+    return NextResponse.json(organizations);
   } catch (error) {
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
@@ -35,10 +35,10 @@ export async function POST(req: Request) {
     const { name, plan } = createSchema.parse(body);
 
     const supabase = await createClient();
-    const manager = new TenantManager(supabase);
-    const tenant = await manager.createTenant(name, userId, plan as any);
+    const manager = new OrganizationManager(supabase);
+    const organization = await manager.createOrganization(name, userId, plan as any);
 
-    return NextResponse.json(tenant, { status: 201 });
+    return NextResponse.json(organization, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: "Validation failed", details: error.issues }, { status: 400 });

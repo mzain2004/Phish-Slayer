@@ -13,7 +13,7 @@ export class MetricsEngine {
     this.supabase = supabase;
   }
 
-  public async getDashboardMetrics(org_id: string, period_hours: number = 24): Promise<SOCDashboardMetrics> {
+  public async getDashboardMetrics(organization_id: string, period_hours: number = 24): Promise<SOCDashboardMetrics> {
     const now = new Date();
     const startTime = new Date(now.getTime() - period_hours * 60 * 60 * 1000).toISOString();
     const prevStartTime = new Date(now.getTime() - 2 * period_hours * 60 * 60 * 1000).toISOString();
@@ -22,14 +22,14 @@ export class MetricsEngine {
       const { data: alerts } = await this.supabase
         .from("alerts")
         .select("*")
-        .eq("org_id", org_id)
+        .eq("org_id", organization_id)
         .gte("created_at", start)
         .lte("created_at", end);
 
       const { data: cases } = await this.supabase
         .from("cases")
         .select("*")
-        .eq("org_id", org_id)
+        .eq("organization_id", organization_id)
         .gte("created_at", start)
         .lte("created_at", end);
 
@@ -104,7 +104,7 @@ export class MetricsEngine {
     else if (current.score > previous.score + 5) trend = "degrading";
 
     return {
-      org_id,
+      organization_id,
       period_hours,
       total_alerts: current.total_alerts,
       open_alerts: current.open_alerts,
@@ -124,7 +124,7 @@ export class MetricsEngine {
     };
   }
 
-  public async getComplianceMapping(org_id: string, framework: string): Promise<ComplianceMapping> {
+  public async getComplianceMapping(organization_id: string, framework: string): Promise<ComplianceMapping> {
     const now = new Date();
     
     // NIST CSF Controls

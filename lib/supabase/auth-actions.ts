@@ -270,12 +270,14 @@ export async function generateApiKey() {
 
   const supabase = await createClient();
   const newKey = "pk_live_" + crypto.randomUUID().replace(/-/g, "");
-  const apiKeyHash = await bcryptHash(newKey, 12);
   const apiKeyLast4 = newKey.slice(-4);
-  const { error } = await supabase
-    .from("profiles")
-    .update({ api_key: apiKeyHash, api_key_last4: apiKeyLast4 })
-    .eq("id", userId);
+  
+  // Use RPC to hash the key via crypt() on the DB side
+  const { error } = await supabase.rpc('set_user_api_key', { 
+    p_user_id: userId, 
+    p_plaintext_key: newKey,
+    p_last4: apiKeyLast4 
+  });
 
   if (error) return { error: error.message };
 
@@ -294,7 +296,7 @@ export async function revokeApiKey() {
   const supabase = await createClient();
   const { error } = await supabase
     .from("profiles")
-    .update({ api_key: null, api_key_last4: null })
+    .update({ api_key_hash: null, api_key_last4: null })
     .eq("id", userId);
 
   if (error) return { error: error.message };

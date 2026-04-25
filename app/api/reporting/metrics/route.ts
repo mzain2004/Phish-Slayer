@@ -12,12 +12,12 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url);
   const period_hours = parseInt(searchParams.get("period_hours") || "24");
-  const org_id = searchParams.get("org_id") || "default"; // Simplified org resolution
+  const organization_id = searchParams.get("organization_id") || searchParams.get("org_id") || "default"; // Simplified org resolution
 
   try {
     const supabase = await createClient();
     const engine = new MetricsEngine(supabase);
-    const metrics = await engine.getDashboardMetrics(org_id, period_hours);
+    const metrics = await engine.getDashboardMetrics(organization_id, period_hours);
 
     return NextResponse.json(metrics);
   } catch (error) {

@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 
 const createCaseSchema = z.object({
   title: z.string().min(1, "Title is required"),
-  org_id: z.string().optional(),
+  organization_id: z.string().optional(),
   severity: z.enum(["p1", "p2", "p3", "p4"]).optional().default("p3"),
   status: z.enum(["open", "investigating", "contained", "closed"]).optional().default("open"),
   alert_type: z.string().optional(),

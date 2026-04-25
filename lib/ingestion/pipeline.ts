@@ -16,7 +16,7 @@ export class IngestionPipeline {
   public async ingestLog(
     raw_content: string,
     source_type: string,
-    org_id: string,
+    organization_id: string,
     source_ip: string | null = null
   ): Promise<RawLogEntry> {
     const normalized = autoDetectAndNormalize(raw_content);
@@ -30,13 +30,13 @@ export class IngestionPipeline {
       parsed_fields: normalized,
       ingested_at: new Date(),
       normalized,
-      org_id
+      organization_id
     };
 
     // 1. Insert into raw_logs
     await this.supabase.from("raw_logs").insert({
       id: entry.id,
-      org_id: entry.org_id,
+      organization_id: entry.organization_id,
       source_type: entry.source_type,
       source_ip: entry.source_ip,
       raw_content: entry.raw_content,
@@ -53,7 +53,7 @@ export class IngestionPipeline {
       };
       
       const { data: alertData, error: alertError } = await this.supabase.from("alerts").insert({
-        org_id: entry.org_id,
+        org_id: entry.organization_id,
         alert_type: normalized.category,
         severity_level: normalized.severity,
         source_ip: entry.source_ip,
@@ -70,21 +70,21 @@ export class IngestionPipeline {
 
         // 3. Trigger Autonomous Orchestrator (Async)
         const orchestrator = new AutonomousOrchestrator(this.supabase);
-        void orchestrator.processAlert(alertData.id, entry.org_id);
+        void orchestrator.processAlert(alertData.id, entry.organization_id);
       }
     }
 
     return entry;
   }
 
-  public async ingestBatch(entries: any[], org_id: string): Promise<LogIngestionStats> {
+  public async ingestBatch(entries: any[], organization_id: string): Promise<LogIngestionStats> {
     const startTime = Date.now();
     let totalParsed = 0;
     let totalFailed = 0;
     const sourcesBreakdown: Record<string, number> = {};
 
     const results = await Promise.allSettled(entries.map(e => 
-      this.ingestLog(e.raw_content, e.source_type, org_id, e.source_ip)
+      this.ingestLog(e.raw_content, e.source_type, organization_id, e.source_ip)
     ));
 
     results.forEach((res, i) => {
@@ -159,12 +159,12 @@ export class IngestionPipeline {
     });
   }
 
-  public async getStats(org_id: string): Promise<LogIngestionStats> {
+  public async getStats(organization_id: string): Promise<LogIngestionStats> {
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const { data: logs } = await this.supabase
       .from("raw_logs")
       .select("source_type")
-      .eq("org_id", org_id)
+      .eq("organization_id", organization_id)
       .gte("ingested_at", twentyFourHoursAgo);
 
     const breakdown: Record<string, number> = {};

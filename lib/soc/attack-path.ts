@@ -35,7 +35,7 @@ export class AttackPathEngine {
    * Reconstructs an attack path starting from a given alert,
    * correlating other alerts based on asset (IP/Host) and timeframe.
    */
-  public async reconstructPath(root_alert_id: string, org_id: string): Promise<AttackPath | null> {
+  public async reconstructPath(root_alert_id: string, organization_id: string): Promise<AttackPath | null> {
     const { data: rootAlert } = await this.supabase
       .from("alerts")
       .select("*")
@@ -52,7 +52,7 @@ export class AttackPathEngine {
     const { data: relatedAlerts } = await this.supabase
       .from("alerts")
       .select("*")
-      .eq("org_id", org_id)
+      .eq("organization_id", organization_id)
       .or(`agent_id.eq.${asset},source_ip.eq.${asset},destination_ip.eq.${asset}`)
       .gte("timestamp", startTime)
       .lte("timestamp", endTime)
@@ -85,14 +85,15 @@ export class AttackPathEngine {
       root_cause_alert_id: root_alert_id,
       target_asset: asset,
       risk_score: Math.min(score, 100),
-      timeline_ms
+      timeline_ms,
+      organization_id: organization_id
     };
 
     // Persist path for dashboard visibility
     await this.supabase.from("attack_paths").insert({
       id: path.id,
       root_cause_alert_id: root_alert_id,
-      org_id,
+      organization_id,
       nodes: path.nodes,
       risk_score: path.risk_score,
       target_asset: path.target_asset
@@ -101,11 +102,11 @@ export class AttackPathEngine {
     return path;
   }
 
-  public async getLatestPaths(org_id: string): Promise<AttackPath[]> {
+  public async getLatestPaths(organization_id: string): Promise<AttackPath[]> {
     const { data } = await this.supabase
       .from("attack_paths")
       .select("*")
-      .eq("org_id", org_id)
+      .eq("organization_id", organization_id)
       .order("created_at", { ascending: false })
       .limit(10);
 

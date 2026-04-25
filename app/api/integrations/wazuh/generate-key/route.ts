@@ -6,7 +6,7 @@ import { currentUser } from "@clerk/nextjs/server";
 import {
   getAuthenticatedUser,
   getServiceRoleClient,
-  resolveTenantForUser,
+  resolveOrganizationForUser,
 } from "@/lib/tenancy";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +15,7 @@ export const runtime = "nodejs";
 const GenerateKeySchema = z.object({
   name: z.string().trim().min(1).max(120),
   manager_ip: z.string().trim().min(1).max(255).optional().nullable(),
-  tenant_id: z.string().uuid().optional(),
+  organization_id: z.string().uuid().optional(),
 });
 
 const WEBHOOK_BASE_URL = "https://phishslayer.tech/api/connectors/wazuh";
@@ -64,17 +64,17 @@ export async function POST(request: NextRequest) {
     const userEmail = clerkUser?.emailAddresses?.[0]?.emailAddress;
     const userFullName = clerkUser?.fullName || undefined;
 
-    const tenant = await resolveTenantForUser({
+    const organization = await resolveOrganizationForUser({
       userId: user.id,
-      preferredTenantId: parsed.data.tenant_id,
-      tenantNameHint: userFullName || userEmail || undefined,
+      preferredOrganizationId: parsed.data.organization_id,
+      organizationNameHint: userFullName || userEmail || undefined,
       userEmail: userEmail || undefined,
       autoCreate: true,
     });
 
-    if (!tenant) {
+    if (!organization) {
       return NextResponse.json(
-        { success: false, error: "Tenant access denied" },
+        { success: false, error: "Organization access denied" },
         { status: 403 },
       );
     }
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
     const { data: connector, error: connectorError } = await adminClient
       .from("connectors")
       .insert({
-        organization_id: tenant.tenantId,
+        organization_id: organization.organizationId,
         connector_type: "wazuh",
         connector_name: parsed.data.name,
         manager_ip: parsed.data.manager_ip ?? null,
@@ -109,10 +109,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      tenant_id: tenant.tenantId,
+      organization_id: organization.organizationId,
       connector_id: connector.id,
       api_key: plaintextApiKey,
-      webhook_url: `${WEBHOOK_BASE_URL}?tenant=${tenant.tenantId}`,
+      webhook_url: `${WEBHOOK_BASE_URL}?organization=${organization.organizationId}`,
     });
   } catch (error) {
     return NextResponse.json(

@@ -12,13 +12,13 @@ export class PDFReportGenerator {
     this.metricsEngine = new MetricsEngine(supabase);
   }
 
-  public async generateExecutiveReport(org_id: string, period_days: number = 30): Promise<Buffer> {
-    const metrics = await this.metricsEngine.getDashboardMetrics(org_id, period_days * 24);
+  public async generateExecutiveReport(organization_id: string, period_days: number = 30): Promise<Buffer> {
+    const metrics = await this.metricsEngine.getDashboardMetrics(organization_id, period_days * 24);
     const frameworks = ["nist_csf", "iso_27001", "soc2"];
-    const compliance = await Promise.all(frameworks.map(f => this.metricsEngine.getComplianceMapping(org_id, f)));
+    const compliance = await Promise.all(frameworks.map(f => this.metricsEngine.getComplianceMapping(organization_id, f)));
     
-    const { data: tenant } = await this.supabase.from("tenants").select("name").eq("id", org_id).single();
-    const orgName = tenant?.name || "Organization";
+    const { data: organization } = await this.supabase.from("organizations").select("name").eq("id", organization_id).single();
+    const orgName = organization?.name || "Organization";
 
     return new Promise((resolve, reject) => {
       const doc = new PDFDocument({ margin: 50 });

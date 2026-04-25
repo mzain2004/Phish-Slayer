@@ -22,12 +22,12 @@ export class AutonomousOrchestrator {
     this.supabase = supabase;
   }
 
-  private async createPipelineRun(alert_id: string, org_id: string): Promise<string> {
+  private async createPipelineRun(alert_id: string, organization_id: string): Promise<string> {
     const id = uuidv4();
     await this.supabase.from("pipeline_runs").insert({
       id,
       alert_id,
-      org_id,
+      organization_id,
       started_at: new Date().toISOString(),
       stages: []
     });
@@ -40,8 +40,8 @@ export class AutonomousOrchestrator {
     await this.supabase.from("pipeline_runs").update({ stages: updatedStages }).eq("id", run_id);
   }
 
-  public async processAlert(alert_id: string, org_id: string): Promise<PipelineRun | null> {
-    const run_id = await this.createPipelineRun(alert_id, org_id);
+  public async processAlert(alert_id: string, organization_id: string): Promise<PipelineRun | null> {
+    const run_id = await this.createPipelineRun(alert_id, organization_id);
     const startTime = Date.now();
 
     try {
@@ -106,7 +106,7 @@ export class AutonomousOrchestrator {
       if (action === "run_playbook") {
           const playbookEngine = new PlaybookEngine(this.supabase);
           // Simplified: always phishing for demo
-          await playbookEngine.executePlaybook("phishing", { case_id: alert_id, alert: alert as any, iocs: [], org_id, analyst_id: null, wazuh_agent_id: alert.agent_id, previous_steps: {} });
+          await playbookEngine.executePlaybook("phishing", { case_id: alert_id, alert: alert as any, iocs: [], organization_id, analyst_id: null, wazuh_agent_id: alert.agent_id, previous_steps: {} });
       } else if (action === "escalate_l2" || action === "escalate_l3") {
           const { data: newCase } = await this.supabase.from("cases").insert({
             title: `Auto-Escalated ${action.toUpperCase()}: ${alert.alert_type} from ${alert.source_ip}`,
@@ -114,7 +114,7 @@ export class AutonomousOrchestrator {
             status: "open",
             alert_type: alert.alert_type,
             source_ip: alert.source_ip,
-            org_id: org_id,
+            organization_id: organization_id,
             assigned_level: action === "escalate_l2" ? "l2" : "l3"
           }).select("id").single();
           case_id = newCase?.id || null;
@@ -126,7 +126,7 @@ export class AutonomousOrchestrator {
               
               if (action === "escalate_l3") {
                   const huntEngine = new HuntEngine(this.supabase);
-                  void huntEngine.runHunt("powershell_abuse", org_id);
+                  void huntEngine.runHunt("powershell_abuse", organization_id);
               }
           }
       }
@@ -137,7 +137,7 @@ export class AutonomousOrchestrator {
       if (case_id && boostedSeverity >= 11) {
           const apStart = new Date();
           const reconstructor = new AttackPathReconstructor(this.supabase);
-          await reconstructor.reconstructFromCase(case_id, org_id);
+          await reconstructor.reconstructFromCase(case_id, organization_id);
           await this.addStage(run_id, { name: "attack_path_reconstructed", started_at: apStart, completed_at: new Date(), success: true, output: null, error: null });
       }
 
@@ -166,10 +166,10 @@ export class AutonomousOrchestrator {
     }
   }
 
-  public async processAlertBatch(alert_ids: string[], org_id: string): Promise<PipelineRun[]> {
+  public async processAlertBatch(alert_ids: string[], organization_id: string): Promise<PipelineRun[]> {
     const results: PipelineRun[] = [];
     for (const id of alert_ids) {
-        const run = await this.processAlert(id, org_id);
+        const run = await this.processAlert(id, organization_id);
         if (run) results.push(run);
     }
     return results;

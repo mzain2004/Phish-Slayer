@@ -102,13 +102,31 @@ async function handleScan(request: NextRequest) {
     { auth: { persistSession: false, autoRefreshToken: false } },
   );
 
-  const { data: matchedProfile, error: profileError } = (await supabaseAdmin
-    .rpc("verify_api_key", {
-      input_key: apiKey
-    })
-    .single()) as unknown as { data: ApiKeyProfile | null; error: unknown };
+  const last4 = apiKey.slice(-4);
+  const { data: profiles, error: profileError } = await supabaseAdmin
+    .from("profiles")
+    .select("id, subscription_tier, api_key_hash")
+    .eq("api_key_last4", last4);
 
-  if (profileError || !matchedProfile) {
+  if (profileError || !profiles || profiles.length === 0) {
+    return NextResponse.json(
+      { error: "Unauthorized. Invalid API key." },
+      { status: 401, headers },
+    );
+  }
+
+  let matchedProfile: ApiKeyProfile | null = null;
+  for (const p of profiles) {
+    if (p.api_key_hash && (await bcryptCompare(apiKey, p.api_key_hash))) {
+      matchedProfile = {
+        id: p.id,
+        subscription_tier: p.subscription_tier,
+      };
+      break;
+    }
+  }
+
+  if (!matchedProfile) {
     return NextResponse.json(
       { error: "Unauthorized. Invalid API key." },
       { status: 401, headers },

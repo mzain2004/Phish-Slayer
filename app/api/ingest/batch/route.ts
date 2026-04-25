@@ -12,7 +12,7 @@ const schema = z.object({
     source_type: z.string().min(1),
     source_ip: z.string().optional().nullable()
   })).max(1000),
-  org_id: z.string().min(1)
+  organization_id: z.string().min(1)
 });
 
 export async function POST(req: Request) {
@@ -26,11 +26,11 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { entries, org_id } = schema.parse(body);
+    const { entries, organization_id } = schema.parse(body);
 
     const supabase = await createClient();
     const pipeline = new IngestionPipeline(supabase);
-    const stats = await pipeline.ingestBatch(entries, org_id);
+    const stats = await pipeline.ingestBatch(entries, organization_id);
 
     return NextResponse.json(stats);
   } catch (error) {

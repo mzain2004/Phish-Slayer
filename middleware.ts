@@ -18,17 +18,17 @@ export default clerkMiddleware(async (auth, request) => {
     });
   }
 
-  // ── Tenant Resolution ──
+  // ── Organization Resolution ──
   const { nextUrl } = request;
-  const tenantId = request.headers.get("x-tenant-id");
-  const tenantSlug = nextUrl.pathname.split("/")[1]; // e.g. /acme-corp/alerts
+  const organizationId = request.headers.get("x-organization-id");
+  const organizationSlug = nextUrl.pathname.split("/")[1];
 
   const response = NextResponse.next();
 
-  if (tenantId) {
-    response.headers.set("x-resolved-tenant", tenantId);
-  } else if (tenantSlug && !["api", "dashboard", "auth", "sign-in", "sign-up"].includes(tenantSlug)) {
-    response.headers.set("x-resolved-slug", tenantSlug);
+  if (organizationId) {
+    response.headers.set("x-resolved-organization", organizationId);
+  } else if (organizationSlug && !["api", "dashboard", "auth", "sign-in", "sign-up"].includes(organizationSlug)) {
+    response.headers.set("x-resolved-slug", organizationSlug);
   }
 
   return response;

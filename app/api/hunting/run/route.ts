@@ -11,22 +11,20 @@ export const runtime = "nodejs";
 const validHypothesisIds = Object.keys(HYPOTHESES) as [string, ...string[]];
 const schema = z.object({
   hypothesis_id: z.enum(validHypothesisIds),
-  org_id: z.string().optional().default("default")
+  organization_id: z.string().optional().default("default")
 });
 
 export async function POST(req: Request) {
   const { userId } = await auth();
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
     const body = await req.json();
-    const { hypothesis_id, org_id } = schema.parse(body);
+    const { hypothesis_id, organization_id } = schema.parse(body);
 
     const supabase = await createClient();
     const engine = new HuntEngine(supabase);
-    const mission = await engine.runHunt(hypothesis_id, org_id);
+    const mission = await engine.runHunt(hypothesis_id, organization_id);
 
     return NextResponse.json(mission);
   } catch (error) {

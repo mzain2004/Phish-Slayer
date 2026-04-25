@@ -14,7 +14,7 @@ import DashboardCard from "@/components/dashboard/DashboardCard";
 import PhishButton from "@/components/ui/PhishButton";
 import { createClient } from "@/lib/supabase/client";
 
-type TenantInfo = {
+type OrganizationInfo = {
   id: string;
   name: string;
   role: "owner" | "admin" | "analyst";
@@ -32,7 +32,7 @@ type IntegrationRecord = {
 
 type IntegrationsResponse = {
   success: boolean;
-  tenant?: TenantInfo;
+  organization?: OrganizationInfo;
   webhook_url?: string;
   integrations?: IntegrationRecord[];
   error?: string;
@@ -60,7 +60,7 @@ function formatLastSeen(lastSeen: string | null) {
 export default function IntegrationsPage() {
   const [loading, setLoading] = useState(true);
   const [wizardStep, setWizardStep] = useState(1);
-  const [tenant, setTenant] = useState<TenantInfo | null>(null);
+  const [organization, setOrganization] = useState<OrganizationInfo | null>(null);
   const [integrations, setIntegrations] = useState<IntegrationRecord[]>([]);
   const [name, setName] = useState("");
   const [managerIp, setManagerIp] = useState("");
@@ -85,43 +85,43 @@ export default function IntegrationsPage() {
       }
 
       const supabase = createClient();
-      const resolvedTenant = data.tenant || null;
-      let resolvedTenantName =
-        typeof resolvedTenant?.name === "string"
-          ? resolvedTenant.name.trim()
+      const resolvedOrg = data.organization || null;
+      let resolvedOrgName =
+        typeof resolvedOrg?.name === "string"
+          ? resolvedOrg.name.trim()
           : "";
 
-      if (resolvedTenant?.id && !resolvedTenantName) {
+      if (resolvedOrg?.id && !resolvedOrgName) {
         const { data: organizationRow, error: organizationError } =
           await supabase
             .from("organizations")
             .select("name")
-            .eq("id", resolvedTenant.id)
+            .eq("id", resolvedOrg.id)
             .maybeSingle();
 
         if (organizationError) {
           throw new Error(organizationError.message);
         }
 
-        resolvedTenantName =
+        resolvedOrgName =
           typeof organizationRow?.name === "string"
             ? organizationRow.name.trim()
             : "";
       }
 
-      const normalizedTenant = resolvedTenant
+      const normalizedOrg = resolvedOrg
         ? {
-            ...resolvedTenant,
-            name: resolvedTenantName || resolvedTenant.id,
+            ...resolvedOrg,
+            name: resolvedOrgName || resolvedOrg.id,
           }
         : null;
 
-      setTenant(normalizedTenant);
+      setOrganization(normalizedOrg);
 
       const resolvedWebhookUrl = data.webhook_url || "";
       setWebhookUrl(resolvedWebhookUrl);
 
-      if (!normalizedTenant?.id) {
+      if (!normalizedOrg?.id) {
         setIntegrations([]);
         return;
       }
@@ -131,7 +131,7 @@ export default function IntegrationsPage() {
         .select(
           "id, connector_name, manager_ip, is_active, last_seen_at, created_at",
         )
-        .eq("organization_id", normalizedTenant.id)
+        .eq("organization_id", normalizedOrg.id)
         .eq("connector_type", "wazuh")
         .order("created_at", { ascending: false });
 
@@ -183,9 +183,9 @@ export default function IntegrationsPage() {
   <level>7</level>
   <alert_format>json</alert_format>
   <api_key>${generatedKey || "REPLACE_WITH_GENERATED_KEY"}</api_key>
-  <!-- Tenant: ${tenant?.id || "REPLACE_WITH_TENANT_UUID"} | Manager Name: ${integrationName} -->
+  <!-- Organization: ${organization?.id || "REPLACE_WITH_ORG_UUID"} | Manager Name: ${integrationName} -->
 </integration>`;
-  }, [generatedKey, name, tenant?.id, webhookUrl]);
+  }, [generatedKey, name, organization?.id, webhookUrl]);
 
   async function copyToClipboard(value: string, successMessage: string) {
     try {
@@ -212,7 +212,7 @@ export default function IntegrationsPage() {
         body: JSON.stringify({
           name: name.trim(),
           manager_ip: managerIp.trim() || null,
-          tenant_id: tenant?.id || undefined,
+          organization_id: organization?.id || undefined,
         }),
       });
 
@@ -262,7 +262,7 @@ export default function IntegrationsPage() {
           Integrations
         </h1>
         <p className="mt-2 text-sm text-slate-300">
-          Configure tenant-scoped Wazuh webhook integrations with one-time API
+          Configure organization-scoped Wazuh webhook integrations with one-time API
           keys.
         </p>
       </div>
@@ -430,8 +430,8 @@ export default function IntegrationsPage() {
                 </span>
               </p>
               <p>
-                Tenant ID:{" "}
-                <span className="text-[#d8d2fe]">{tenant?.id || "n/a"}</span>
+                Organization ID:{" "}
+                <span className="text-[#d8d2fe]">{organization?.id || "n/a"}</span>
               </p>
             </div>
 
@@ -453,7 +453,7 @@ export default function IntegrationsPage() {
             Configured Integrations
           </h2>
           <span className="text-xs text-slate-400">
-            Tenant: {tenant?.name || "n/a"}
+            Organization: {organization?.name || "n/a"}
           </span>
         </div>
 

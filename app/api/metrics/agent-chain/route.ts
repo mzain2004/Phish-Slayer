@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { getAuthenticatedUser, resolveTenantForUser } from "@/lib/tenancy";
+import { getAuthenticatedUser, resolveOrganizationForUser } from "@/lib/tenancy";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -193,11 +193,11 @@ export async function GET() {
     );
   }
 
-  const tenant = await resolveTenantForUser({
+  const organization = await resolveOrganizationForUser({
     userId: user.id,
     autoCreate: false,
   });
-  if (!tenant) {
+  if (!organization) {
     return NextResponse.json(
       { success: false, error: "Forbidden" },
       { status: 403 },
@@ -232,7 +232,7 @@ export async function GET() {
     .from("audit_logs")
     .select("action, metadata, created_at")
     .in("action", trackedActions)
-    .eq("organization_id", tenant.tenantId)
+    .eq("organization_id", organization.organizationId)
     .order("created_at", { ascending: false })
     .limit(400);
 

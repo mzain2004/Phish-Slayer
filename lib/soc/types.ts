@@ -58,7 +58,7 @@ export interface PlaybookContext {
   case_id: string;
   alert: RawAlert;
   iocs: IOC[];
-  org_id: string;
+  organization_id: string;
   analyst_id: string | null;
   wazuh_agent_id: string | null;
   previous_steps: Record<string, StepResult>;
@@ -152,7 +152,7 @@ export interface FeedbackEntry {
 export interface UserBehaviorProfile {
   user_id: string;
   username: string;
-  org_id: string;
+  organization_id: string;
   baseline_login_hours: number[]; // 0-23
   baseline_locations: string[]; // country codes
   baseline_devices: string[];
@@ -165,6 +165,7 @@ export interface UserBehaviorProfile {
 export interface UEBAAnomaly {
   id: string;
   user_id: string;
+  organization_id: string;
   entity_id: string;
   entity_type: string;
   anomaly_type: "impossible_travel" | "off_hours_login" | "new_device" | "excessive_failed_logins" | "privilege_escalation" | "mass_download" | "lateral_movement";
@@ -214,12 +215,13 @@ export interface HuntMission {
   findings: HuntFinding[];
   alerts_scanned: number;
   sigma_rule_generated: boolean;
-  org_id: string;
+  organization_id: string;
 }
 
 export interface HuntFinding {
   id: string;
   mission_id: string;
+  organization_id: string;
   hypothesis_id: string;
   title: string;
   description: string;
@@ -359,6 +361,7 @@ export interface AttackPath {
   target_asset: string;
   risk_score: number;
   timeline_ms: number;
+  organization_id: string;
 }
 
 export interface NormalizedLog {
@@ -385,7 +388,7 @@ export interface RawLogEntry {
   parsed_fields: any;
   ingested_at: Date;
   normalized: NormalizedLog | null;
-  org_id: string;
+  organization_id: string;
 }
 
 export interface LogIngestionStats {
@@ -416,14 +419,14 @@ export interface SLAConfig {
   breach_notify_email: string | null;
 }
 
-export interface TenantBranding {
+export interface OrganizationBranding {
   logo_url: string | null;
   primary_color: string;
   company_name: string;
   report_footer: string | null;
 }
 
-export interface Tenant {
+export interface Organization {
   id: string;
   name: string;
   slug: string;
@@ -431,16 +434,16 @@ export interface Tenant {
   status: "active" | "suspended" | "trial";
   owner_user_id: string;
   sla_config: SLAConfig;
-  branding: TenantBranding;
+  branding: OrganizationBranding;
   created_at: Date;
   trial_ends_at: Date | null;
   alert_quota_monthly: number;
   alerts_used_this_month: number;
 }
 
-export interface TenantUser {
+export interface OrganizationMember {
   id: string;
-  tenant_id: string;
+  organization_id: string;
   user_id: string;
   role: "owner" | "analyst" | "manager" | "readonly";
   invited_at: Date;
@@ -448,8 +451,8 @@ export interface TenantUser {
   active: boolean;
 }
 
-export interface TenantStats {
-  tenant_id: string;
+export interface OrganizationStats {
+  organization_id: string;
   alerts_24h: number;
   open_cases: number;
   mttd_minutes: number;
@@ -457,17 +460,6 @@ export interface TenantStats {
   sla_breaches_24h: number;
   top_alert_types: string[];
   risk_score: number; // 0-100
-}
-
-export interface WhitelabelAPIKey {
-  id: string;
-  tenant_id: string;
-  key_hash: string;
-  label: string;
-  created_at: Date;
-  last_used_at: Date | null;
-  permissions: string[];
-  active: boolean;
 }
 
 export interface TopAlertType {
@@ -493,7 +485,7 @@ export interface ComplianceMapping {
 }
 
 export interface SOCDashboardMetrics {
-  org_id: string;
+  organization_id: string;
   period_hours: number;
   total_alerts: number;
   open_alerts: number;
@@ -514,7 +506,7 @@ export interface SOCDashboardMetrics {
 
 export interface ExecutiveReport {
   id: string;
-  org_id: string;
+  organization_id: string;
   period_start: Date;
   period_end: Date;
   generated_at: Date;
@@ -529,7 +521,7 @@ export interface ExecutiveReport {
 export interface ConnectorConfig {
   id: string;
   connector_type: "crowdstrike" | "sentinelone" | "elastic" | "splunk" | "servicenow" | "jira" | "pagerduty";
-  org_id: string;
+  organization_id: string;
   config: any;
   enabled: boolean;
   last_sync_at: Date | null;
@@ -570,5 +562,5 @@ export interface PipelineRun {
   stages: PipelineStage[];
   final_decision: AgentDecision | null;
   error: string | null;
-  org_id: string;
+  organization_id: string;
 }

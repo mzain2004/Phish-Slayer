@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import { getAuthenticatedUser, resolveTenantForUser } from "@/lib/tenancy";
+import { getAuthenticatedUser, resolveOrganizationForUser } from "@/lib/tenancy";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -47,15 +47,15 @@ export async function GET(request: Request) {
     );
   }
 
-  const { page, limit, agent_level, alert_id, organization_id } =
+  const { page, limit, agent_level, alert_id, organization_id: preferred_org_id } =
     parsedQuery.data;
-  const tenant = await resolveTenantForUser({
+  const organization = await resolveOrganizationForUser({
     userId: user.id,
-    preferredTenantId: organization_id,
+    preferredOrganizationId: preferred_org_id,
     autoCreate: false,
   });
 
-  if (!tenant) {
+  if (!organization) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   const from = (page - 1) * limit;
@@ -66,7 +66,7 @@ export async function GET(request: Request) {
   let query = supabase
     .from("agent_reasoning")
     .select("*", { count: "exact" })
-    .eq("organization_id", tenant.tenantId)
+    .eq("organization_id", organization.organizationId)
     .order("created_at", { ascending: false })
     .range(from, to);
 

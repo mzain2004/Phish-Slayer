@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { calculateDailyMetrics, getMetricsSummary } from "@/lib/soc-metrics";
-import { getAuthenticatedUser, resolveTenantForUser } from "@/lib/tenancy";
+import { getAuthenticatedUser, resolveOrganizationForUser } from "@/lib/tenancy";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -30,15 +30,15 @@ export async function GET() {
       );
     }
 
-    const tenant = await resolveTenantForUser({ userId: user.id });
-    if (!tenant) {
+    const organization = await resolveOrganizationForUser({ userId: user.id });
+    if (!organization) {
       return NextResponse.json(
         { success: false, error: "Forbidden" },
         { status: 403 },
       );
     }
 
-    const summary = await getMetricsSummary(tenant.tenantId);
+    const summary = await getMetricsSummary(organization.organizationId);
     return NextResponse.json({ success: true, ...summary });
   } catch (error) {
     return NextResponse.json(

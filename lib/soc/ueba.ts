@@ -32,6 +32,7 @@ export class UEBAEngine {
           anomalies.push({
             id: uuidv4(),
             user_id,
+            organization_id: alert.raw_log?.organization_id || "default",
             entity_id: user_id,
             entity_type: "user",
             anomaly_type: "impossible_travel",
@@ -60,6 +61,7 @@ export class UEBAEngine {
       anomalies.push({
         id: uuidv4(),
         user_id,
+        organization_id: alert.raw_log?.organization_id || "default",
         entity_id: user_id,
         entity_type: "user",
         anomaly_type: "off_hours_login",
@@ -85,6 +87,7 @@ export class UEBAEngine {
       anomalies.push({
         id: uuidv4(),
         user_id,
+        organization_id: alert.raw_log?.organization_id || "default",
         entity_id: user_id,
         entity_type: "user",
         anomaly_type: "excessive_failed_logins",
@@ -104,6 +107,7 @@ export class UEBAEngine {
       anomalies.push({
         id: uuidv4(),
         user_id,
+        organization_id: alert.raw_log?.organization_id || "default",
         entity_id: user_id,
         entity_type: "user",
         anomaly_type: "privilege_escalation",
@@ -228,7 +232,7 @@ export class UEBAEngine {
       await this.supabase.from("ueba_profiles").insert({
         user_id,
         username: alert.agent_name || "unknown", // Fallback
-        org_id: alert.raw_log?.org_id || "default",
+        organization_id: alert.raw_log?.organization_id || "default",
         baseline_login_hours: [hour],
         baseline_locations: country ? [country] : [],
         last_updated: now
@@ -236,11 +240,11 @@ export class UEBAEngine {
     }
   }
 
-  public async getHighRiskEntities(org_id: string): Promise<EntityRiskScore[]> {
+  public async getHighRiskEntities(organization_id: string): Promise<EntityRiskScore[]> {
     const { data } = await this.supabase
       .from("ueba_profiles")
       .select("*")
-      .eq("org_id", org_id)
+      .eq("organization_id", organization_id)
       .gt("risk_score", 70)
       .order("risk_score", { ascending: false })
       .limit(20);

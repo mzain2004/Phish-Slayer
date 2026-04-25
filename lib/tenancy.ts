@@ -1,23 +1,23 @@
 import { createClient as createSupabaseAdminClient } from "@supabase/supabase-js";
 import { auth } from "@clerk/nextjs/server";
 
-export type TenantRole = "owner" | "admin" | "analyst";
+export type OrganizationRole = "owner" | "admin" | "analyst";
 
-type TenantRow = {
+type OrganizationRow = {
   id: string;
   name: string;
 };
 
 type OrganizationMemberRow = {
   organization_id: string;
-  role: TenantRole;
+  role: OrganizationRole;
   created_at: string;
 };
 
-export type TenantResolution = {
-  tenantId: string;
-  tenantName: string;
-  role: TenantRole;
+export type OrganizationResolution = {
+  organizationId: string;
+  organizationName: string;
+  role: OrganizationRole;
 };
 
 function buildDefaultOrganizationSlug(userEmail?: string): string {
@@ -56,31 +56,31 @@ export async function getAuthenticatedUser() {
   return { id: userId };
 }
 
-async function getTenantById(tenantId: string): Promise<TenantRow | null> {
+async function getOrganizationById(organizationId: string): Promise<OrganizationRow | null> {
   const adminClient = getServiceRoleClient();
   const { data, error } = await adminClient
     .from("organizations")
     .select("id, name")
-    .eq("id", tenantId)
+    .eq("id", organizationId)
     .maybeSingle();
 
   if (error || !data) {
     return null;
   }
 
-  return data as TenantRow;
+  return data as OrganizationRow;
 }
 
 async function getMembership(
   userId: string,
-  tenantId: string,
+  organizationId: string,
 ): Promise<OrganizationMemberRow | null> {
   const adminClient = getServiceRoleClient();
   const { data, error } = await adminClient
     .from("organization_members")
     .select("organization_id, role, created_at")
     .eq("user_id", userId)
-    .eq("organization_id", tenantId)
+    .eq("organization_id", organizationId)
     .limit(1)
     .maybeSingle();
 
@@ -110,9 +110,9 @@ async function getFirstMembership(
   return data as OrganizationMemberRow;
 }
 
-async function getOwnedTenant(
+async function getOwnedOrganization(
   userId: string,
-): Promise<TenantResolution | null> {
+): Promise<OrganizationResolution | null> {
   const adminClient = getServiceRoleClient();
   const { data, error } = await adminClient
     .from("organizations")
@@ -127,29 +127,29 @@ async function getOwnedTenant(
   }
 
   return {
-    tenantId: data.id,
-    tenantName: data.name,
+    organizationId: data.id,
+    organizationName: data.name,
     role: "owner",
   };
 }
 
-async function createDefaultTenantForUser(
+async function createDefaultOrganizationForUser(
   userId: string,
-  tenantNameHint?: string,
+  orgNameHint?: string,
   userEmail?: string,
-): Promise<TenantResolution> {
+): Promise<OrganizationResolution> {
   const adminClient = getServiceRoleClient();
-  const existingOwnedTenant = await getOwnedTenant(userId);
-  if (existingOwnedTenant) {
-    return existingOwnedTenant;
+  const existingOwnedOrg = await getOwnedOrganization(userId);
+  if (existingOwnedOrg) {
+    return existingOwnedOrg;
   }
   const defaultName =
-    tenantNameHint && tenantNameHint.trim().length > 0
-      ? `${tenantNameHint.trim()} Tenant`
-      : "Default Tenant";
+    orgNameHint && orgNameHint.trim().length > 0
+      ? `${orgNameHint.trim()} Organization`
+      : "Default Organization";
   const slug = buildDefaultOrganizationSlug(userEmail);
 
-  const { data: tenantInsert, error: tenantError } = await adminClient
+  const { data: orgInsert, error: orgError } = await adminClient
     .from("organizations")
     .insert({
       name: defaultName,
@@ -160,15 +160,15 @@ async function createDefaultTenantForUser(
     .select("id, name")
     .single();
 
-  if (tenantError || !tenantInsert) {
+  if (orgError || !orgInsert) {
     throw new Error(
-      `Failed to create default tenant: ${tenantError?.message || "insert failed"}`,
+      `Failed to create default organization: ${orgError?.message || "insert failed"}`,
     );
   }
 
   await adminClient.from("organization_members").upsert(
     {
-      organization_id: tenantInsert.id,
+      organization_id: orgInsert.id,
       user_id: userId,
       role: "owner",
     },
@@ -176,45 +176,45 @@ async function createDefaultTenantForUser(
   );
 
   return {
-    tenantId: tenantInsert.id,
-    tenantName: tenantInsert.name,
+    organizationId: orgInsert.id,
+    organizationName: orgInsert.name,
     role: "owner",
   };
 }
 
-export async function resolveTenantForUser(options: {
+export async function resolveOrganizationForUser(options: {
   userId: string;
-  preferredTenantId?: string;
-  tenantNameHint?: string;
+  preferredOrganizationId?: string;
+  organizationNameHint?: string;
   userEmail?: string;
   autoCreate?: boolean;
-}): Promise<TenantResolution | null> {
+}): Promise<OrganizationResolution | null> {
   const {
     userId,
-    preferredTenantId,
-    tenantNameHint,
+    preferredOrganizationId,
+    organizationNameHint,
     userEmail,
     autoCreate = true,
   } = options;
 
-  if (preferredTenantId) {
-    const directMembership = await getMembership(userId, preferredTenantId);
+  if (preferredOrganizationId) {
+    const directMembership = await getMembership(userId, preferredOrganizationId);
     if (directMembership) {
-      const tenant = await getTenantById(preferredTenantId);
-      if (!tenant) {
+      const organization = await getOrganizationById(preferredOrganizationId);
+      if (!organization) {
         return null;
       }
 
       return {
-        tenantId: tenant.id,
-        tenantName: tenant.name,
+        organizationId: organization.id,
+        organizationName: organization.name,
         role: directMembership.role,
       };
     }
 
-    const ownedTenant = await getOwnedTenant(userId);
-    if (ownedTenant && ownedTenant.tenantId === preferredTenantId) {
-      return ownedTenant;
+    const ownedOrg = await getOwnedOrganization(userId);
+    if (ownedOrg && ownedOrg.organizationId === preferredOrganizationId) {
+      return ownedOrg;
     }
 
     return null;
@@ -222,24 +222,24 @@ export async function resolveTenantForUser(options: {
 
   const firstMembership = await getFirstMembership(userId);
   if (firstMembership) {
-    const tenant = await getTenantById(firstMembership.organization_id);
-    if (tenant) {
+    const organization = await getOrganizationById(firstMembership.organization_id);
+    if (organization) {
       return {
-        tenantId: tenant.id,
-        tenantName: tenant.name,
+        organizationId: organization.id,
+        organizationName: organization.name,
         role: firstMembership.role,
       };
     }
   }
 
-  const ownedTenant = await getOwnedTenant(userId);
-  if (ownedTenant) {
-    return ownedTenant;
+  const ownedOrg = await getOwnedOrganization(userId);
+  if (ownedOrg) {
+    return ownedOrg;
   }
 
   if (!autoCreate) {
     return null;
   }
 
-  return createDefaultTenantForUser(userId, tenantNameHint, userEmail);
+  return createDefaultOrganizationForUser(userId, organizationNameHint, userEmail);
 }

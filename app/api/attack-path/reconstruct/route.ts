@@ -9,22 +9,20 @@ export const runtime = "nodejs";
 
 const schema = z.object({
   alert_id: z.string().uuid(),
-  org_id: z.string().optional().default("default")
+  organization_id: z.string().optional().default("default")
 });
 
 export async function POST(req: Request) {
   const { userId } = await auth();
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
     const body = await req.json();
-    const { alert_id, org_id } = schema.parse(body);
+    const { alert_id, organization_id } = schema.parse(body);
 
     const supabase = await createClient();
     const engine = new AttackPathEngine(supabase);
-    const path = await engine.reconstructPath(alert_id, org_id);
+    const path = await engine.reconstructPath(alert_id, organization_id);
 
     if (!path) {
       return NextResponse.json({ error: "No related events found to reconstruct path" }, { status: 404 });

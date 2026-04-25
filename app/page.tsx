@@ -284,7 +284,7 @@ export default function LandingPage() {
             </div>
             <ul className="space-y-4 mb-8 flex-1">
               <li className="flex items-center gap-2 text-sm text-[#71717a]">
-                <Check className="w-4 h-4 text-[#22d3ee]" /> 5 tenants
+                <Check className="w-4 h-4 text-[#7c6af7]" /> 5 organizations
               </li>
               <li className="flex items-center gap-2 text-sm text-[#71717a]">
                 <Check className="w-4 h-4 text-[#22d3ee]" /> 10,000 alerts/day
@@ -308,7 +308,7 @@ export default function LandingPage() {
             </div>
             <ul className="space-y-4 mb-8 flex-1">
               <li className="flex items-center gap-2 text-sm text-[#71717a]">
-                <Check className="w-4 h-4 text-[#22d3ee]" /> Unlimited tenants
+                <Check className="w-4 h-4 text-[#7c6af7]" /> Unlimited organizations
               </li>
               <li className="flex items-center gap-2 text-sm text-[#71717a]">
                 <Check className="w-4 h-4 text-[#22d3ee]" /> Unlimited alerts

@@ -9,7 +9,7 @@ export class AttackPathReconstructor {
     this.supabase = supabase;
   }
 
-  public async reconstructFromCase(case_id: string, org_id: string): Promise<AttackPath | null> {
+  public async reconstructFromCase(case_id: string, organization_id: string): Promise<AttackPath | null> {
     // Fetch case and root alert
     const { data: caseData } = await this.supabase
       .from("cases")
@@ -38,7 +38,7 @@ export class AttackPathReconstructor {
     const { data: alerts } = await this.supabase
       .from("alerts")
       .select("*")
-      .eq("org_id", org_id)
+      .eq("org_id", organization_id) // Keeping org_id for alerts as it is not in the rename list
       .limit(10);
 
     const nodes: AttackPathNode[] = (alerts || []).map(a => ({
@@ -57,7 +57,8 @@ export class AttackPathReconstructor {
       root_cause_alert_id: alerts?.[0]?.id || "",
       target_asset: caseData.affected_asset || "unknown",
       risk_score: 50,
-      timeline_ms: 0
+      timeline_ms: 0,
+      organization_id: organization_id
     };
   }
 }
