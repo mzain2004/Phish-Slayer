@@ -113,23 +113,31 @@ const launchScanSchema = z.object({
       },
     ),
 });
-export async function getIncidents() {
+export async function getIncidents(page: number = 0) {
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
   const supabase = await createClient();
-  const { data, error } = await supabase.from("incidents").select("*");
+  const offset = page * 100;
+  const { data, error } = await supabase
+    .from("incidents")
+    .select("*")
+    .range(offset, offset + 99)
+    .limit(100);
   if (error) throw new Error(error.message);
   return data || [];
 }
 
-export async function getScans() {
+export async function getScans(page: number = 0) {
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
   const supabase = await createClient();
+  const offset = page * 100;
   const { data, error } = await supabase
     .from("scans")
     .select("*")
-    .order("date", { ascending: false });
+    .order("date", { ascending: false })
+    .range(offset, offset + 99)
+    .limit(100);
   if (error) throw new Error(error.message);
   return data || [];
 }
@@ -349,14 +357,17 @@ export async function addToWhitelist(target: string) {
   return { success: true };
 }
 
-export async function getWhitelist() {
+export async function getWhitelist(page: number = 0) {
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
   const supabase = await createClient();
+  const offset = page * 100;
   const { data, error } = await supabase
     .from("whitelist")
     .select("*")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .range(offset, offset + 99)
+    .limit(100);
   if (error) console.error("SUPABASE FETCH ERROR (getWhitelist):", error);
   return data || [];
 }
@@ -707,14 +718,17 @@ export async function launchScan(target: string): Promise<{ error?: string }> {
 
 // ── Intel Vault Management ─────────────────────────────────────────────
 
-export async function getIntelIndicators() {
+export async function getIntelIndicators(page: number = 0) {
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
   const supabase = await createClient();
+  const offset = page * 100;
   const { data, error } = await supabase
     .from("proprietary_intel")
     .select("*")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .range(offset, offset + 99)
+    .limit(100);
   if (error) console.error("SUPABASE FETCH ERROR (getIntelIndicators):", error);
   return data || [];
 }

@@ -91,6 +91,30 @@ export async function POST(request: Request) {
 
     const type = event?.type;
     const data = event?.data || {};
+    const eventId = event?.id || data?.id;
+
+    if (!eventId) {
+      console.error("Polar webhook missing event ID");
+      return NextResponse.json({ error: "Missing event ID" }, { status: 400 });
+    }
+
+    // Idempotency check
+    const { data: existingEvent } = await client
+      .from("webhook_events")
+      .select("event_id")
+      .eq("event_id", eventId)
+      .maybeSingle();
+
+    if (existingEvent) {
+      console.info(`Webhook event ${eventId} already processed. Skipping.`);
+      return NextResponse.json({ received: true });
+    }
+
+    // Insert event ID for idempotency before processing
+    await client.from("webhook_events").insert({
+      event_id: eventId,
+      event_type: type,
+    });
 
     if (type === "checkout.created") {
       console.info("Polar checkout created", { id: data?.id || null });
@@ -102,7 +126,6 @@ export async function POST(request: Request) {
       const plan = planFromProductId(productId);
       const userIdFromMetadata =
         extractUserId(data) || extractCustomerExternalId(data);
-      const customerEmail = extractCustomerEmail(data);
 
       let userId = userIdFromMetadata;
       if (!userId && data?.id) {
@@ -114,50 +137,41 @@ export async function POST(request: Request) {
         userId = (existingSub?.user_id as string | undefined) || null;
       }
 
+      if (!userId) {
+        console.error("Webhook rejected: Missing user_id for subscription update", { eventId });
+        return NextResponse.json({ error: "Missing user_id" }, { status: 400 });
+      }
+
       const updatePayload = {
-        plan,
+        subscription_tier: plan,
         polar_customer_id:
           data.customerId || data.customer_id || data?.customer?.id || null,
         subscription_status: data.status || "active",
       };
 
-      if (userId) {
-        await client.from("users").update(updatePayload).eq("id", userId);
-      } else if (customerEmail) {
-        await client
-          .from("users")
-          .update(updatePayload)
-          .eq("email", customerEmail);
+      const polarCustomerId = data.customerId || data.customer_id || data?.customer?.id;
+      if (!polarCustomerId) {
+        console.error("Webhook rejected: Missing polar customer ID", { eventId });
+        return NextResponse.json({ error: "Missing customer ID" }, { status: 400 });
       }
+
+      await client.from("profiles").update(updatePayload).eq("billing_customer_id", polarCustomerId);
     }
 
     if (type === "subscription.canceled" || type === "subscription.revoked") {
-      const userIdFromMetadata = extractUserId(data);
-      const customerExternalId = extractCustomerExternalId(data);
-      const customerEmail = extractCustomerEmail(data);
-      let userId = userIdFromMetadata || customerExternalId;
+      const polarCustomerId = data.customerId || data.customer_id || data?.customer?.id;
 
-      if (!userId && data?.id) {
-        const { data: existingSub } = await client
-          .from("subscriptions")
-          .select("user_id")
-          .eq("polar_subscription_id", data.id)
-          .maybeSingle();
-        userId = (existingSub?.user_id as string | undefined) || null;
+      if (!polarCustomerId) {
+        console.error("Webhook rejected: Missing polar customer ID for subscription cancellation", { eventId });
+        return NextResponse.json({ error: "Missing customer ID" }, { status: 400 });
       }
 
       const updatePayload = {
         subscription_status: "canceled",
+        subscription_tier: "free",
       };
 
-      if (userId) {
-        await client.from("users").update(updatePayload).eq("id", userId);
-      } else if (customerEmail) {
-        await client
-          .from("users")
-          .update(updatePayload)
-          .eq("email", customerEmail);
-      }
+      await client.from("profiles").update(updatePayload).eq("billing_customer_id", polarCustomerId);
     }
   } catch (error) {
     console.error("Polar webhook processing error", error);

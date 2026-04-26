@@ -75,85 +75,94 @@ function parseCsvLooseQuotedRow(row: string): string[] {
 }
 
 async function fetchUrlhausCsvFallback(): Promise<RawIoc[]> {
-  const response = await fetch(
-    "https://urlhaus.abuse.ch/downloads/csv_recent/",
-    {
-      method: "GET",
-      cache: "no-store",
-    },
-  );
-
-  if (!response.ok) {
-    throw new Error(`URLhaus CSV request failed (${response.status})`);
-  }
-
-  const text = await response.text();
-  const rows = text
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0 && !line.startsWith("#"));
-
-  const parsed: RawIoc[] = [];
-
-  for (const row of rows) {
-    const columns = parseCsvQuotedRow(row);
-    if (columns.length < 7) {
-      continue;
-    }
-
-    const iocValue = columns[2];
-    if (!iocValue) {
-      continue;
-    }
-
-    parsed.push({
-      type: "url",
-      value: iocValue,
-      threat: columns[5] || null,
-      source: "urlhaus",
-      tags: columns[6]
-        ? columns[6]
-            .split(",")
-            .map((value) => value.trim())
-            .filter((value) => value.length > 0)
-        : [],
-      malware: null,
-      date: columns[1] || null,
-      raw_data: {
-        row,
-        source: "csv_recent",
+  const url = "https://urlhaus.abuse.ch/downloads/csv_recent/";
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  try {
+    const response = await fetch(
+      url,
+      {
+        method: "GET",
+        cache: "no-store",
+        signal: controller.signal,
       },
-    });
-  }
+    );
+    clearTimeout(timeoutId);
 
-  return parsed.slice(0, 25);
+    if (!response.ok) {
+      throw new Error(`URLhaus CSV request failed (${response.status})`);
+    }
+
+    const text = await response.text();
+    const rows = text
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0 && !line.startsWith("#"));
+
+    const parsed: RawIoc[] = [];
+
+    for (const row of rows) {
+      const columns = parseCsvQuotedRow(row);
+      if (columns.length < 7) {
+        continue;
+      }
+
+      const iocValue = columns[2];
+      if (!iocValue) {
+        continue;
+      }
+
+      parsed.push({
+        type: "url",
+        value: iocValue,
+        threat: columns[5] || null,
+        source: "urlhaus",
+        tags: columns[6]
+          ? columns[6]
+              .split(",")
+              .map((value) => value.trim())
+              .filter((value) => value.length > 0)
+          : [],
+        malware: null,
+        date: columns[1] || null,
+        raw_data: {
+          row,
+          source: "csv_recent",
+        },
+      });
+    }
+
+    return parsed.slice(0, 25);
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(`External API call timed out after 15 seconds: ${url}`);
+    }
+    throw error;
+  }
 }
 
 async function fetchUrlhaus(): Promise<RawIoc[]> {
-  const response = await fetch(
-    "https://urlhaus-api.abuse.ch/v1/urls/recent/limit/25/",
-    {
-      method: "GET",
-      headers: { "Content-Type": "application/json" },
-      cache: "no-store",
-    },
-  );
-
-  if (!response.ok) {
-    return fetchUrlhausCsvFallback();
-  }
-
-  let payload: {
-    urls?: Array<{
-      url?: string;
-      threat?: string;
-      tags?: unknown;
-      date_added?: string;
-    }>;
-  };
-
+  const url = "https://urlhaus-api.abuse.ch/v1/urls/recent/limit/25/";
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
   try {
-    payload = (await response.json()) as {
+    const response = await fetch(
+      url,
+      {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        signal: controller.signal,
+      },
+    );
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      return fetchUrlhausCsvFallback();
+    }
+
+    let payload: {
       urls?: Array<{
         url?: string;
         threat?: string;
@@ -161,56 +170,67 @@ async function fetchUrlhaus(): Promise<RawIoc[]> {
         date_added?: string;
       }>;
     };
-  } catch {
+
+    try {
+      payload = (await response.json()) as {
+        urls?: Array<{
+          url?: string;
+          threat?: string;
+          tags?: unknown;
+          date_added?: string;
+        }>;
+      };
+    } catch {
+      return fetchUrlhausCsvFallback();
+    }
+
+    const rows = payload.urls || [];
+
+    if (rows.length === 0) {
+      return fetchUrlhausCsvFallback();
+    }
+
+    return rows
+      .filter((row) => typeof row.url === "string" && row.url.trim().length > 0)
+      .map((row) => ({
+        type: "url",
+        value: row.url!.trim(),
+        threat: typeof row.threat === "string" ? row.threat : null,
+        source: "urlhaus",
+        tags: ensureStringArray(row.tags),
+        malware: null,
+        date: typeof row.date_added === "string" ? row.date_added : null,
+        raw_data: row,
+      }));
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.warn(`External API call timed out after 15 seconds: ${url}, falling back to CSV`);
+      return fetchUrlhausCsvFallback();
+    }
     return fetchUrlhausCsvFallback();
   }
-
-  const rows = payload.urls || [];
-
-  if (rows.length === 0) {
-    return fetchUrlhausCsvFallback();
-  }
-
-  return rows
-    .filter((row) => typeof row.url === "string" && row.url.trim().length > 0)
-    .map((row) => ({
-      type: "url",
-      value: row.url!.trim(),
-      threat: typeof row.threat === "string" ? row.threat : null,
-      source: "urlhaus",
-      tags: ensureStringArray(row.tags),
-      malware: null,
-      date: typeof row.date_added === "string" ? row.date_added : null,
-      raw_data: row,
-    }));
 }
 
 async function fetchThreatFox(): Promise<RawIoc[]> {
-  const response = await fetch("https://threatfox-api.abuse.ch/api/v1/", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query: "get_iocs", days: 1 }),
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    return fetchThreatFoxCsvFallback();
-  }
-
-  let payload: {
-    data?: Array<{
-      ioc_value?: string;
-      ioc_type?: string;
-      threat_type?: string;
-      malware?: string;
-      tags?: unknown;
-      first_seen?: string;
-      last_seen?: string;
-    }>;
-  };
-
+  const url = "https://threatfox-api.abuse.ch/api/v1/";
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
   try {
-    payload = (await response.json()) as {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: "get_iocs", days: 1 }),
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      return fetchThreatFoxCsvFallback();
+    }
+
+    let payload: {
       data?: Array<{
         ioc_value?: string;
         ioc_type?: string;
@@ -221,122 +241,169 @@ async function fetchThreatFox(): Promise<RawIoc[]> {
         last_seen?: string;
       }>;
     };
-  } catch {
+
+    try {
+      payload = (await response.json()) as {
+        data?: Array<{
+          ioc_value?: string;
+          ioc_type?: string;
+          threat_type?: string;
+          malware?: string;
+          tags?: unknown;
+          first_seen?: string;
+          last_seen?: string;
+        }>;
+      };
+    } catch {
+      return fetchThreatFoxCsvFallback();
+    }
+
+    const rows = payload.data || [];
+
+    if (rows.length === 0) {
+      return fetchThreatFoxCsvFallback();
+    }
+
+    return rows
+      .filter(
+        (row) =>
+          typeof row.ioc_value === "string" && row.ioc_value.trim().length > 0,
+      )
+      .map((row) => ({
+        type: typeof row.ioc_type === "string" ? row.ioc_type : "unknown",
+        value: row.ioc_value!.trim(),
+        threat: typeof row.threat_type === "string" ? row.threat_type : null,
+        source: "threatfox",
+        tags: ensureStringArray(row.tags),
+        malware: typeof row.malware === "string" ? row.malware : null,
+        date:
+          typeof row.last_seen === "string"
+            ? row.last_seen
+            : typeof row.first_seen === "string"
+              ? row.first_seen
+              : null,
+        raw_data: row,
+      }));
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.warn(`External API call timed out after 15 seconds: ${url}, falling back to CSV`);
+      return fetchThreatFoxCsvFallback();
+    }
     return fetchThreatFoxCsvFallback();
   }
-
-  const rows = payload.data || [];
-
-  if (rows.length === 0) {
-    return fetchThreatFoxCsvFallback();
-  }
-
-  return rows
-    .filter(
-      (row) =>
-        typeof row.ioc_value === "string" && row.ioc_value.trim().length > 0,
-    )
-    .map((row) => ({
-      type: typeof row.ioc_type === "string" ? row.ioc_type : "unknown",
-      value: row.ioc_value!.trim(),
-      threat: typeof row.threat_type === "string" ? row.threat_type : null,
-      source: "threatfox",
-      tags: ensureStringArray(row.tags),
-      malware: typeof row.malware === "string" ? row.malware : null,
-      date:
-        typeof row.last_seen === "string"
-          ? row.last_seen
-          : typeof row.first_seen === "string"
-            ? row.first_seen
-            : null,
-      raw_data: row,
-    }));
 }
 
 async function fetchThreatFoxCsvFallback(): Promise<RawIoc[]> {
-  const response = await fetch(
-    "https://threatfox.abuse.ch/export/csv/recent/",
-    {
-      method: "GET",
-      cache: "no-store",
-    },
-  );
-
-  if (!response.ok) {
-    throw new Error(`ThreatFox CSV request failed (${response.status})`);
-  }
-
-  const text = await response.text();
-  const rows = text
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0 && !line.startsWith("#"));
-
-  const parsed: RawIoc[] = [];
-
-  for (const row of rows) {
-    const columns = parseCsvLooseQuotedRow(row);
-    if (columns.length < 15) {
-      continue;
-    }
-
-    const iocValue = columns[2];
-    if (!iocValue) {
-      continue;
-    }
-
-    const tags = columns[12]
-      ? columns[12]
-          .split(",")
-          .map((value) => value.trim())
-          .filter((value) => value.length > 0)
-      : [];
-
-    parsed.push({
-      type: columns[3] || "unknown",
-      value: iocValue,
-      threat: columns[4] || null,
-      source: "threatfox",
-      tags,
-      malware: columns[7] || null,
-      date: columns[8] || columns[0] || null,
-      raw_data: {
-        row,
-        source: "csv_recent",
+  const url = "https://threatfox.abuse.ch/export/csv/recent/";
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  try {
+    const response = await fetch(
+      url,
+      {
+        method: "GET",
+        cache: "no-store",
+        signal: controller.signal,
       },
-    });
-  }
+    );
+    clearTimeout(timeoutId);
 
-  return parsed.slice(0, 200);
+    if (!response.ok) {
+      throw new Error(`ThreatFox CSV request failed (${response.status})`);
+    }
+
+    const text = await response.text();
+    const rows = text
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0 && !line.startsWith("#"));
+
+    const parsed: RawIoc[] = [];
+
+    for (const row of rows) {
+      const columns = parseCsvLooseQuotedRow(row);
+      if (columns.length < 15) {
+        continue;
+      }
+
+      const iocValue = columns[2];
+      if (!iocValue) {
+        continue;
+      }
+
+      const tags = columns[12]
+        ? columns[12]
+            .split(",")
+            .map((value) => value.trim())
+            .filter((value) => value.length > 0)
+        : [];
+
+      parsed.push({
+        type: columns[3] || "unknown",
+        value: iocValue,
+        threat: columns[4] || null,
+        source: "threatfox",
+        tags,
+        malware: columns[7] || null,
+        date: columns[8] || columns[0] || null,
+        raw_data: {
+          row,
+          source: "csv_recent",
+        },
+      });
+    }
+
+    return parsed.slice(0, 200);
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(`External API call timed out after 15 seconds: ${url}`);
+    }
+    throw error;
+  }
 }
 
 async function fetchOpenPhish(): Promise<RawIoc[]> {
-  const response = await fetch("https://openphish.com/feed.txt", {
-    method: "GET",
-    cache: "no-store",
-  });
+  const url = "https://openphish.com/feed.txt";
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
 
-  if (!response.ok) {
-    throw new Error(`OpenPhish request failed (${response.status})`);
+    if (!response.ok) {
+      throw new Error(`OpenPhish request failed (${response.status})`);
+    }
+
+    const text = await response.text();
+    const urls = text
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0)
+      .slice(0, 25);
+
+    return urls.map((url) => ({
+      type: "url",
+      value: url,
+      threat: "phishing",
+      source: "openphish",
+      tags: ["phishing"],
+      malware: null,
+      date: null,
+      raw_data: { url },
+    }));
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(`External API call timed out after 15 seconds: ${url}`);
+    }
+    throw error;
   }
-
-  const text = await response.text();
-  const urls = text
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0)
-    .slice(0, 25);
-
-  return urls.map((url) => ({
-    type: "url",
-    value: url,
-    threat: "phishing",
-    source: "openphish",
-    tags: ["phishing"],
-    malware: null,
-    date: null,
-    raw_data: { url },
-  }));
 }
 
 export async function GET(request: NextRequest) {

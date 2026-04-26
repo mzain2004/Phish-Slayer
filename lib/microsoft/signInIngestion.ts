@@ -50,7 +50,7 @@ export async function fetchRecentSignIns(
   ).toISOString();
 
   try {
-    const response = (await graphClient
+    let response = (await graphClient
       .api("/auditLogs/signIns")
       .filter(`createdDateTime ge ${startTime}`)
       .select(
@@ -72,9 +72,15 @@ export async function fetchRecentSignIns(
         ].join(","),
       )
       .top(100)
-      .get()) as { value?: GraphSignIn[] };
+      .get()) as { value?: GraphSignIn[]; "@odata.nextLink"?: string };
 
-    return (response.value || []).map((signin) => {
+    const allSignIns: GraphSignIn[] = [...(response.value || [])];
+    while (response["@odata.nextLink"]) {
+      response = (await graphClient.api(response["@odata.nextLink"]).get()) as { value?: GraphSignIn[]; "@odata.nextLink"?: string };
+      allSignIns.push(...(response.value || []));
+    }
+
+    return allSignIns.map((signin) => {
       const sessionId = signin.authenticationDetails?.[0]?.requestId;
 
       const compositeKey = buildCompositeKey({
@@ -141,13 +147,19 @@ export async function fetchNonHumanIdentities(): Promise<IdentityActor[]> {
   const actors: IdentityActor[] = [];
 
   try {
-    const spResponse = (await graphClient
+    let spResponse = (await graphClient
       .api("/servicePrincipals")
       .select("id,displayName,appId,servicePrincipalType")
       .top(100)
-      .get()) as { value?: GraphServicePrincipal[] };
+      .get()) as { value?: GraphServicePrincipal[]; "@odata.nextLink"?: string };
 
-    for (const sp of spResponse.value || []) {
+    const allSps: GraphServicePrincipal[] = [...(spResponse.value || [])];
+    while (spResponse["@odata.nextLink"]) {
+      spResponse = (await graphClient.api(spResponse["@odata.nextLink"]).get()) as { value?: GraphServicePrincipal[]; "@odata.nextLink"?: string };
+      allSps.push(...(spResponse.value || []));
+    }
+
+    for (const sp of allSps) {
       const servicePrincipalType = sp.servicePrincipalType || "";
       const type: IdentityActor["type"] =
         servicePrincipalType === "ManagedIdentity"

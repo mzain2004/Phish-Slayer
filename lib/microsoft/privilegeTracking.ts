@@ -22,7 +22,7 @@ export async function fetchPrivilegeEvents(
   ).toISOString();
 
   try {
-    const response = (await graphClient
+    let response = (await graphClient
       .api("/auditLogs/directoryAudits")
       .filter(
         `activityDateTime ge ${startTime} and ` +
@@ -40,9 +40,15 @@ export async function fetchPrivilegeEvents(
         ].join(","),
       )
       .top(50)
-      .get()) as { value?: GraphDirectoryAudit[] };
+      .get()) as { value?: GraphDirectoryAudit[]; "@odata.nextLink"?: string };
 
-    return (response.value || []).map((event) => {
+    const allEvents: GraphDirectoryAudit[] = [...(response.value || [])];
+    while (response["@odata.nextLink"]) {
+      response = (await graphClient.api(response["@odata.nextLink"]).get()) as { value?: GraphDirectoryAudit[]; "@odata.nextLink"?: string };
+      allEvents.push(...(response.value || []));
+    }
+
+    return allEvents.map((event) => {
       const actor = event.initiatedBy?.user || event.initiatedBy?.app;
       const activity = event.activityDisplayName || "unknown";
 

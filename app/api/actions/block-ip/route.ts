@@ -123,9 +123,12 @@ export async function POST(request: NextRequest) {
   let cloudflareRuleId: string | null = null;
 
   if (cfToken && cfZoneId) {
+    const cfUrl = `https://api.cloudflare.com/client/v4/zones/${cfZoneId}/firewall/rules`;
+    const controller1 = new AbortController();
+    const timeoutId1 = setTimeout(() => controller1.abort(), 15000);
     try {
       const firewallResponse = await fetch(
-        `https://api.cloudflare.com/client/v4/zones/${cfZoneId}/firewall/rules`,
+        cfUrl,
         {
           method: "POST",
           headers: {
@@ -144,8 +147,10 @@ export async function POST(request: NextRequest) {
               paused: false,
             },
           ]),
+          signal: controller1.signal,
         },
       );
+      clearTimeout(timeoutId1);
 
       const firewallPayload = await firewallResponse.json();
       const firewallSuccess = Boolean(firewallPayload?.success);
@@ -157,13 +162,20 @@ export async function POST(request: NextRequest) {
           null;
         cloudflareBlocked = true;
       }
-    } catch {
+    } catch (error) {
+      clearTimeout(timeoutId1);
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.error(`External API call timed out after 15 seconds: ${cfUrl}`);
+      }
       cloudflareBlocked = false;
     }
 
+    const cfAccessUrl = `https://api.cloudflare.com/client/v4/zones/${cfZoneId}/firewall/access-rules/rules`;
+    const controller2 = new AbortController();
+    const timeoutId2 = setTimeout(() => controller2.abort(), 15000);
     try {
       const accessRuleResponse = await fetch(
-        `https://api.cloudflare.com/client/v4/zones/${cfZoneId}/firewall/access-rules/rules`,
+        cfAccessUrl,
         {
           method: "POST",
           headers: {
@@ -178,8 +190,10 @@ export async function POST(request: NextRequest) {
             },
             notes: `Phish-Slayer Auto-Block: ${reason}`,
           }),
+          signal: controller2.signal,
         },
       );
+      clearTimeout(timeoutId2);
 
       const accessRulePayload = await accessRuleResponse.json();
       if (accessRulePayload?.success) {
@@ -188,7 +202,11 @@ export async function POST(request: NextRequest) {
           cloudflareRuleId = accessRulePayload?.result?.id ?? null;
         }
       }
-    } catch {
+    } catch (error) {
+      clearTimeout(timeoutId2);
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.error(`External API call timed out after 15 seconds: ${cfAccessUrl}`);
+      }
       // Non-fatal fallback failure
     }
   }

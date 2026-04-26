@@ -59,7 +59,7 @@ export async function fetchNonHumanLifecycle(
 
   try {
     // Fetch service principal audit events
-    const auditResponse = (await graphClient
+    let auditResponse = (await graphClient
       .api("/auditLogs/directoryAudits")
       .filter(
         `activityDateTime ge ${startTime} and ` +
@@ -80,12 +80,22 @@ export async function fetchNonHumanLifecycle(
       .top(100)
       .get()) as {
       value?: GraphDirectoryAuditEvent[];
+      "@odata.nextLink"?: string;
     };
+
+    const allEvents: GraphDirectoryAuditEvent[] = [...(auditResponse.value || [])];
+    while (auditResponse["@odata.nextLink"]) {
+      auditResponse = (await graphClient.api(auditResponse["@odata.nextLink"]).get()) as {
+        value?: GraphDirectoryAuditEvent[];
+        "@odata.nextLink"?: string;
+      };
+      allEvents.push(...(auditResponse.value || []));
+    }
 
     // Group by target identity
     const identityGroups = new Map<string, NonHumanLifecycleEvent[]>();
 
-    for (const event of auditResponse.value || []) {
+    for (const event of allEvents) {
       const target = event.targetResources?.[0];
       if (!target?.id) continue;
 

@@ -1,83 +1,326 @@
-You are fixing a Next.js 15 TypeScript codebase called PhishSlayer. 
-Work ONE task at a time. Search before editing. Never guess file paths. 
-If a file does not exist, say so and stop. Confirm each task completion before moving on.
+You are a senior full-stack security engineer fixing a production Next.js 14 + Supabase + Clerk codebase called PhishSlayer.
+
+CRITICAL RULES:
+- Use ONLY your native ReadFile, WriteFile, ListFiles, SearchText, and FindFiles tools
+- Do NOT use MCP filesystem tools (project is on C: drive, MCP is limited to D:)
+- Read every file BEFORE editing it
+- Run npm run build after all fixes and resolve every error before stopping
+- Never break existing functionality while fixing issues
+- Commit nothing — just fix the files
+
+Fix every issue below in order. Do not skip any. After each fix, confirm what you changed and why.
 
 ---
 
-TASK 1 — Fix org_id rename (causes 400 errors on Supabase queries)
+## FIX 1 — CRITICAL: Broken RLS Policies (IDOR / Multi-Tenancy Breach)
 
-First run this exact command and show me the full output:
-grep -rn "org_id" --include="*.ts" --include="*.tsx" src/
+Read these migration files first:
+- supabase/migrations/20260421_clerk_rls_migration.sql
+- supabase/migrations/20260424000010_tenants.sql
+- supabase/migrations/20260424000001_cases.sql
+- Any other migration files in supabase/migrations/
 
-List every file and line number found. Then for each file:
-- Replace every instance of org_id with organization_id in queries, filters, inserts, and TypeScript type definitions
-- Only touch these tables: cases, hunt_missions, hunt_findings, ueba_profiles, ueba_anomalies, attack_paths, raw_logs, pipeline_runs, escalations, audit_logs
-- Do NOT rename anything in Clerk auth files or middleware.ts
+Find every RLS policy that uses only:
+  USING (auth.jwt() IS NOT NULL)
 
-After editing, re-run the grep and confirm zero remaining org_id references in those files.
+This allows ANY authenticated user to read ALL data across ALL organizations. Fix each one.
+
+For tables that have an organization_id column, replace with:
+  USING (
+    organization_id IN (
+      SELECT organization_id FROM tenant_users
+      WHERE user_id = (auth.jwt()->>'sub')
+    )
+  )
+
+For tables scoped to individual users (like profiles), replace with:
+  USING ((auth.jwt()->>'sub') = user_id)
+
+For the cases table specifically:
+- SELECT policy: scope by organization_id using the tenant_users membership check above
+- INSERT policy: verify the user is a member of the organization_id being inserted before allowing
+- UPDATE/DELETE: scope to organization_id membership
+
+Apply these fixes to ALL of the following tables that have broken policies:
+- incidents
+- tenants
+- tenant_users
+- whitelabel_api_keys
+- cases (if present)
+
+Create a NEW migration file: supabase/migrations/[timestamp]_fix_rls_policies.sql
+Write all the DROP POLICY + CREATE POLICY statements into this new migration file.
+Do NOT modify the original migration files.
 
 ---
 
-TASK 2 — Fix 403 on /api/metrics/agent-chain
+## FIX 2 — CRITICAL: Missing AbortController Timeouts on External API Calls
 
-Run: find src -name "route.ts" -path "*agent-chain*"
-Open that file. Read the full auth logic.
-Find where it fetches organizationId for the current user.
-If it queries any table using org_id, fix to organization_id.
-If auth() returns null organizationId, add this guard at the top of the handler:
-  if (!organizationId) return NextResponse.json({ error: 'No organization context' }, { status: 403 })
-The route is being called in a polling loop — make sure it does not throw unhandled errors.
+Read these files:
+- lib/scanners/threatScanner.ts
+- lib/ai/gemini.ts
+- app/api/actions/block-ip/route.ts
+- lib/wazuh-client.ts
+- lib/microsoft/signInIngestion.ts
 
----
+Find every outbound fetch() call that does NOT have an AbortController or signal.
 
-TASK 3 — Fix 401 on /api/infrastructure/wazuh-health
+For each one, wrap it using this exact pattern:
 
-Run: find src -name "route.ts" -path "*wazuh-health*"
-Open that file. Check if it reads process.env.WAZUH_API_KEY.
-If missing, add: const apiKey = process.env.WAZUH_API_KEY
-Ensure it passes the key as: Authorization: Bearer ${apiKey}
-If apiKey is undefined or empty, return immediately:
-  return NextResponse.json({ error: 'WAZUH_API_KEY not configured', status: 'unconfigured' }, { status: 200 })
-IMPORTANT: Return 200 with a status field instead of 401 so the dashboard does not show an error when key is simply not set yet.
-
----
-
-TASK 4 — Fix Supabase refresh_token_not_found spam
-
-Run: find src -name "*.ts" -name "*.tsx" | xargs grep -l "supabase" | grep -v node_modules
-Find all places where a Supabase client is created server-side.
-Check if any route or component is calling supabase.auth.getSession() or supabase.auth.refreshSession() in a polling loop or repeated server component render.
-If found, wrap the call in a try/catch that silently ignores refresh_token_not_found errors:
-  catch (error) {
-    if (error?.code === 'refresh_token_not_found') return null
-    throw error
+const controller = new AbortController();
+const timeoutId = setTimeout(() => controller.abort(), 15000);
+try {
+  const response = await fetch(url, {
+    ...existingOptions,
+    signal: controller.signal,
+  });
+  clearTimeout(timeoutId);
+  // rest of existing logic
+} catch (error) {
+  clearTimeout(timeoutId);
+  if (error instanceof Error && error.name === 'AbortError') {
+    throw new Error(`External API call timed out after 15 seconds: ${url}`);
   }
-Do NOT delete sessions from the database.
+  throw error;
+}
+
+Apply a 15 second timeout for: VirusTotal, Cloudflare, ThreatFox
+Apply a 30 second timeout for: Gemini API, Microsoft Graph
+Apply a 10 second timeout for: Wazuh API calls
+
+Make sure the timeout is always cleared in both success and error paths.
 
 ---
 
-TASK 5 — Fix WebhookVerificationError on /api/webhooks/clerk
+## FIX 3 — CRITICAL: Billing Webhook Email Spoofing + No Idempotency
 
-Run: find src -name "route.ts" -path "*webhooks/clerk*"
-Open that file. Find where it reads the webhook secret.
-Confirm it reads: process.env.CLERK_WEBHOOK_SECRET
-Do NOT hardcode any value. Just confirm the env var name is exactly CLERK_WEBHOOK_SECRET with no typos.
-If the variable name is different, rename it to CLERK_WEBHOOK_SECRET.
-This error means the secret in the container does not match Clerk dashboard — that is an ops fix, not a code fix. Just confirm the code is reading the right variable and report back.
+Read this file: app/api/billing/webhook/route.ts
+
+Issues to fix:
+
+ISSUE A — Email spoofing for privilege escalation:
+Find any code that uses customer email as the primary lookup to update subscription plans.
+Replace with strict polar_customer_id or metadata.user_id lookup ONLY.
+Email fallback should be completely removed for subscription status changes.
+If no user_id is found via secure fields, reject the webhook with a 400 error and log it.
+
+ISSUE B — Replay attack / no idempotency:
+Add idempotency protection using the webhook event ID.
+Before processing any webhook, check if this event ID has already been processed.
+Store processed event IDs in Supabase in a table called webhook_events with columns:
+  event_id TEXT PRIMARY KEY
+  processed_at TIMESTAMPTZ DEFAULT NOW()
+  event_type TEXT
+
+If the event_id already exists in webhook_events, return 200 immediately without reprocessing.
+If it does not exist, insert it first then process.
+
+Create a migration for the webhook_events table if it does not exist:
+supabase/migrations/[timestamp]_webhook_events.sql
 
 ---
 
-TASK 6 — Build check
+## FIX 4 — HIGH: Cases API Missing Organization Membership Verification
 
-Run: npm run build
-Fix every TypeScript and build error before committing.
-Do not commit if build fails.
-Show me the final build output.
+Read this file: app/api/cases/route.ts
+
+In the POST handler (creating a new case):
+- Extract organization_id from the request body
+- Before inserting, verify the authenticated user is a member of that organization
+- Query tenant_users table: SELECT 1 FROM tenant_users WHERE user_id = [clerkUserId] AND organization_id = [provided_org_id]
+- If the user is NOT a member, return 403 Forbidden with message "Not authorized for this organization"
+- Only proceed with insert if membership is confirmed
+
+In the GET handler (listing cases):
+- Do NOT trust a user-supplied organization_id query param directly
+- Instead, look up ALL organizations the user belongs to from tenant_users
+- Filter cases by those organization IDs only
 
 ---
 
-RULES:
-- Search before editing. Never guess a file path.
-- One task at a time. Confirm completion before moving to next.
-- Do not touch server.js, middleware.ts, or any Clerk config files.
-- If unsure about any change, print the current code and ask before editing.
+## FIX 5 — HIGH: N+1 Query Pattern in Weekly Digest
+
+Read this file: app/api/digest/weekly/route.ts
+
+Find the loop that iterates over user profiles and executes multiple DB queries per user inside the loop.
+
+Refactor it to:
+
+STEP 1: Fetch all opted-in user profiles in ONE query
+STEP 2: Extract all their user_ids and org_ids into arrays
+STEP 3: Run ONE bulk query for scan counts grouped by user_id for the past 7 days
+STEP 4: Run ONE bulk query for malicious scan counts grouped by user_id
+STEP 5: Run ONE bulk query for incident counts grouped by org_id
+STEP 6: Run ONE bulk query for top threats grouped by org_id
+
+Build a Map<userId, stats> from these bulk results.
+
+STEP 7: Loop over profiles and use the pre-fetched Map to build each user's digest payload — NO DB calls inside this loop
+
+This reduces N*4 queries down to 5 total queries regardless of user count.
+
+---
+
+## FIX 6 — MEDIUM: Unbounded Result Sets Missing .limit()
+
+Read this file: lib/supabase/actions.ts
+
+Find these functions: getIncidents, getScans, getWhitelist, getIntelIndicators
+
+For each one:
+- Add .limit(100) to the Supabase query chain if no limit exists
+- Add a range parameter (page: number = 0) to support pagination
+- Calculate offset as: page * 100
+- Add .range(offset, offset + 99) to the query
+
+Update the function signatures to accept an optional page parameter defaulting to 0.
+Make sure existing callers still work without passing page (default 0 = first page).
+
+---
+
+## FIX 7 — MEDIUM: OOM Risk in getEndpointStats
+
+Read this file: lib/supabase/agentQueries.ts
+
+Find getEndpointStats or similar function that fetches ALL rows from endpoint_events into memory to calculate stats in JavaScript.
+
+Replace the in-memory JS aggregation with a Supabase RPC call.
+
+Create a new migration file: supabase/migrations/[timestamp]_endpoint_stats_rpc.sql
+
+Write a Postgres function in it:
+CREATE OR REPLACE FUNCTION get_endpoint_stats(p_organization_id UUID)
+RETURNS JSON AS $$
+BEGIN
+  RETURN json_build_object(
+    'threat_level_counts', (
+      SELECT json_object_agg(threat_level, count)
+      FROM (
+        SELECT threat_level, COUNT(*) as count
+        FROM endpoint_events
+        WHERE organization_id = p_organization_id
+        GROUP BY threat_level
+      ) t
+    ),
+    'top_remote_addresses', (
+      SELECT json_agg(row_to_json(t))
+      FROM (
+        SELECT remote_address, COUNT(*) as count
+        FROM endpoint_events
+        WHERE organization_id = p_organization_id
+        GROUP BY remote_address
+        ORDER BY count DESC
+        LIMIT 10
+      ) t
+    ),
+    'top_processes', (
+      SELECT json_agg(row_to_json(t))
+      FROM (
+        SELECT process_name, COUNT(*) as count
+        FROM endpoint_events
+        WHERE organization_id = p_organization_id
+        GROUP BY process_name
+        ORDER BY count DESC
+        LIMIT 10
+      ) t
+    )
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+Update getEndpointStats in agentQueries.ts to call this RPC function instead of fetching raw rows.
+
+---
+
+## FIX 8 — MEDIUM: Validate Clerk Webhook Signature (svix)
+
+Read this file: app/api/webhooks/clerk/route.ts
+
+Check if svix signature verification is implemented.
+
+If it is NOT verifying the svix-signature header:
+Add this verification at the top of the POST handler BEFORE any processing:
+
+import { Webhook } from 'svix';
+
+const webhookSecret = process.env.CLERK_WEBHOOK_SECRET;
+if (!webhookSecret) {
+  throw new Error('CLERK_WEBHOOK_SECRET is not set');
+}
+
+const svixId = headerPayload.get('svix-id');
+const svixTimestamp = headerPayload.get('svix-timestamp');
+const svixSignature = headerPayload.get('svix-signature');
+
+if (!svixId || !svixTimestamp || !svixSignature) {
+  return new Response('Missing svix headers', { status: 400 });
+}
+
+const wh = new Webhook(webhookSecret);
+let evt;
+try {
+  evt = wh.verify(body, {
+    'svix-id': svixId,
+    'svix-timestamp': svixTimestamp,
+    'svix-signature': svixSignature,
+  });
+} catch (err) {
+  return new Response('Invalid webhook signature', { status: 401 });
+}
+
+If it IS already there, confirm and move on.
+
+---
+
+## FIX 9 — LOW: Gemini Error Message Typo
+
+Read this file: lib/ai/gemini.ts
+
+Find the line that throws an error mentioning "GROQ_API_KEY" when GEMINI_API_KEY is missing.
+Replace "GROQ_API_KEY" with "GEMINI_API_KEY" in that error message.
+
+---
+
+## FIX 10 — LOW: Add Centralized API Route Protection in Middleware
+
+Read this file: middleware.ts
+
+Check if /api routes (excluding public webhook endpoints) are centrally protected.
+
+If the middleware only protects /dashboard and relies on individual routes to handle auth:
+Add a matcher rule to require Clerk auth for all /api/* routes EXCEPT:
+- /api/webhooks/clerk
+- /api/webhooks/polar (or billing webhook path)
+- /api/connectors/wazuh (Wazuh webhook receiver)
+- /api/ingest (if it has its own auth)
+
+Use Clerk's middleware to add this protection layer as a safety net.
+This does NOT replace per-route auth checks — it is an additional defense-in-depth layer.
+
+---
+
+## FIX 11 — FINAL: Build Verification
+
+After ALL fixes above are complete:
+
+1. Run: npm run build
+2. If there are TypeScript errors, fix them — do not leave the build broken
+3. If there are import errors from new code, resolve them
+4. If there are type mismatches from refactored functions, fix the types
+5. Run npm run build again until it exits with 0 errors
+6. Report the final build output
+
+---
+
+## FINAL REPORT
+
+After completing all fixes, provide a summary in this format:
+
+✅ FIXED: [Issue name] — [file(s) changed] — [what you did]
+⚠️ PARTIAL: [Issue name] — [what was done] — [what needs manual action]
+❌ SKIPPED: [Issue name] — [reason]
+
+Also list:
+- Any new migration files created (with full filenames)
+- Any new environment variables required (e.g., CLERK_WEBHOOK_SECRET)
+- Any manual Supabase steps needed (e.g., running migrations via Supabase CLI or dashboard)

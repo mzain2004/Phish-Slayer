@@ -87,12 +87,38 @@ export async function POST(request: Request) {
       );
     }
 
+    // Check AI rate limits
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('api_calls_today, api_calls_reset_at')
+      .eq('id', userId)
+      .single();
+
+    let calls = profile?.api_calls_today || 0;
+    let resetAt = profile?.api_calls_reset_at ? new Date(profile.api_calls_reset_at) : new Date(0);
+    const now = new Date();
+    
+    if (now >= resetAt) {
+      calls = 0;
+      resetAt = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours from now
+    }
+    
+    if (calls >= 50) {
+      return NextResponse.json({ error: "Daily AI limit reached" }, { status: 429 });
+    }
+
     let responseText = "";
     try {
       responseText = await groqComplete(
         SYSTEM_PROMPT,
         `--- WEBPAGE TEXT FROM: ${safeTarget} ---\n${safeText}\n--- END ---`,
       );
+
+      // Increment AI calls after success
+      await supabase.from('profiles').update({
+        api_calls_today: calls + 1,
+        api_calls_reset_at: resetAt.toISOString()
+      }).eq('id', userId);
     } catch (error) {
       console.warn("AI heuristic analysis fallback used", {
         error: error instanceof Error ? error.message : "unknown",

@@ -41,24 +41,50 @@ export async function scanTarget(indicator: string): Promise<CtiFinding> {
     ? `${VT_BASE}/ip_addresses/${encodeURIComponent(indicator)}`
     : `${VT_BASE}/urls/${encodeUrlForVT(indicator)}`;
 
-  let res = await fetch(endpoint, {
-    headers: {
-      'x-apikey': VT_API_KEY,
-    },
-    cache: 'no-store',
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  let res: Response;
+  try {
+    res = await fetch(endpoint, {
+      headers: {
+        'x-apikey': VT_API_KEY,
+      },
+      cache: 'no-store',
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(`External API call timed out after 15 seconds: ${endpoint}`);
+    }
+    throw error;
+  }
 
   // Handle 404 — Not found in VT database, so submit and wait
   if (res.status === 404 && !isIp) {
     console.log(`[VT] URL not found in database, submitting for analysis: ${indicator}`);
-    const submitRes = await fetch(`${VT_BASE}/urls`, {
-      method: 'POST',
-      headers: {
-        'x-apikey': VT_API_KEY,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: `url=${encodeURIComponent(indicator)}`,
-    });
+    const submitController = new AbortController();
+    const submitTimeoutId = setTimeout(() => submitController.abort(), 15000);
+    let submitRes: Response;
+    try {
+      submitRes = await fetch(`${VT_BASE}/urls`, {
+        method: 'POST',
+        headers: {
+          'x-apikey': VT_API_KEY,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `url=${encodeURIComponent(indicator)}`,
+        signal: submitController.signal,
+      });
+      clearTimeout(submitTimeoutId);
+    } catch (error) {
+      clearTimeout(submitTimeoutId);
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error(`External API call timed out after 15 seconds: ${VT_BASE}/urls`);
+      }
+      throw error;
+    }
 
     if (submitRes.ok) {
       // Poll a few times or just return unknown for now?

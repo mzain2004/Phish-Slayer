@@ -80,6 +80,26 @@ export async function POST(request: Request) {
 
     const userMessage = parsed.data.message;
 
+    // Check AI rate limits
+    const { data: profile } = await serviceClient
+      .from('profiles')
+      .select('api_calls_today, api_calls_reset_at')
+      .eq('id', user.id)
+      .single();
+
+    let calls = profile?.api_calls_today || 0;
+    let resetAt = profile?.api_calls_reset_at ? new Date(profile.api_calls_reset_at) : new Date(0);
+    const now = new Date();
+    
+    if (now >= resetAt) {
+      calls = 0;
+      resetAt = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours from now
+    }
+    
+    if (calls >= 50) {
+      return NextResponse.json({ message: "Daily AI limit reached" }, { status: 429 });
+    }
+
     let reply = "";
     try {
       const responseText = await groqComplete(
@@ -87,6 +107,12 @@ export async function POST(request: Request) {
         userMessage,
         500,
       );
+
+      // Increment AI calls after success
+      await serviceClient.from('profiles').update({
+        api_calls_today: calls + 1,
+        api_calls_reset_at: resetAt.toISOString()
+      }).eq('id', user.id);
 
       reply = responseText.trim() || "I couldn't process that. Try again.";
     } catch (error) {

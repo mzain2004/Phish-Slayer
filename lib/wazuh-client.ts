@@ -75,6 +75,7 @@ async function requestFreshToken(
         headers: {
           Authorization: `Basic ${basicAuth}`,
         },
+        timeout: 10000,
       },
       (res) => {
         let body = "";
@@ -106,6 +107,11 @@ async function requestFreshToken(
         });
       },
     );
+
+    req.on("timeout", () => {
+      req.destroy();
+      reject(new Error("External API call timed out after 10 seconds: Wazuh /security/user/authenticate"));
+    });
 
     req.on("error", (error) => reject(error));
     req.end();

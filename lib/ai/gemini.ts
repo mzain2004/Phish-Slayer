@@ -73,51 +73,65 @@ async function attemptGeminiCall(
 ): Promise<string> {
   const apiKey = getGeminiApiKey();
   if (!apiKey) {
-    throw new Error("Missing GROQ_API_KEY");
+    throw new Error("Missing GEMINI_API_KEY");
   }
 
   const model = getGeminiModel();
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
+  
+  try {
+    const response = await fetch(
+      url,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(toPayload(payload)),
+        signal: signal || controller.signal,
       },
-      body: JSON.stringify(toPayload(payload)),
-      signal,
-    },
-  );
-
-  if (response.status === 429) {
-    const details = await response.text();
-    throw new GeminiRateLimitError(
-      details ? `Rate limited: ${details}` : "Rate limited",
     );
+    clearTimeout(timeoutId);
+
+    if (response.status === 429) {
+      const details = await response.text();
+      throw new GeminiRateLimitError(
+        details ? `Rate limited: ${details}` : "Rate limited",
+      );
+    }
+
+    if (!response.ok) {
+      const details = await response.text();
+      throw new Error(`Gemini failed (${response.status}): ${details}`);
+    }
+
+    const raw = await response.json();
+    const parsed = GeminiResponseSchema.safeParse(raw);
+    if (!parsed.success) {
+      throw new Error("Gemini response schema invalid");
+    }
+
+    const text =
+      parsed.data.candidates?.[0]?.content.parts
+        .map((part) => part.text || "")
+        .join("")
+        .trim() || "";
+
+    if (!text) {
+      throw new Error("Gemini returned empty response");
+    }
+
+    return text;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(`External API call timed out after 30 seconds: ${url}`);
+    }
+    throw error;
   }
-
-  if (!response.ok) {
-    const details = await response.text();
-    throw new Error(`Gemini failed (${response.status}): ${details}`);
-  }
-
-  const raw = await response.json();
-  const parsed = GeminiResponseSchema.safeParse(raw);
-  if (!parsed.success) {
-    throw new Error("Gemini response schema invalid");
-  }
-
-  const text =
-    parsed.data.candidates?.[0]?.content.parts
-      .map((part) => part.text || "")
-      .join("")
-      .trim() || "";
-
-  if (!text) {
-    throw new Error("Gemini returned empty response");
-  }
-
-  return text;
 }
 
 export async function geminiGenerateText(

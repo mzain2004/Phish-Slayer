@@ -27,9 +27,29 @@ export async function GET() {
   }
 
   const supabase = await createClerkSupabaseClient();
+  
+  // Look up ALL tenants the user belongs to
+  // tenant_id is UUID; cases.organization_id is TEXT — cast to string for the .in() filter
+  const { data: memberships, error: memberError } = await supabase
+    .from("tenant_users")
+    .select("tenant_id")
+    .eq("user_id", userId);
+
+  if (memberError) {
+    return NextResponse.json({ error: memberError.message }, { status: 500 });
+  }
+
+  // Cast UUID → string so the .in() matches cases.organization_id (TEXT column)
+  const orgIds = (memberships ?? []).map((m) => String(m.tenant_id));
+
+  if (orgIds.length === 0) {
+    return NextResponse.json([]);
+  }
+
   const { data, error } = await supabase
     .from("cases")
     .select("*")
+    .in("organization_id", orgIds)
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -50,6 +70,24 @@ export async function POST(req: Request) {
     const validatedData = createCaseSchema.parse(body);
     
     const supabase = await createClerkSupabaseClient();
+
+    // Verify tenant membership before allowing case creation
+    // tenant_users.tenant_id is UUID; validatedData.organization_id is TEXT string
+    if (validatedData.organization_id) {
+      const { data: membership, error: memberError } = await supabase
+        .from("tenant_users")
+        .select("tenant_id")
+        .eq("user_id", userId)
+        .eq("tenant_id", validatedData.organization_id)
+        .maybeSingle();
+
+      if (memberError || !membership) {
+        return NextResponse.json({ error: "Not authorized for this organization" }, { status: 403 });
+      }
+    } else {
+      return NextResponse.json({ error: "organization_id is required" }, { status: 400 });
+    }
+    
     const { data, error } = await supabase
       .from("cases")
       .insert({

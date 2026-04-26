@@ -54,6 +54,26 @@ export async function POST(request: Request) {
       );
     }
 
+    // Check AI rate limits
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('api_calls_today, api_calls_reset_at')
+      .eq('id', userId)
+      .single();
+
+    let calls = profile?.api_calls_today || 0;
+    let resetAt = profile?.api_calls_reset_at ? new Date(profile.api_calls_reset_at) : new Date(0);
+    const now = new Date();
+    
+    if (now >= resetAt) {
+      calls = 0;
+      resetAt = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours from now
+    }
+    
+    if (calls >= 50) {
+      return NextResponse.json({ error: "Daily AI limit reached" }, { status: 429 });
+    }
+
     const systemPrompt =
       "You are Phish-Slayer AI Support, an expert cybersecurity SOC assistant. Help users navigate the platform, understand alerts, use features, and resolve issues. Be concise and technical.";
     const safeMessage = sanitizePromptInput(parsed.data.message, 2000);
@@ -63,6 +83,12 @@ export async function POST(request: Request) {
     let reply = "";
     try {
       const responseText = await groqComplete(systemPrompt, userPrompt, 512);
+
+      // Increment AI calls after success
+      await supabase.from('profiles').update({
+        api_calls_today: calls + 1,
+        api_calls_reset_at: resetAt.toISOString()
+      }).eq('id', userId);
 
       reply =
         responseText.trim() ||

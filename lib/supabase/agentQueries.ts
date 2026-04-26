@@ -74,49 +74,41 @@ export async function getEndpointStats(): Promise<EndpointStats> {
     if (!userId) return empty;
     const supabase = await createClient();
 
-    let data: any[] | null = null;
-    try {
-      const response = await supabase
-        .from("endpoint_events")
-        .select("threat_level, remote_address, process_name");
-      if (response.error || !response.data) {
-        if (response.error) {
-          console.error(
-            "[agentQueries] getEndpointStats error:",
-            response.error,
-          );
-        }
-        return empty;
-      }
-      data = response.data as any[];
-    } catch (error) {
-      console.error("[agentQueries] getEndpointStats query error:", error);
+    // 1. Get organization_id for the user
+    const { data: membership } = await supabase
+      .from("tenant_users")
+      .select("tenant_id")
+      .eq("user_id", userId)
+      .limit(1)
+      .maybeSingle();
+
+    if (!membership?.tenant_id) return empty;
+
+    // 2. Call RPC
+    const { data, error } = await supabase.rpc("get_endpoint_stats", {
+      p_organization_id: membership.tenant_id,
+    });
+
+    if (error || !data) {
+      if (error) console.error("[agentQueries] getEndpointStats RPC error:", error);
       return empty;
     }
 
-    const stats: EndpointStats = { ...empty, total: data.length };
-    const ipSet = new Set<string>();
-    const processMap = new Map<string, number>();
+    const res = data as any;
+    const stats: EndpointStats = { ...empty };
 
-    for (const row of data) {
-      const level = (row.threat_level || "low").toLowerCase();
-      if (level === "critical") stats.critical++;
-      else if (level === "high") stats.high++;
-      else if (level === "medium") stats.medium++;
-      else stats.low++;
+    const counts = res.threat_level_counts || {};
+    stats.critical = counts.critical || 0;
+    stats.high = counts.high || 0;
+    stats.medium = counts.medium || 0;
+    stats.low = counts.low || 0;
+    stats.total = stats.critical + stats.high + stats.medium + stats.low;
 
-      ipSet.add(row.remote_address);
-      processMap.set(
-        row.process_name,
-        (processMap.get(row.process_name) || 0) + 1,
-      );
-    }
-
-    stats.uniqueIps = ipSet.size;
-    stats.topProcesses = Array.from(processMap.entries())
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
+    stats.uniqueIps = (res.top_remote_addresses || []).length;
+    stats.topProcesses = (res.top_processes || []).map((p: any) => ({
+      name: p.process_name,
+      count: p.count,
+    }));
 
     return stats;
   } catch (err) {
