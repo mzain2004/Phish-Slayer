@@ -33,7 +33,7 @@ const GeminiDecisionSchema = z.object({
   action_scope: z.string().min(1),
 });
 
-const TenantIdSchema = z.string().uuid();
+const OrganizationIdSchema = z.string().uuid();
 
 type EscalationRow = {
   id: string;
@@ -524,7 +524,6 @@ async function writeLifecycleAudit(
 ) {
   const payload = {
     organization_id: organizationId,
-    tenant_id: organizationId,
     escalation_id: escalation.id,
     alert_id: escalation.alert_id,
     stage,
@@ -548,16 +547,16 @@ async function writeLifecycleAudit(
   }
 }
 
-function readTenantIdFromUnknown(value: unknown): string | null {
+function readOrganizationIdFromUnknown(value: unknown): string | null {
   if (typeof value !== "string") {
     return null;
   }
 
-  const parsed = TenantIdSchema.safeParse(value);
+  const parsed = OrganizationIdSchema.safeParse(value);
   return parsed.success ? parsed.data : null;
 }
 
-function resolveEscalationTenantId(
+function resolveEscalationOrganizationId(
   escalation: EscalationRow,
   l1Result: Record<string, unknown> | null | undefined,
 ): string | null {
@@ -568,7 +567,7 @@ function resolveEscalationTenantId(
   const telemetry = escalation.telemetry_snapshot;
 
   if (telemetry && typeof telemetry === "object") {
-    const telemetryOrganizationId = readTenantIdFromUnknown(
+    const telemetryOrganizationId = readOrganizationIdFromUnknown(
       (telemetry as Record<string, unknown>).organization_id,
     );
 
@@ -576,22 +575,22 @@ function resolveEscalationTenantId(
       return telemetryOrganizationId;
     }
 
-    const telemetryTenantId = readTenantIdFromUnknown(
+    const telemetryLegacyTenantId = readOrganizationIdFromUnknown(
       (telemetry as Record<string, unknown>).tenant_id,
     );
 
-    if (telemetryTenantId) {
-      return telemetryTenantId;
+    if (telemetryLegacyTenantId) {
+      return telemetryLegacyTenantId;
     }
   }
 
-  const l1OrganizationId = readTenantIdFromUnknown(l1Result?.organization_id);
+  const l1OrganizationId = readOrganizationIdFromUnknown(l1Result?.organization_id);
   if (l1OrganizationId) {
     return l1OrganizationId;
   }
 
-  const l1TenantId = readTenantIdFromUnknown(l1Result?.tenant_id);
-  return l1TenantId;
+  const l1LegacyTenantId = readOrganizationIdFromUnknown(l1Result?.tenant_id);
+  return l1LegacyTenantId;
 }
 
 async function claimEscalation(
@@ -753,7 +752,7 @@ async function runL2Responder(request: NextRequest, options: L2RunOptions) {
     let decision: Decision | null = null;
     const startedAt = Date.now();
     const organizationId =
-      options.organizationId || resolveEscalationTenantId(escalation, options.l1Result);
+      options.organizationId || resolveEscalationOrganizationId(escalation, options.l1Result);
 
     try {
       const claimState = await claimEscalation(adminClient, escalation);
@@ -1047,10 +1046,9 @@ export async function POST(request: NextRequest) {
     ? Math.max(0, minAgeRaw)
     : undefined;
   const organizationId =
-    readTenantIdFromUnknown(body.organization_id) ||
-    readTenantIdFromUnknown(body.organizationId) ||
-    readTenantIdFromUnknown(body.tenant_id) ||
-    readTenantIdFromUnknown(body.organizationId);
+    readOrganizationIdFromUnknown(body.organization_id) ||
+    readOrganizationIdFromUnknown(body.organizationId) ||
+    readOrganizationIdFromUnknown(body.tenant_id);
   const l1Result =
     body.l1_result && typeof body.l1_result === "object"
       ? (body.l1_result as Record<string, unknown>)

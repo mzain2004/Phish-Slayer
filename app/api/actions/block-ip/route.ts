@@ -254,7 +254,6 @@ export async function POST(request: NextRequest) {
     severity: mapThreatToAuditSeverity(threatLevel),
     organization_id: tenantId || null,
     metadata: {
-      tenant_id: tenantId || null,
       ip,
       reason,
       cloudflare_rule_id: cloudflareRuleId,

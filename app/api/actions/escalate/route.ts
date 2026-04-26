@@ -16,7 +16,6 @@ const EscalatePayloadSchema = z.object({
   affectedIp: z.string().optional(),
   organization_id: z.string().uuid().optional(),
   organizationId: z.string().uuid().optional(),
-  tenantId: z.string().uuid().optional(),
   recommendedAction: z.enum([
     "CLOSE",
     "ISOLATE_IDENTITY",
@@ -124,7 +123,6 @@ export async function POST(request: NextRequest) {
   const organizationId =
     payload.organization_id ||
     payload.organizationId ||
-    payload.tenantId ||
     null;
   const webhookUrl = process.env.DISCORD_ESCALATION_WEBHOOK_URL;
 
@@ -251,7 +249,6 @@ export async function POST(request: NextRequest) {
     metadata: {
       alertId: payload.alertId,
       organization_id: organizationId,
-      tenant_id: organizationId,
       recommendedAction: payload.recommendedAction,
       discord_notified: discordNotified,
     },

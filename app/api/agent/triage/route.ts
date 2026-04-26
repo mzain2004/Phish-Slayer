@@ -260,7 +260,6 @@ async function writeAuditLogSafe(
     severity,
     organization_id: organizationId || null,
     metadata: {
-      tenant_id: organizationId || null,
       ...metadata,
     },
     created_at: new Date().toISOString(),
@@ -516,7 +515,6 @@ async function escalateScan(
       telemetrySnapshot: {
         ...(record as Record<string, unknown>),
         organization_id: organizationId || null,
-        tenant_id: organizationId || null,
       },
     }),
   });
@@ -655,7 +653,6 @@ async function processBatch(
             severity: decision.severity,
             metadata: {
               organization_id: organizationId,
-              tenant_id: organizationId,
               source: item.source,
               record_id: item.id,
               reasoning: decision.reasoning,
@@ -775,7 +772,6 @@ async function processBatch(
 
   return NextResponse.json({
     success: true,
-    tenant_id: organizationId,
     organization_id: organizationId,
     processed,
     closed,

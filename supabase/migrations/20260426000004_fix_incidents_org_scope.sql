@@ -1,10 +1,18 @@
--- Add organization_id
-ALTER TABLE public.incidents ADD COLUMN IF NOT EXISTS organization_id UUID;
+-- 1. Add organization_id if it does not exist
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_schema = 'public' 
+                     AND table_name = 'incidents' 
+                     AND column_name = 'organization_id') THEN
+        ALTER TABLE public.incidents ADD COLUMN organization_id UUID;
+    END IF;
+END $$;
 
--- Drop all existing policies on incidents
+-- 2. Drop all existing RLS policies on incidents
 DO $$ 
 DECLARE
-    pol RECORD;
+    pol record;
 BEGIN
     FOR pol IN 
         SELECT policyname 
@@ -15,41 +23,43 @@ BEGIN
     END LOOP;
 END $$;
 
+-- 3. Enable RLS
 ALTER TABLE public.incidents ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "org_scoped_select"
-ON public.incidents FOR SELECT
+-- 4. Create new org-scoped policies
+CREATE POLICY "incidents_org_select" ON public.incidents
+FOR SELECT
 USING (
-  organization_id IN (
-    SELECT tenant_id FROM public.tenant_users WHERE user_id = auth.jwt()->>'sub'
-  )
+    organization_id IN (
+        SELECT organization_id FROM public.organization_members WHERE user_id::text = auth.jwt()->>'sub'
+    )
 );
 
-CREATE POLICY "org_scoped_insert"
-ON public.incidents FOR INSERT
+CREATE POLICY "incidents_org_insert" ON public.incidents
+FOR INSERT
 WITH CHECK (
-  organization_id IN (
-    SELECT tenant_id FROM public.tenant_users WHERE user_id = auth.jwt()->>'sub'
-  )
+    organization_id IN (
+        SELECT organization_id FROM public.organization_members WHERE user_id::text = auth.jwt()->>'sub'
+    )
 );
 
-CREATE POLICY "org_scoped_update"
-ON public.incidents FOR UPDATE
+CREATE POLICY "incidents_org_update" ON public.incidents
+FOR UPDATE
 USING (
-  organization_id IN (
-    SELECT tenant_id FROM public.tenant_users WHERE user_id = auth.jwt()->>'sub'
-  )
+    organization_id IN (
+        SELECT organization_id FROM public.organization_members WHERE user_id::text = auth.jwt()->>'sub'
+    )
 )
 WITH CHECK (
-  organization_id IN (
-    SELECT tenant_id FROM public.tenant_users WHERE user_id = auth.jwt()->>'sub'
-  )
+    organization_id IN (
+        SELECT organization_id FROM public.organization_members WHERE user_id::text = auth.jwt()->>'sub'
+    )
 );
 
-CREATE POLICY "org_scoped_delete"
-ON public.incidents FOR DELETE
+CREATE POLICY "incidents_org_delete" ON public.incidents
+FOR DELETE
 USING (
-  organization_id IN (
-    SELECT tenant_id FROM public.tenant_users WHERE user_id = auth.jwt()->>'sub'
-  )
+    organization_id IN (
+        SELECT organization_id FROM public.organization_members WHERE user_id::text = auth.jwt()->>'sub'
+    )
 );

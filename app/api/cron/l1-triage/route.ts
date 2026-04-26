@@ -53,8 +53,7 @@ export async function GET(request: NextRequest) {
   const internalBaseUrl =
     process.env.INTERNAL_API_URL ?? request.nextUrl.origin;
   const organizationId =
-    request.nextUrl.searchParams.get("organization_id") ||
-    request.nextUrl.searchParams.get("tenant_id");
+    request.nextUrl.searchParams.get("organization_id");
   const triageUrl = new URL(`${internalBaseUrl}/api/agent/triage`);
   triageUrl.searchParams.set("alert_min_age_minutes", "5");
   triageUrl.searchParams.set("include_scans", "true");

@@ -156,7 +156,6 @@ async function logStageFailure(
     {
       stage,
       cycle_id: cycleId,
-      tenant_id: organizationId,
       error: error instanceof Error ? error.message : "unknown_error",
       ...extra,
     },
@@ -177,7 +176,6 @@ async function logStaticAnalysisStage(
     "low",
     {
       cycle_id: cycleId,
-      tenant_id: organizationId,
       stage,
       ...metadata,
     },
@@ -448,7 +446,6 @@ type L3RunOptions = {
   organizationId?: string | null;
   l2Context?: {
     organization_id: string | null;
-    tenant_id: string | null;
     action: "ISOLATE_IDENTITY" | "BLOCK_IP" | "HUNT" | "MANUAL_REVIEW";
     confidence: number;
     reasoning: string | null;
@@ -480,15 +477,13 @@ function parseL2Context(value: unknown): L3RunOptions["l2Context"] {
       typeof raw.organization_id === "string" &&
       z.string().uuid().safeParse(raw.organization_id).success
         ? raw.organization_id
-        : null,
-    tenant_id:
-      typeof raw.tenant_id === "string" &&
-      z.string().uuid().safeParse(raw.tenant_id).success
-        ? raw.tenant_id
-        : typeof raw.organizationId === "string" &&
-            z.string().uuid().safeParse(raw.organizationId).success
-          ? raw.organizationId
-          : null,
+        : typeof raw.tenant_id === "string" &&
+          z.string().uuid().safeParse(raw.tenant_id).success
+          ? raw.tenant_id
+          : typeof raw.organizationId === "string" &&
+              z.string().uuid().safeParse(raw.organizationId).success
+            ? raw.organizationId
+            : null,
     action,
     confidence:
       typeof raw.confidence === "number" && Number.isFinite(raw.confidence)
@@ -518,7 +513,6 @@ async function runL3Pipeline(request: NextRequest, options: L3RunOptions) {
   const organizationId =
     options.organizationId ||
     options.l2Context?.organization_id ||
-    options.l2Context?.tenant_id ||
     null;
   const stageErrors: string[] = [];
   const hunterPath =
@@ -762,7 +756,6 @@ async function runL3Pipeline(request: NextRequest, options: L3RunOptions) {
       "critical",
       {
         cycle_id: cycleId,
-        tenant_id: organizationId,
         halt_reason: haltReason,
         verdict: reviewer.verdict || "HALT",
         reduced_scope: reducedScope,

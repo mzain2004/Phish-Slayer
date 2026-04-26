@@ -11,7 +11,8 @@ const isPublicRoute = createRouteMatcher([
   '/api/billing/webhook',
   '/api/connectors/wazuh',
   '/api/ingest', 
-  '/api/ingest/batch'
+  '/api/ingest/batch',
+  '/api/health'
 ]);
 const isAuthRoute = createRouteMatcher(['/sign-in(.*)', '/sign-up(.*)']);
 

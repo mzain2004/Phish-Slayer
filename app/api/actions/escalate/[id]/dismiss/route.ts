@@ -85,7 +85,7 @@ export async function PATCH(
 
   const { data: escalation, error: fetchError } = await adminClient
     .from("escalations")
-    .select("id, severity, tenant_id, organization_id")
+    .select("id, severity, organization_id")
     .eq("id", escalationId)
     .single();
 
@@ -96,8 +96,7 @@ export async function PATCH(
     );
   }
 
-  const organizationId =
-    escalation.organization_id || escalation.tenant_id || null;
+  const organizationId = escalation.organization_id || null;
 
   const { error: updateError } = await adminClient
     .from("escalations")
@@ -122,7 +121,6 @@ export async function PATCH(
     metadata: {
       escalation_id: escalationId,
       organization_id: organizationId,
-      tenant_id: organizationId,
     },
     actor_id: userId,
     created_at: resolvedAt,

@@ -31,8 +31,8 @@ export async function GET(request: Request) {
         id, 
         email, 
         display_name,
-        tenant_users (
-          tenant_id
+        organization_members (
+          organization_id
         )
       `)
       .eq("notify_digest", true);
@@ -51,7 +51,7 @@ export async function GET(request: Request) {
     
     // STEP 2: Extract all their user_ids and org_ids into arrays
     const userIds = profiles.map(p => p.id);
-    const orgIds = Array.from(new Set(profiles.flatMap(p => (p.tenant_users as any[] || []).map(tu => tu.tenant_id))));
+    const orgIds = Array.from(new Set(profiles.flatMap(p => (p.organization_members as any[] || []).map(tu => tu.organization_id))));
 
     // STEP 3: Run ONE bulk query for scan counts grouped by user_id for the past 7 days
     const { data: allScans, error: scanError } = await supabaseAdmin
@@ -120,7 +120,7 @@ export async function GET(request: Request) {
         const topThreats = topThreatsMap.get(profile.id) || [];
         
         // Sum incidents for all orgs the user is in
-        const userOrgs = (profile.tenant_users as any[] || []).map(tu => tu.tenant_id);
+        const userOrgs = (profile.organization_members as any[] || []).map(tu => tu.organization_id);
         const openIncidents = userOrgs.reduce((acc, orgId) => acc + (incidentCountMap.get(orgId) || 0), 0);
 
         // Log the digest

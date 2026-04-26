@@ -76,17 +76,17 @@ export async function getEndpointStats(): Promise<EndpointStats> {
 
     // 1. Get organization_id for the user
     const { data: membership } = await supabase
-      .from("tenant_users")
-      .select("tenant_id")
+      .from("organization_members")
+      .select("organization_id")
       .eq("user_id", userId)
       .limit(1)
       .maybeSingle();
 
-    if (!membership?.tenant_id) return empty;
+    if (!membership?.organization_id) return empty;
 
     // 2. Call RPC
     const { data, error } = await supabase.rpc("get_endpoint_stats", {
-      p_organization_id: membership.tenant_id,
+      p_organization_id: membership.organization_id,
     });
 
     if (error || !data) {

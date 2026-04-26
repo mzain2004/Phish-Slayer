@@ -1,7 +1,41 @@
-ALTER TABLE public.endpoint_events ADD COLUMN IF NOT EXISTS organization_id UUID;
-
-UPDATE public.endpoint_events
-SET organization_id = tenant_users.tenant_id
-FROM public.tenant_users
-WHERE endpoint_events.user_id = tenant_users.user_id
-  AND endpoint_events.organization_id IS NULL;
+CREATE OR REPLACE FUNCTION get_endpoint_stats(p_organization_id UUID)
+RETURNS JSON AS $$
+BEGIN
+  RETURN json_build_object(
+    'threat_level_counts', (
+      SELECT COALESCE(json_object_agg(threat_level, count), '{}'::json)
+      FROM (
+        SELECT e.threat_level, COUNT(*) as count
+        FROM endpoint_events e
+        JOIN organization_members tu ON e.user_id = tu.user_id::text
+        WHERE tu.organization_id = p_organization_id
+        GROUP BY e.threat_level
+      ) t
+    ),
+    'top_remote_addresses', (
+      SELECT COALESCE(json_agg(row_to_json(t)), '[]'::json)
+      FROM (
+        SELECT e.remote_address, COUNT(*) as count
+        FROM endpoint_events e
+        JOIN organization_members tu ON e.user_id = tu.user_id::text
+        WHERE tu.organization_id = p_organization_id
+        GROUP BY e.remote_address
+        ORDER BY count DESC
+        LIMIT 10
+      ) t
+    ),
+    'top_processes', (
+      SELECT COALESCE(json_agg(row_to_json(t)), '[]'::json)
+      FROM (
+        SELECT e.process_name, COUNT(*) as count
+        FROM endpoint_events e
+        JOIN organization_members tu ON e.user_id = tu.user_id::text
+        WHERE tu.organization_id = p_organization_id
+        GROUP BY e.process_name
+        ORDER BY count DESC
+        LIMIT 10
+      ) t
+    )
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;

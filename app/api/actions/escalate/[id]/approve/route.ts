@@ -84,9 +84,7 @@ export async function PATCH(
 
   const { data: escalation, error: fetchError } = await adminClient
     .from("escalations")
-    .select(
-      "id, title, severity, status, tenant_id, organization_id, recommended_action, affected_user_id, affected_ip",
-    )
+    .select("id, title, severity, status, organization_id, recommended_action, affected_user_id, affected_ip")
     .eq("id", escalationId)
     .single();
 
@@ -114,8 +112,7 @@ export async function PATCH(
     );
   }
 
-  const organizationId =
-    escalation.organization_id || escalation.tenant_id || null;
+  const organizationId = escalation.organization_id || null;
   const affectedIp =
     typeof escalation.affected_ip === "string" &&
     escalation.affected_ip !== "unknown"
@@ -178,7 +175,6 @@ export async function PATCH(
     metadata: {
       escalation_id: escalationId,
       organization_id: organizationId,
-      tenant_id: organizationId,
       recommended_action: escalation.recommended_action,
       action_fired: actionFired,
     },

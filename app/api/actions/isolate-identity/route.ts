@@ -213,7 +213,6 @@ export async function POST(request: NextRequest) {
     reason,
     organization_id: tenantId || null,
     metadata: {
-      tenant_id: tenantId || null,
       caller_role: callerRole,
       previous_status: targetProfile.status,
       session_revoked: !signOutError,

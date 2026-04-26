@@ -222,7 +222,6 @@ async function writeAuditLogSafe(
         severity,
         organization_id: organizationId || null,
         metadata: {
-          organization_id: organizationId || null,
           ...metadata,
         },
         created_at: new Date().toISOString(),

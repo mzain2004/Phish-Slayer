@@ -31,8 +31,8 @@ export async function GET() {
   // Look up ALL tenants the user belongs to
   // tenant_id is UUID; cases.organization_id is TEXT — cast to string for the .in() filter
   const { data: memberships, error: memberError } = await supabase
-    .from("tenant_users")
-    .select("tenant_id")
+    .from("organization_members")
+    .select("organization_id")
     .eq("user_id", userId);
 
   if (memberError) {
@@ -40,7 +40,7 @@ export async function GET() {
   }
 
   // Cast UUID → string so the .in() matches cases.organization_id (TEXT column)
-  const orgIds = (memberships ?? []).map((m) => String(m.tenant_id));
+  const orgIds = (memberships ?? []).map((m) => String(m.organization_id));
 
   if (orgIds.length === 0) {
     return NextResponse.json([]);
@@ -75,10 +75,10 @@ export async function POST(req: Request) {
     // tenant_users.tenant_id is UUID; validatedData.organization_id is TEXT string
     if (validatedData.organization_id) {
       const { data: membership, error: memberError } = await supabase
-        .from("tenant_users")
-        .select("tenant_id")
+        .from("organization_members")
+        .select("organization_id")
         .eq("user_id", userId)
-        .eq("tenant_id", validatedData.organization_id)
+        .eq("organization_id", validatedData.organization_id)
         .maybeSingle();
 
       if (memberError || !membership) {
