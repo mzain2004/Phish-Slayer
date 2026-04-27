@@ -124,12 +124,10 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ message: reply });
   } catch (error) {
+    console.error("[support-chat] error:", error);
     return NextResponse.json(
       {
-        message:
-          error instanceof Error
-            ? error.message
-            : "Something went wrong, try again",
+        message: "Internal server error",
       },
       { status: 500 },
     );

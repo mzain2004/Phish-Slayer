@@ -6,9 +6,11 @@ const KNOWN_FP_RULE_IDS = ["5706", "5710", "5712", "5716", "554"];
 
 export class AutoCloseEngine {
   private supabase: SupabaseClient;
+  private organization_id: string;
 
-  constructor(supabase: SupabaseClient) {
+  constructor(supabase: SupabaseClient, organization_id: string) {
     this.supabase = supabase;
+    this.organization_id = organization_id;
   }
 
   /**
@@ -35,7 +37,7 @@ export class AutoCloseEngine {
     });
     
     if (action === "suppressed" || action === "auto_closed") {
-      await this.supabase.from("cases").update({ status: "closed", updated_at: new Date().toISOString() }).eq("id", case_id);
+      await this.supabase.from("cases").update({ status: "closed", updated_at: new Date().toISOString() }).eq("id", case_id).eq("organization_id", this.organization_id);
     }
   }
 

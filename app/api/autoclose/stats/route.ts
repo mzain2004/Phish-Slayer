@@ -7,14 +7,14 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function GET() {
-  const { userId } = await auth();
-  if (!userId) {
+  const { userId, orgId } = await auth();
+  if (!userId || !orgId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
     const supabase = await createClient();
-    const engine = new AutoCloseEngine(supabase);
+    const engine = new AutoCloseEngine(supabase, orgId);
     const stats = await engine.getSuppressionsStats();
 
     return NextResponse.json(stats);

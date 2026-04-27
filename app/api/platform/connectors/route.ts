@@ -103,10 +103,11 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error || !data) {
+      console.error("[connectors] register error:", error);
       return NextResponse.json(
         {
           success: false,
-          error: `Failed to register connector: ${error?.message || "insert failed"}`,
+          error: "Failed to register connector",
         },
         { status: 500 },
       );
@@ -114,13 +115,11 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, connector: data });
   } catch (error) {
+    console.error("[connectors] error:", error);
     return NextResponse.json(
       {
         success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to register connector",
+        error: "Internal server error",
       },
       { status: 500 },
     );

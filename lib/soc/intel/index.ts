@@ -23,12 +23,13 @@ export async function syncAllFeeds(supabase: SupabaseClient): Promise<ThreatInte
   return getIntelStats(supabase);
 }
 
-export async function checkIOCAgainstIntel(value: string, ioc_type: string, supabase: SupabaseClient): Promise<ThreatIntelEntry | null> {
+export async function checkIOCAgainstIntel(value: string, ioc_type: string, supabase: SupabaseClient, organization_id: string): Promise<ThreatIntelEntry | null> {
   const { data } = await supabase
     .from("threat_intel")
     .select("*")
     .eq("value", value)
     .eq("ioc_type", ioc_type)
+    .eq("organization_id", organization_id)
     .eq("active", true)
     .maybeSingle();
 

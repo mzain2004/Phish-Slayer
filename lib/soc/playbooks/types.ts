@@ -27,5 +27,6 @@ export interface PlaybookContext {
   caseId: string;
   caseData: any;
   userId: string;
+  organization_id: string;
   outputs: Record<string, any>;
 }

@@ -8,9 +8,11 @@ import { exfiltrationPlaybook } from "./exfiltration";
 export class PlaybookEngine {
   private playbooks: Map<string, Playbook> = new Map();
   private supabase: SupabaseClient;
+  private organization_id: string;
 
-  constructor(supabase: SupabaseClient) {
+  constructor(supabase: SupabaseClient, organization_id: string) {
     this.supabase = supabase;
+    this.organization_id = organization_id;
     this.registerPlaybook(phishingPlaybook.id, phishingPlaybook.steps);
     this.registerPlaybook(malwarePlaybook.id, malwarePlaybook.steps);
     this.registerPlaybook(bruteforcePlaybook.id, bruteforcePlaybook.steps);
@@ -55,8 +57,8 @@ export class PlaybookEngine {
     let escalateToL3 = false;
     let escalationReason: string | null = null;
 
-    // Start
-    await this.supabase.from("cases").update({ status: "investigating" }).eq("id", context.case_id);
+    // Start (scoped by org)
+    await this.supabase.from("cases").update({ status: "investigating" }).eq("id", context.case_id).eq("organization_id", this.organization_id);
     await this.logToTimeline(context.case_id, "PLAYBOOK_STARTED", { playbook_id });
 
     for (const step of playbook.steps) {
@@ -105,7 +107,7 @@ export class PlaybookEngine {
     const success = stepsFailed === 0;
 
     if (success && !escalateToL3) {
-      await this.supabase.from("cases").update({ status: "contained" }).eq("id", context.case_id);
+      await this.supabase.from("cases").update({ status: "contained" }).eq("id", context.case_id).eq("organization_id", this.organization_id);
     }
 
     const result: PlaybookResult = {

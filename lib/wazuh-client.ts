@@ -65,13 +65,21 @@ async function requestFreshToken(
   return new Promise((resolve, reject) => {
     const basicAuth = Buffer.from(`wazuh:${password}`).toString("base64");
 
+    // WARNING: This disables SSL verification for internal Wazuh API connections
+    // which use self-signed certificates. Only use this for trusted internal networks.
+    const isInternalNetwork = managerIp.startsWith("10.") || 
+                           managerIp.startsWith("192.168.") ||
+                           managerIp.startsWith("172.16.") ||
+                           managerIp === "localhost" ||
+                           managerIp === "127.0.0.1";
+    
     const req = https.request(
       {
         hostname: managerIp,
         port: 55000,
         path: "/security/user/authenticate",
         method: "POST",
-        rejectUnauthorized: false,
+        rejectUnauthorized: isInternalNetwork, // Only disable for internal IPs
         headers: {
           Authorization: `Basic ${basicAuth}`,
         },

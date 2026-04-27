@@ -61,9 +61,10 @@ export async function POST(req: Request) {
 
     return NextResponse.json(data);
   } catch (error) {
+    console.error("[isolate] error:", error);
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: "Validation failed", details: error.issues }, { status: 400 });
     }
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Internal Server Error" }, { status: 500 });
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

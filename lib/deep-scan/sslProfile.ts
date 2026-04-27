@@ -43,12 +43,16 @@ export async function getSslProfile(domain: string): Promise<SslResult> {
 
   return new Promise<SslResult>((resolve) => {
     try {
+      // This function performs SSL certificate scanning on external domains.
+      // We MUST disable rejectUnauthorized to retrieve certificate info from servers
+      // with self-signed certificates, which is a valid security scanning use case.
+      // This is intentional for external SSL analysis only.
       const socket = tls.connect(
         {
           host: cleanDomain,
           port: 443,
           servername: cleanDomain,
-          rejectUnauthorized: false,
+          rejectUnauthorized: false, // Required for SSL certificate scanning of external domains
           timeout: 8000,
         },
         () => {

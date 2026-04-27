@@ -21,8 +21,8 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { userId } = await auth();
-  if (!userId) {
+  const { userId, orgId } = await auth();
+  if (!userId || !orgId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -33,7 +33,7 @@ export async function POST(
     const validatedData = feedbackSchema.parse({ ...body, case_id: id });
     
     const supabase = await createClient();
-    const engine = new AutoCloseEngine(supabase);
+    const engine = new AutoCloseEngine(supabase, orgId);
 
     await engine.recordFeedback({
       ...validatedData,

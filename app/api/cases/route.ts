@@ -3,6 +3,8 @@ import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
 import { createClerkSupabaseClient } from "@/lib/supabase/clerk-client";
 import { notifyExternalSystems } from "@/lib/connectors/index";
+import { getCases } from "@/lib/db";
+import { connectMongo } from "@/lib/mongodb";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -21,7 +23,7 @@ const createCaseSchema = z.object({
 });
 
 export async function GET() {
-  const { userId } = await auth();
+  const { userId, orgId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -36,7 +38,8 @@ export async function GET() {
     .eq("user_id", userId);
 
   if (memberError) {
-    return NextResponse.json({ error: memberError.message }, { status: 500 });
+    console.error("[cases] GET: member lookup error:", memberError);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
   // Cast UUID → string so the .in() matches cases.organization_id (TEXT column)
@@ -53,14 +56,34 @@ export async function GET() {
     .order("created_at", { ascending: false });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[cases] GET: query error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
-  return NextResponse.json(data);
+  // Also fetch from MongoDB if available
+  let mongoCases: any[] = [];
+  if (orgIds.length > 0) {
+    try {
+      await connectMongo();
+      const CaseModel = await getCases();
+      if (CaseModel) {
+        mongoCases = await CaseModel.find({ 
+          org_id: { $in: orgIds } 
+        }).sort({ created_at: -1 }).lean();
+      }
+    } catch (mongoError) {
+      console.warn("[cases] GET: MongoDB fetch failed:", mongoError);
+    }
+  }
+
+  // Merge results (Supabase takes precedence, MongoDB is additive)
+  const combined = [...data, ...mongoCases.map(m => ({ ...m, _id: m._id?.toString() }))];
+  
+  return NextResponse.json(combined);
 }
 
 export async function POST(req: Request) {
-  const { userId } = await auth();
+  const { userId, orgId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -98,7 +121,28 @@ export async function POST(req: Request) {
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("[cases] POST: insert error:", error);
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    }
+
+    // Also write to MongoDB if available
+    try {
+      await connectMongo();
+      const CaseModel = await getCases();
+      if (CaseModel) {
+        await CaseModel.create({
+          org_id: validatedData.organization_id,
+          title: validatedData.title,
+          severity: validatedData.severity.replace('p', 'p') as any,
+          status: validatedData.status || 'open',
+          description: '',
+          created_by: userId,
+          created_at: new Date(),
+          updated_at: new Date(),
+        });
+      }
+    } catch (mongoError) {
+      console.warn("[cases] POST: MongoDB write failed:", mongoError);
     }
 
     // Notify External Systems

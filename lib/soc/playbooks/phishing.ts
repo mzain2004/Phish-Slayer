@@ -48,7 +48,7 @@ const enrich_iocs: PlaybookStep = {
     for (const ioc of context.iocs) {
       if (ioc.type === "ip" || ioc.type === "domain" || ioc.type === "hash" || ioc.type === "email" || ioc.type === "url") {
         try {
-          const result = await enrichIOC(ioc, supabase);
+          const result = await enrichIOC(ioc, supabase, context.organization_id);
           ioc.malicious = result.malicious;
           ioc.confidence = result.confidence_score;
         } catch (e) {

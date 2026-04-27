@@ -35,17 +35,33 @@ export default async function DashboardOverviewPage() {
 
   const supabase = await createClient();
 
+  const { data: membership } = await supabase
+    .from("organization_members")
+    .select("organization_id")
+    .eq("user_id", userId)
+    .limit(1)
+    .maybeSingle();
+  
+  const orgId = membership?.organization_id;
+  
+  if (!orgId) {
+    // Return empty data if no org membership
+    return <></>;
+  }
+
   const [{ data: scans }, { data: incidents }, { count: intelCount }] =
     await Promise.all([
       supabase
         .from("scans")
         .select("target, verdict, date, risk_score")
+        .eq("organization_id", orgId)
         .order("date", { ascending: false })
         .limit(100),
-      supabase.from("incidents").select("status"),
+      supabase.from("incidents").select("status").eq("organization_id", orgId),
       supabase
         .from("proprietary_intel")
-        .select("*", { count: "exact", head: true }),
+        .select("*", { count: "exact", head: true })
+        .eq("organization_id", orgId),
     ]);
 
   const scanRows = (scans ?? []) as ScanRow[];

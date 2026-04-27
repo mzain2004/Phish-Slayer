@@ -113,14 +113,29 @@ const launchScanSchema = z.object({
       },
     ),
 });
-export async function getIncidents(page: number = 0) {
+export async function getIncidents(page: number = 0, organizationId?: string) {
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
   const supabase = await createClient();
+
+  let orgId = organizationId;
+  if (!orgId) {
+    const membership = await supabase
+      .from("organization_members")
+      .select("organization_id")
+      .eq("user_id", userId)
+      .limit(1)
+      .maybeSingle();
+    orgId = membership?.data?.organization_id;
+  }
+
+  if (!orgId) return [];
+
   const offset = page * 100;
   const { data, error } = await supabase
     .from("incidents")
     .select("*")
+    .eq("organization_id", orgId)
     .range(offset, offset + 99)
     .limit(100);
   if (error) throw new Error(error.message);

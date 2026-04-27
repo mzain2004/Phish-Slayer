@@ -45,9 +45,9 @@ export class AutonomousOrchestrator {
     const startTime = Date.now();
 
     try {
-      // 1. Fetch Alert
+      // 1. Fetch Alert (scoped by org)
       const stageStart = new Date();
-      const { data: alert } = await this.supabase.from("alerts").select("*").eq("id", alert_id).single();
+      const { data: alert } = await this.supabase.from("alerts").select("*").eq("id", alert_id).eq("organization_id", organization_id).single();
       if (!alert) throw new Error("Alert not found");
 
       await this.addStage(run_id, { name: "alert_fetched", started_at: stageStart, completed_at: new Date(), success: true, output: { alert_id }, error: null });
@@ -67,19 +67,19 @@ export class AutonomousOrchestrator {
       const enrichmentStart = new Date();
       // Extract dummy IOCs from alert for enrichment
       const iocs = [{ type: "ip", value: alert.source_ip }] as any[];
-      const enrichmentResults = await Promise.all(iocs.map(ioc => enrichIOC(ioc, this.supabase)));
+      const enrichmentResults = await Promise.all(iocs.map(ioc => enrichIOC(ioc, this.supabase, organization_id)));
       
       let boostedSeverity = alert.severity_level;
       if (enrichmentResults.some(r => r.malicious && r.confidence_score > 80)) {
           boostedSeverity = Math.min(alert.severity_level + 2, 15);
-          await this.supabase.from("alerts").update({ severity_level: boostedSeverity }).eq("id", alert_id);
+          await this.supabase.from("alerts").update({ severity_level: boostedSeverity }).eq("id", alert_id).eq("organization_id", organization_id);
       }
       await this.addStage(run_id, { name: "enrichment_complete", started_at: enrichmentStart, completed_at: new Date(), success: true, output: { enrichmentResults, boostedSeverity }, error: null });
 
       // 4. MITRE Tagging
       const mitreStart = new Date();
       const mitreTag = await tagWithMITRE(alert as any);
-      await this.supabase.from("alerts").update({ mitre_tactic: mitreTag.tactic, mitre_technique: mitreTag.technique_id }).eq("id", alert_id);
+      await this.supabase.from("alerts").update({ mitre_tactic: mitreTag.tactic, mitre_technique: mitreTag.technique_id }).eq("id", alert_id).eq("organization_id", organization_id);
       await this.addStage(run_id, { name: "mitre_tagged", started_at: mitreStart, completed_at: new Date(), success: true, output: mitreTag, error: null });
 
       // 5. Agent Decision
@@ -104,7 +104,7 @@ export class AutonomousOrchestrator {
       let case_id: string | null = null;
 
       if (action === "run_playbook") {
-          const playbookEngine = new PlaybookEngine(this.supabase);
+          const playbookEngine = new PlaybookEngine(this.supabase, organization_id);
           // Simplified: always phishing for demo
           await playbookEngine.executePlaybook("phishing", { case_id: alert_id, alert: alert as any, iocs: [], organization_id, analyst_id: null, wazuh_agent_id: alert.agent_id, previous_steps: {} });
       } else if (action === "escalate_l2" || action === "escalate_l3") {
@@ -121,7 +121,7 @@ export class AutonomousOrchestrator {
           final_decision.case_id = case_id;
 
           if (case_id) {
-              await this.supabase.from("alerts").update({ case_id }).eq("id", alert_id);
+              await this.supabase.from("alerts").update({ case_id }).eq("id", alert_id).eq("organization_id", organization_id);
               void notifyExternalSystems(case_id, "Auto Escalation", "p1", reasoning, this.supabase);
               
               if (action === "escalate_l3") {
@@ -149,7 +149,7 @@ export class AutonomousOrchestrator {
           duration_ms: duration
       }).eq("id", run_id);
       
-      await this.supabase.from("alerts").update({ pipeline_run_id: run_id }).eq("id", alert_id);
+      await this.supabase.from("alerts").update({ pipeline_run_id: run_id }).eq("id", alert_id).eq("organization_id", organization_id);
 
       console.info(`[orchestrator] Pipeline complete for alert ${alert_id} - decision: ${action}`);
 

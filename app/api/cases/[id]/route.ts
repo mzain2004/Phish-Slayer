@@ -3,6 +3,9 @@ import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
 import { createClerkSupabaseClient } from "@/lib/supabase/clerk-client";
 import { resolveExternalSystems } from "@/lib/connectors/index";
+import { getCases } from "@/lib/db";
+import { connectMongo } from "@/lib/mongodb";
+import { Types } from "mongoose";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -24,9 +27,9 @@ export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { userId } = await auth();
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { userId, orgId } = await auth();
+  if (!userId || !orgId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
   const { id } = await params;
@@ -35,22 +38,40 @@ export async function GET(
     .from("cases")
     .select("*")
     .eq("id", id)
+    .eq("organization_id", orgId)
     .single();
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: error.code === 'PGRST116' ? 404 : 500 });
   }
 
-  return NextResponse.json(data);
+  // Also try to fetch from MongoDB
+  let mongoCase: any = null;
+  try {
+    await connectMongo();
+    const CaseModel = await getCases();
+    if (CaseModel && Types.ObjectId.isValid(id)) {
+      mongoCase = await CaseModel.findOne({ _id: new Types.ObjectId(id), org_id: orgId }).lean();
+    }
+  } catch (mongoError) {
+    console.warn("[cases/[id]] GET: MongoDB fetch failed:", mongoError);
+  }
+
+  // Merge Supabase with MongoDB data
+  const result = mongoCase 
+    ? { ...data, ...mongoCase, _id: mongoCase._id?.toString() }
+    : data;
+  
+  return NextResponse.json(result);
 }
 
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { userId } = await auth();
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { userId, orgId } = await auth();
+  if (!userId || !orgId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
   const { id } = await params;
@@ -67,6 +88,7 @@ export async function PATCH(
         updated_at: new Date().toISOString(),
       })
       .eq("id", id)
+      .eq("organization_id", orgId)
       .select()
       .single();
 

@@ -6,9 +6,9 @@ import { enrichHash } from "./hash";
 import { enrichEmail } from "./email";
 import { checkIOCAgainstIntel } from "../intel/index";
 
-export async function enrichIOC(ioc: IOC, supabase: SupabaseClient): Promise<EnrichmentResult> {
+export async function enrichIOC(ioc: IOC, supabase: SupabaseClient, organization_id: string): Promise<EnrichmentResult> {
   // Check Threat Intel first (Fast Lookup)
-  const intelHit = await checkIOCAgainstIntel(ioc.value, ioc.type, supabase);
+  const intelHit = await checkIOCAgainstIntel(ioc.value, ioc.type, supabase, organization_id);
   if (intelHit && intelHit.confidence > 80) {
     return {
       ioc_type: ioc.type,
@@ -47,9 +47,9 @@ export async function enrichIOC(ioc: IOC, supabase: SupabaseClient): Promise<Enr
   }
 }
 
-export async function enrichBatch(iocs: IOC[], supabase: SupabaseClient): Promise<EnrichmentResult[]> {
+export async function enrichBatch(iocs: IOC[], supabase: SupabaseClient, organization_id: string): Promise<EnrichmentResult[]> {
   const startTime = Date.now();
-  const results = await Promise.allSettled(iocs.map(ioc => enrichIOC(ioc, supabase)));
+  const results = await Promise.allSettled(iocs.map(ioc => enrichIOC(ioc, supabase, organization_id)));
   
   const finalResults: EnrichmentResult[] = results.map((res, i) => {
     if (res.status === "fulfilled") {

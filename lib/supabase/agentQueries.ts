@@ -30,16 +30,30 @@ export interface EndpointStats {
   topProcesses: { name: string; count: number }[];
 }
 
-export async function getEndpointEvents(limit = 100): Promise<EndpointEvent[]> {
+export async function getEndpointEvents(limit = 100, orgId?: string): Promise<EndpointEvent[]> {
   try {
     const { userId } = await auth();
     if (!userId) return [];
     const supabase = await createClient();
 
+    let organizationId = orgId;
+    if (!organizationId) {
+      const membership = await supabase
+        .from("organization_members")
+        .select("organization_id")
+        .eq("user_id", userId)
+        .limit(1)
+        .maybeSingle();
+      organizationId = membership?.data?.organization_id;
+    }
+    
+    if (!organizationId) return [];
+
     try {
       const { data, error } = await supabase
         .from("endpoint_events")
         .select("*")
+        .eq("organization_id", organizationId)
         .order("created_at", { ascending: false })
         .limit(limit);
 
@@ -119,17 +133,32 @@ export async function getEndpointStats(): Promise<EndpointStats> {
 
 export async function getRecentCriticalEvents(
   limit = 5,
+  orgId?: string,
 ): Promise<EndpointEvent[]> {
   try {
     const { userId } = await auth();
     if (!userId) return [];
     const supabase = await createClient();
 
+    let organizationId = orgId;
+    if (!organizationId) {
+      const membership = await supabase
+        .from("organization_members")
+        .select("organization_id")
+        .eq("user_id", userId)
+        .limit(1)
+        .maybeSingle();
+      organizationId = membership?.data?.organization_id;
+    }
+
+    if (!organizationId) return [];
+
     const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     try {
       const { data, error } = await supabase
         .from("endpoint_events")
         .select("*")
+        .eq("organization_id", organizationId)
         .in("threat_level", ["critical", "high"])
         .gte("created_at", cutoff)
         .order("created_at", { ascending: false })
