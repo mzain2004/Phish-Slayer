@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { buildAttackTimeline } from '@/lib/forensics/timeline';
+import { generateForensicReport } from '@/lib/forensics/reportGenerator';
 import { createClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
@@ -11,9 +11,20 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const { id } = await params;
   if (!orgId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+  const supabase = await createClient();
+  const { data: existing } = await supabase
+    .from('forensic_reports')
+    .select('*')
+    .eq('case_id', id)
+    .order('generated_at', { ascending: false })
+    .limit(1)
+    .single();
+
+  if (existing) return NextResponse.json(existing.report_data);
+
   try {
-    const timeline = await buildAttackTimeline(id, orgId);
-    return NextResponse.json(timeline);
+    const report = await generateForensicReport(id, orgId);
+    return NextResponse.json(report);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
@@ -25,9 +36,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!orgId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    const timeline = await buildAttackTimeline(id, orgId);
-    // Logic to invalidate cache or update DB would go here
-    return NextResponse.json(timeline);
+    const report = await generateForensicReport(id, orgId);
+    return NextResponse.json(report);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "NODE_ENV=production node server.js",
     "build:agent": "npx tsc lib/agent/endpointMonitor.ts --outDir dist/agent --esModuleInterop --skipLibCheck --downlevelIteration --target es2020 --moduleResolution node && npx -y pkg@5.8.1 dist/agent/endpointMonitor.js --target node18-win-x64 --output dist/PhishSlayerSensor.exe",
-    "lint": "next lint"
+    "lint": "next lint",
+    "fetch-mitre": "ts-node scripts/fetch-mitre.ts"
   },
   "dependencies": {
     "@azure/identity": "^4.13.1",
