@@ -2,7 +2,12 @@ import { ClientSecretCredential } from "@azure/identity";
 import { Client } from "@microsoft/microsoft-graph-client";
 import { TokenCredentialAuthenticationProvider } from "@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials";
 
+// Singleton graph client
+let _graphClient: Client | null = null;
+
 export function getGraphClient(): Client {
+  if (_graphClient) return _graphClient;
+
   const credential = new ClientSecretCredential(
     process.env.AZURE_TENANT_ID!,
     process.env.AZURE_CLIENT_ID!,
@@ -13,7 +18,9 @@ export function getGraphClient(): Client {
     scopes: ["https://graph.microsoft.com/.default"],
   });
 
-  return Client.initWithMiddleware({
+  _graphClient = Client.initWithMiddleware({
     authProvider,
   });
+
+  return _graphClient;
 }

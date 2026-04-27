@@ -4,6 +4,7 @@ import { createClient as createServerSupabaseClient } from "@/lib/supabase/serve
 import { auth } from '@clerk/nextjs/server';
 import { z } from "zod";
 import { groqComplete } from "@/lib/ai/groq";
+import { sanitizePromptInput } from "@/lib/security/sanitize";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -446,13 +447,40 @@ async function fetchPendingWazuhAlerts(
   };
 }
 
+function sanitizePromptField(value: string | null | undefined, maxLength = 500): string {
+  if (!value) {
+    return "";
+  }
+
+  return sanitizePromptInput(value, maxLength);
+}
+
+function buildSafePromptPayload(record: QueueRecord): Record<string, unknown> {
+  if (record.source !== "wazuh") {
+    return record as unknown as Record<string, unknown>;
+  }
+
+  return {
+    rule_id: sanitizePromptField(record.rule_id, 100),
+    rule_description: sanitizePromptField(record.rule_description, 400),
+    alert_type: "wazuh",
+    threat_level:
+      typeof record.rule_level === "number" && Number.isFinite(record.rule_level)
+        ? record.rule_level
+        : null,
+    source_ip: sanitizePromptField(record.src_ip || record.agent_ip, 64),
+    timestamp: sanitizePromptField(record.created_at, 64),
+  };
+}
+
 async function runGeminiTriage(record: QueueRecord): Promise<Decision> {
   try {
     if (!process.env.GROQ_API_KEY) {
       throw new Error("Missing GROQ_API_KEY");
     }
 
-    const modelText = await groqComplete(SYSTEM_PROMPT, JSON.stringify(record));
+    const safePayload = buildSafePromptPayload(record);
+    const modelText = await groqComplete(SYSTEM_PROMPT, JSON.stringify(safePayload));
 
     const decisionJson = JSON.parse(stripCodeFence(modelText));
     const parsedDecision = DecisionSchema.safeParse(decisionJson);

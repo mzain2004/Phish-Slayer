@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient as createSupabaseAdminClient } from "@supabase/supabase-js";
 import { compare as bcryptCompare } from "bcryptjs";
 import { z } from "zod";
+import { safeCompare } from "@/lib/security/safeCompare";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -282,6 +283,7 @@ function enforceOrganizationRateLimit(organizationId: string) {
 }
 
 function buildL3CacheKey(
+  organizationId: string,
   alertType: string,
   ruleId: string | null,
 ): string | null {
@@ -289,7 +291,7 @@ function buildL3CacheKey(
     return null;
   }
 
-  return `${alertType}:${ruleId}`;
+  return `${organizationId}:${alertType}:${ruleId}`;
 }
 
 function readL3Cache(key: string): L3ChainResult | null {
@@ -808,10 +810,13 @@ async function runEventDrivenAgentChain(
         organizationId,
       );
 
-      const cacheKey = buildL3CacheKey(
-        alertContext.alertType,
-        alertContext.ruleId,
-      );
+      const cacheKey = organizationId
+        ? buildL3CacheKey(
+            organizationId,
+            alertContext.alertType,
+            alertContext.ruleId,
+          )
+        : null;
       if (cacheKey) {
         const cached = readL3Cache(cacheKey);
         if (cached) {
@@ -1018,7 +1023,12 @@ async function processSingleAlert(
   let chain: ChainExecutionResult | null = null;
 
   if (queued && insertedAlertId) {
-    triggerCtemExposure(baseUrl, alert, insertedAlertId);
+    triggerCtemExposure(
+      baseUrl,
+      alert,
+      insertedAlertId,
+      organizationContext?.organizationId || null,
+    );
     chain = await runEventDrivenAgentChain(
       baseUrl,
       insertedAlertId,
@@ -1081,6 +1091,7 @@ function triggerCtemExposure(
   baseUrl: string,
   alert: WazuhAlert,
   alertId: string | null,
+  organizationId: string | null,
 ) {
   if (!alertId) {
     return;
@@ -1088,6 +1099,7 @@ function triggerCtemExposure(
 
   const severity = mapRuleLevelToSeverity(alert.rule?.level ?? null);
   const exposurePayload = {
+    ...(organizationId ? { organization_id: organizationId } : {}),
     asset_name: alert.agent?.name || "unknown-agent",
     asset_type: "server",
     exposure_type: alert.rule?.description || "Wazuh rule alert",
@@ -1100,6 +1112,7 @@ function triggerCtemExposure(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      "x-agent-secret": process.env.AGENT_SECRET || "",
     },
     body: JSON.stringify(exposurePayload),
   })
@@ -1172,7 +1185,20 @@ async function queueAlert(
   return insertResult.data?.id ?? null;
 }
 
+// Payload size guard: max 1MB
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '1mb',
+    },
+  },
+};
+
 export async function POST(request: NextRequest) {
+  const contentLength = parseInt(request.headers.get('content-length') || '0');
+  if (contentLength > 1_048_576) {
+    return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
+  }
   const organizationParam =
     request.nextUrl.searchParams.get("organization") ||
     request.nextUrl.searchParams.get("organization_id");
@@ -1263,7 +1289,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (authHeader !== `Bearer ${expectedSecret}`) {
+    const expectedAuthHeader = `Bearer ${expectedSecret}`;
+    if (!safeCompare(authHeader, expectedAuthHeader)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
   }

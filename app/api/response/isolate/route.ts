@@ -7,7 +7,8 @@ import { getWazuhApiToken } from "@/lib/wazuh-client";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const WAZUH_MANAGER_URL = "https://167.172.85.62:55000";
+const WAZUH_MANAGER_URL =
+  process.env.WAZUH_MANAGER_URL || "https://167.172.85.62:55000";
 
 const schema = z.object({
   agentId: z.string().min(1),

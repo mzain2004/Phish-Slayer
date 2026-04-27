@@ -59,15 +59,6 @@ function extractCustomerExternalId(data: any): string | null {
   return null;
 }
 
-function extractCustomerEmail(data: any): string | null {
-  const email =
-    data?.customer?.email || data?.customerEmail || data?.customer_email;
-  if (typeof email === "string" && email.length > 0) {
-    return email;
-  }
-  return null;
-}
-
 export async function POST(request: Request) {
   if (!process.env.POLAR_WEBHOOK_SECRET) {
     console.error("CRITICAL ERROR: POLAR_WEBHOOK_SECRET is not defined in environment variables.");
@@ -89,9 +80,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ received: true });
     }
 
+    // Idempotency check: deduplicate by event id
+    const eventId = event?.id ?? event?.data?.id ?? null;
+    if (eventId) {
+      const { data: existing } = await adminClient()
+        .from("webhook_events")
+        .select("event_id")
+        .eq("event_id", eventId)
+        .maybeSingle();
+      if (existing) {
+        return NextResponse.json({ received: true }, { status: 200 });
+      }
+    }
+
     const type = event?.type;
     const data = event?.data || {};
-    const eventId = event?.id || data?.id;
 
     if (!eventId) {
       console.error("Polar webhook missing event ID");
@@ -138,8 +141,11 @@ export async function POST(request: Request) {
       }
 
       if (!userId) {
-        console.error("Webhook rejected: Missing user_id for subscription update", { eventId });
-        return NextResponse.json({ error: "Missing user_id" }, { status: 400 });
+        // Email fallback removed — security risk. Ensure all Polar checkouts set metadata.userId
+        console.warn("Webhook ignored: Missing metadata user_id/externalId for subscription update", {
+          eventId,
+        });
+        return NextResponse.json({ received: true });
       }
 
       const updatePayload = {

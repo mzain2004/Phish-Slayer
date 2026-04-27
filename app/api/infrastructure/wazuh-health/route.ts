@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient as createSupabaseAdminClient } from "@supabase/supabase-js";
 import { createClient as createServerSupabaseClient } from "@/lib/supabase/server";
 import { auth } from '@clerk/nextjs/server';
+import { safeCompare } from "@/lib/security/safeCompare";
 import {
   closeSsh,
   connectSsh,
@@ -40,7 +41,12 @@ function isCronAuthorized(request: NextRequest): boolean {
     return false;
   }
 
-  return getAuthHeaderValue(request) === `Bearer ${cronSecret}`;
+  const provided = getAuthHeaderValue(request);
+  if (!provided) {
+    return false;
+  }
+
+  return safeCompare(provided, `Bearer ${cronSecret}`);
 }
 
 async function hasPrivilegedRole(): Promise<boolean> {

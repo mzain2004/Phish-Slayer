@@ -42,8 +42,8 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const { userId } = await auth();
-  if (!userId) {
+  const { userId, orgId } = await auth();
+  if (!userId || !orgId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -55,7 +55,8 @@ export async function POST(req: Request) {
     const { error } = await supabase
       .from("ueba_anomalies")
       .update({ suppressed: true })
-      .eq("id", id);
+      .eq("id", id)
+      .eq("organization_id", orgId);
 
     if (error) throw error;
 

@@ -35,7 +35,8 @@ export async function GET(request: Request) {
           organization_id
         )
       `)
-      .eq("notify_digest", true);
+      .eq("notify_digest", true)
+      .limit(500);
 
     if (profileError) throw profileError;
 
@@ -112,43 +113,49 @@ export async function GET(request: Request) {
     let sent = 0;
     let errors = 0;
 
-    // STEP 7: Loop over profiles and use the pre-fetched Map to build each user's digest payload — NO DB calls inside this loop
-    for (const profile of profiles) {
-      try {
-        const totalScans = scanCountMap.get(profile.id) || 0;
-        const maliciousCount = maliciousCountMap.get(profile.id) || 0;
-        const topThreats = topThreatsMap.get(profile.id) || [];
-        
-        // Sum incidents for all orgs the user is in
-        const userOrgs = (profile.organization_members as any[] || []).map(tu => tu.organization_id);
-        const openIncidents = userOrgs.reduce((acc, orgId) => acc + (incidentCountMap.get(orgId) || 0), 0);
+    // Build Maps for stats bottom up, but process in batches to avoid heavy DB load
+    const BATCH_SIZE = 25;
+    for (let batchStart = 0; batchStart < (profiles?.length ?? 0); batchStart += BATCH_SIZE) {
+      const batch = (profiles || []).slice(batchStart, batchStart + BATCH_SIZE);
+      for (const profile of batch) {
+        try {
+          const totalScans = scanCountMap.get(profile.id) || 0;
+          const maliciousCount = maliciousCountMap.get(profile.id) || 0;
+          const topThreats = topThreatsMap.get(profile.id) || [];
+          
+          // Sum incidents for all orgs the user is in
+          const userOrgs = (profile.organization_members as any[] || []).map(tu => tu.organization_id);
+          const openIncidents = userOrgs.reduce((acc, orgId) => acc + (incidentCountMap.get(orgId) || 0), 0);
 
-        // Log the digest
-        await supabaseAdmin.from("audit_logs").insert([
-          {
-            user_id: profile.id,
-            action: "weekly_digest_sent",
-            resource_type: "digest",
-            organization_id: userOrgs[0] || null, // Primary org for audit logging
-            severity: "low",
-            payload: {
-              totalScans,
-              maliciousCount,
-              openIncidents,
-              topThreats,
+          // Log the digest
+          await supabaseAdmin.from("audit_logs").insert([
+            {
+              user_id: profile.id,
+              action: "weekly_digest_sent",
+              resource_type: "digest",
+              organization_id: userOrgs[0] || null, // Primary org for audit logging
+              severity: "low",
+              payload: {
+                totalScans,
+                maliciousCount,
+                openIncidents,
+                topThreats,
+              },
+              metadata: {
+                user_email: profile.email,
+                user_role: "system",
+              },
             },
-            metadata: {
-              user_email: profile.email,
-              user_role: "system",
-            },
-          },
-        ]);
+          ]);
 
-        sent++;
-      } catch (err) {
-        console.error(`Digest error for ${profile.id}:`, err);
-        errors++;
+          sent++;
+        } catch (err) {
+          console.error(`Digest error for ${profile.id}:`, err);
+          errors++;
+        }
       }
+      // Avoid overwhelming DB by yielding to event loop
+      await new Promise((r) => setTimeout(r, 50));
     }
 
     return NextResponse.json({ sent, errors, total: profiles.length });

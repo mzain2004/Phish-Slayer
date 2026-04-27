@@ -5,13 +5,17 @@ import { syncAllFeeds } from "@/lib/soc/intel/index";
 import { IngestionPipeline } from "@/lib/ingestion/pipeline";
 import { OrganizationManager } from "@/lib/organization/manager";
 import { syncAllConnectors } from "@/lib/connectors/index";
+import { safeCompare } from "@/lib/security/safeCompare";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
   const authHeader = req.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  const cronSecret = process.env.CRON_SECRET;
+  const expectedAuthHeader = cronSecret ? `Bearer ${cronSecret}` : "";
+
+  if (!cronSecret || !authHeader || !safeCompare(authHeader, expectedAuthHeader)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

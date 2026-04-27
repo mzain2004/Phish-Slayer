@@ -29,20 +29,10 @@ export default clerkMiddleware(async (auth, request) => {
     });
   }
 
-  // ── Organization Resolution ──
+  // ── Organization resolution moved to per-request session context only. Do not passthrough headers.
   const { nextUrl } = request;
-  const organizationId = request.headers.get("x-organization-id");
-  const organizationSlug = nextUrl.pathname.split("/")[1];
-
-  const response = NextResponse.next();
-
-  if (organizationId) {
-    response.headers.set("x-resolved-organization", organizationId);
-  } else if (organizationSlug && !["api", "dashboard", "auth", "sign-in", "sign-up"].includes(organizationSlug)) {
-    response.headers.set("x-resolved-slug", organizationSlug);
-  }
-
-  return response;
+  // No x-resolved headers added here; routes should resolve from session/auth context only.
+  return NextResponse.next();
 });
 
 export const config = {

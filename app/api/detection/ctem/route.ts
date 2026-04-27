@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { getAuthenticatedUser, resolveOrganizationForUser } from "@/lib/tenancy";
+import { safeCompare } from "@/lib/security/safeCompare";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -41,14 +42,6 @@ function getAdminClient() {
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await getAuthenticatedUser();
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 },
-      );
-    }
-
     const payload = await request.json();
     const parsed = PostSchema.safeParse(payload);
 
@@ -63,17 +56,51 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const organization = await resolveOrganizationForUser({
-      userId: user.id,
-      preferredOrganizationId: parsed.data.organization_id,
-      autoCreate: false,
-    });
+    const providedAgentSecret =
+      request.headers.get("x-agent-secret") ||
+      request.headers.get("AGENT_SECRET") ||
+      request.headers.get("agent_secret");
+    const expectedAgentSecret = process.env.AGENT_SECRET;
+    const isAgentAuthorized = Boolean(
+      providedAgentSecret &&
+        expectedAgentSecret &&
+        safeCompare(providedAgentSecret, expectedAgentSecret),
+    );
 
-    if (!organization || !["owner", "admin"].includes(organization.role)) {
-      return NextResponse.json(
-        { success: false, error: "Forbidden" },
-        { status: 403 },
-      );
+    let organizationIdForWrite: string;
+
+    if (isAgentAuthorized) {
+      if (!parsed.data.organization_id) {
+        return NextResponse.json(
+          { success: false, error: "organization_id is required" },
+          { status: 400 },
+        );
+      }
+
+      organizationIdForWrite = parsed.data.organization_id;
+    } else {
+      const user = await getAuthenticatedUser();
+      if (!user) {
+        return NextResponse.json(
+          { success: false, error: "Unauthorized" },
+          { status: 401 },
+        );
+      }
+
+      const organization = await resolveOrganizationForUser({
+        userId: user.id,
+        preferredOrganizationId: parsed.data.organization_id,
+        autoCreate: false,
+      });
+
+      if (!organization || !["owner", "admin"].includes(organization.role)) {
+        return NextResponse.json(
+          { success: false, error: "Forbidden" },
+          { status: 403 },
+        );
+      }
+
+      organizationIdForWrite = organization.organizationId;
     }
 
     const adminClient = getAdminClient();
@@ -84,7 +111,7 @@ export async function POST(request: NextRequest) {
       .from("ctem_exposures")
       .upsert(
         {
-          organization_id: organization.organizationId,
+          organization_id: organizationIdForWrite,
           asset_name: body.asset_name,
           asset_type: body.asset_type,
           exposure_type: body.exposure_type,

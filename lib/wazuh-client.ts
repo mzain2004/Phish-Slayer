@@ -79,11 +79,16 @@ async function requestFreshToken(
         port: 55000,
         path: "/security/user/authenticate",
         method: "POST",
-        rejectUnauthorized: isInternalNetwork, // Only disable for internal IPs
+        // Always verify TLS; use CA if provided for self-signed certs
+        rejectUnauthorized: true,
         headers: {
           Authorization: `Basic ${basicAuth}`,
         },
         timeout: 10000,
+        // If a CA certificate is provided (base64), include it
+        ca: process.env.WAZUH_CA_CERT
+          ? Buffer.from(process.env.WAZUH_CA_CERT, 'base64')
+          : undefined,
       },
       (res) => {
         let body = "";
