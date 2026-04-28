@@ -1,278 +1,144 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Brain, Loader2, Sparkles } from "lucide-react";
 import { useAuth, useOrganization } from "@clerk/nextjs";
-import { createClient } from "@/lib/supabase/client";
-import { List, RowComponentProps } from "react-window";
+import DashboardCard from "@/components/dashboard/DashboardCard";
+import StatusBadge from "@/components/dashboard/StatusBadge";
 
-type HuntFindingRow = {
+type HuntHypothesis = {
   id: string;
-  hunt_type: string;
   title: string;
-  description: string | null;
-  severity: "low" | "medium" | "high" | "critical" | string;
-  confidence: number;
-  escalated: boolean;
-  escalation_id: string | null;
-  created_at: string;
+  hypothesis?: string | null;
+  mitre_technique?: string | null;
+  priority?: "low" | "medium" | "high" | string;
+  data_sources?: string[] | null;
+  search_patterns?: unknown;
+  status?: string | null;
+  ai_generated?: boolean | null;
+  created_at?: string | null;
 };
 
-type SeverityFilter = "all" | "critical" | "high" | "medium" | "low";
-type EscalationFilter = "all" | "escalated" | "not_escalated";
-
-type RowProps = {
-  rows: HuntFindingRow[];
+type GenerateResponse = {
+  success: boolean;
+  count: number;
+  hypotheses?: HuntHypothesis[];
+  error?: string;
 };
 
-function severityClasses(severity: string): string {
-  const value = severity.toLowerCase();
-  if (value === "critical")
-    return "bg-red-500/20 text-red-200 border-red-400/40";
-  if (value === "high")
-    return "bg-orange-500/20 text-orange-200 border-orange-400/40";
-  if (value === "medium")
-    return "bg-yellow-500/20 text-yellow-200 border-yellow-400/40";
-  return "bg-emerald-500/20 text-emerald-200 border-emerald-400/40";
-}
-
-function relativeTime(iso: string): string {
-  const now = Date.now();
-  const then = new Date(iso).getTime();
-  const diff = Math.max(0, Math.floor((now - then) / 1000));
-
-  if (diff < 60) return `${diff}s ago`;
-  const mins = Math.floor(diff / 60);
-  if (mins < 60) return `${mins} minute${mins === 1 ? "" : "s"} ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
-  const days = Math.floor(hours / 24);
-  return `${days} day${days === 1 ? "" : "s"} ago`;
+function priorityTone(priority?: string | null) {
+  const value = priority?.toLowerCase() || "medium";
+  if (value === "high") return "critical";
+  if (value === "low") return "healthy";
+  return "warning";
 }
 
 export default function ThreatHuntsPage() {
   const { userId } = useAuth();
   const { organization, isLoaded: orgLoaded } = useOrganization();
   const orgId = organization?.id || null;
-  const [rows, setRows] = useState<HuntFindingRow[]>([]);
+
+  const [hypotheses, setHypotheses] = useState<HuntHypothesis[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorText, setErrorText] = useState<string | null>(null);
-  const [severityFilter, setSeverityFilter] = useState<SeverityFilter>("all");
-  const [escalationFilter, setEscalationFilter] =
-    useState<EscalationFilter>("all");
   const [searchText, setSearchText] = useState("");
-  const [debouncedSearchText, setDebouncedSearchText] = useState("");
+  const [generating, setGenerating] = useState(false);
 
-  const fetchFindings = useCallback(async () => {
+  const fetchHypotheses = useCallback(async () => {
     if (!userId || !orgId) {
-      setRows([]);
+      setHypotheses([]);
       setLoading(false);
       return;
     }
 
     setLoading(true);
     setErrorText(null);
-
     try {
-      const supabase = createClient();
-      let query = supabase
-        .from("hunt_findings")
-        .select(
-          "id, hunt_type, title, description, severity, confidence, escalated, escalation_id, created_at",
-        )
-        .order("created_at", { ascending: false })
-        .limit(200);
+      const response = await fetch("/api/hunting/hypotheses", {
+        method: "GET",
+        cache: "no-store",
+      });
+      const payload = (await response.json()) as HuntHypothesis[] | { error?: string };
 
-      if (orgId) {
-        query = query.eq("organization_id", orgId);
+      if (!response.ok) {
+        throw new Error((payload as { error?: string }).error || "Failed to load hypotheses");
       }
 
-      const { data, error } = await query;
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      setRows((data || []) as HuntFindingRow[]);
+      setHypotheses(Array.isArray(payload) ? payload : []);
     } catch (error) {
-      setErrorText(error instanceof Error ? error.message : "Unknown error");
+      setErrorText(error instanceof Error ? error.message : "Unable to load hypotheses");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [orgId, userId]);
+
+  const handleGenerate = async () => {
+    if (!orgId) return;
+    setGenerating(true);
+    setErrorText(null);
+
+    try {
+      const response = await fetch("/api/hunting/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organizationId: orgId }),
+      });
+      const payload = (await response.json()) as GenerateResponse;
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Failed to generate hypotheses");
+      }
+
+      await fetchHypotheses();
+    } catch (error) {
+      setErrorText(error instanceof Error ? error.message : "Generation failed");
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   useEffect(() => {
     if (!orgLoaded) return;
-    void fetchFindings();
+    void fetchHypotheses();
+  }, [fetchHypotheses, orgLoaded]);
 
-    if (!orgId) return;
+  const filtered = useMemo(() => {
+    const search = searchText.trim().toLowerCase();
+    if (!search) return hypotheses;
 
-    const supabase = createClient();
-    const channel = supabase
-      .channel("hunt-findings-live")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "hunt_findings" },
-        () => {
-          void fetchFindings();
-        },
-      )
-      .subscribe();
-
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [fetchFindings, orgId, orgLoaded]);
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      setDebouncedSearchText(searchText);
-    }, 300);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [searchText]);
-
-  const filteredRows = useMemo(() => {
-    return rows.filter((row) => {
-      const severity = row.severity.toLowerCase();
-      const search = debouncedSearchText.trim().toLowerCase();
-
-      const severityMatch =
-        severityFilter === "all" || severity === severityFilter;
-
-      const escalationMatch =
-        escalationFilter === "all" ||
-        (escalationFilter === "escalated" && row.escalated) ||
-        (escalationFilter === "not_escalated" && !row.escalated);
-
-      const searchMatch =
-        search.length === 0 ||
-        row.title.toLowerCase().includes(search) ||
-        row.hunt_type.toLowerCase().includes(search);
-
-      return severityMatch && escalationMatch && searchMatch;
+    return hypotheses.filter((item) => {
+      const title = item.title?.toLowerCase() || "";
+      const mitre = item.mitre_technique?.toLowerCase() || "";
+      return title.includes(search) || mitre.includes(search);
     });
-  }, [rows, escalationFilter, debouncedSearchText, severityFilter]);
-
-  const CardRow = ({ index, style, rows }: RowComponentProps<RowProps>) => {
-    const row = rows[index];
-
-    return (
-      <div style={style} className="px-2 pb-4">
-        <div className="h-full p-5 bg-[rgba(23,28,35,0.85)] backdrop-blur-3xl border border-[rgba(48,54,61,0.9)] rounded-2xl flex flex-col gap-3">
-          <div className="flex items-start justify-between gap-3">
-            <h2 className="text-lg font-semibold leading-tight">{row.title}</h2>
-            <span
-              className={`text-[10px] uppercase tracking-[0.14em] border rounded-full px-2 py-1 ${severityClasses(row.severity)}`}
-            >
-              {row.severity}
-            </span>
-          </div>
-
-          <p className="text-sm text-white/80">
-            {row.description || "No description provided."}
-          </p>
-
-          <div className="text-xs text-white/70 space-y-1">
-            <p>Hunt Type: {row.hunt_type}</p>
-            <p>Confidence: {(row.confidence * 100).toFixed(1)}%</p>
-            <p>Escalated: {row.escalated ? "Yes" : "No"}</p>
-            <p>Created: {relativeTime(row.created_at)}</p>
-          </div>
-
-          {row.escalation_id ? (
-            <div className="w-fit text-xs font-mono text-cyan-200 border border-cyan-400/40 bg-cyan-500/10 rounded-full px-2 py-1">
-              escalation: {row.escalation_id}
-            </div>
-          ) : null}
-        </div>
-      </div>
-    );
-  };
-
-  const summary = useMemo(() => {
-    const sinceIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const last24h = rows.filter((row) => row.created_at >= sinceIso);
-
-    return {
-      total: rows.length,
-      last24h: last24h.length,
-      escalated: rows.filter((row) => row.escalated).length,
-      critical: rows.filter((row) => row.severity.toLowerCase() === "critical")
-        .length,
-    };
-  }, [rows]);
+  }, [hypotheses, searchText]);
 
   return (
     <div className="flex flex-col gap-6 text-white">
       <div className="p-6 bg-[rgba(23,28,35,0.85)] backdrop-blur-3xl border border-[rgba(48,54,61,0.9)] rounded-2xl flex flex-col gap-4">
-        <h1 className="text-2xl font-bold">Threat Hunts</h1>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="rounded-xl border border-[rgba(48,54,61,0.9)] bg-black/20 px-3 py-2">
-            <p className="text-[10px] uppercase tracking-[0.14em] text-white/50">
-              Total Findings
-            </p>
-            <p className="text-lg font-semibold">{summary.total}</p>
-          </div>
-          <div className="rounded-xl border border-[rgba(48,54,61,0.9)] bg-black/20 px-3 py-2">
-            <p className="text-[10px] uppercase tracking-[0.14em] text-white/50">
-              Last 24h
-            </p>
-            <p className="text-lg font-semibold text-violet-300">
-              {summary.last24h}
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Threat Hunts</h1>
+            <p className="text-sm text-white/70">
+              Hypothesis-driven hunts generated from your recent alert patterns.
             </p>
           </div>
-          <div className="rounded-xl border border-[rgba(48,54,61,0.9)] bg-black/20 px-3 py-2">
-            <p className="text-[10px] uppercase tracking-[0.14em] text-white/50">
-              Escalated
-            </p>
-            <p className="text-lg font-semibold text-cyan-300">
-              {summary.escalated}
-            </p>
-          </div>
-          <div className="rounded-xl border border-[rgba(48,54,61,0.9)] bg-black/20 px-3 py-2">
-            <p className="text-[10px] uppercase tracking-[0.14em] text-white/50">
-              Critical
-            </p>
-            <p className="text-lg font-semibold text-red-300">
-              {summary.critical}
-            </p>
-          </div>
+          <button
+            type="button"
+            onClick={handleGenerate}
+            disabled={!orgId || generating}
+            className="inline-flex items-center gap-2 rounded-xl border border-violet-400/30 bg-violet-500/20 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-violet-100 disabled:opacity-60"
+          >
+            {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+            Generate AI Hypotheses
+          </button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <select
-            value={severityFilter}
-            onChange={(event) =>
-              setSeverityFilter(event.target.value as SeverityFilter)
-            }
-            className="rounded-xl border border-[rgba(48,54,61,0.9)] bg-black/30 px-3 py-2 text-sm"
-          >
-            <option value="all">All Severities</option>
-            <option value="critical">Critical</option>
-            <option value="high">High</option>
-            <option value="medium">Medium</option>
-            <option value="low">Low</option>
-          </select>
-
-          <select
-            value={escalationFilter}
-            onChange={(event) =>
-              setEscalationFilter(event.target.value as EscalationFilter)
-            }
-            className="rounded-xl border border-[rgba(48,54,61,0.9)] bg-black/30 px-3 py-2 text-sm"
-          >
-            <option value="all">All Escalation States</option>
-            <option value="escalated">Escalated</option>
-            <option value="not_escalated">Not Escalated</option>
-          </select>
-
           <input
             value={searchText}
             onChange={(event) => setSearchText(event.target.value)}
-            placeholder="Search title or hunt type"
+            placeholder="Search title or MITRE technique"
             className="rounded-xl border border-[rgba(48,54,61,0.9)] bg-black/30 px-3 py-2 text-sm"
           />
         </div>
@@ -284,39 +150,70 @@ export default function ThreatHuntsPage() {
         </div>
       ) : !orgId ? (
         <div className="p-6 bg-[rgba(23,28,35,0.85)] backdrop-blur-3xl border border-[rgba(48,54,61,0.9)] rounded-2xl text-white/70">
-          Select an organization to view hunt findings.
+          Select an organization to view hypotheses.
         </div>
       ) : loading ? (
         <div className="rounded-2xl border border-[rgba(48,54,61,0.9)] bg-[rgba(23,28,35,0.85)] p-6">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {Array.from({ length: 4 }).map((_, index) => (
               <div
-                key={`hunt-skeleton-${index}`}
-                className="h-[220px] rounded-2xl border border-[rgba(48,54,61,0.9)] bg-black/20 animate-pulse"
+                key={`hypothesis-skeleton-${index}`}
+                className="h-[200px] rounded-2xl border border-[rgba(48,54,61,0.9)] bg-black/20 animate-pulse"
               />
             ))}
           </div>
         </div>
-      ) : filteredRows.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <div className="p-6 bg-[rgba(23,28,35,0.85)] backdrop-blur-3xl border border-[rgba(48,54,61,0.9)] rounded-2xl text-white/70">
-          No findings match your filters.
+          No hypotheses match your search.
         </div>
       ) : (
-        <div className="rounded-2xl border border-[rgba(48,54,61,0.9)] bg-[rgba(23,28,35,0.85)] p-2">
-          <List
-            rowCount={filteredRows.length}
-            rowHeight={242}
-            rowComponent={CardRow}
-            rowProps={{ rows: filteredRows }}
-            style={{ height: 680 }}
-          />
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {filtered.map((item) => (
+            <DashboardCard key={item.id} className="flex flex-col gap-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-semibold leading-tight text-white">{item.title}</h2>
+                  <p className="text-xs text-white/60">
+                    {item.mitre_technique ? `MITRE ${item.mitre_technique}` : "No MITRE technique"}
+                  </p>
+                </div>
+                <StatusBadge status={priorityTone(item.priority)} label={item.priority || "medium"} />
+              </div>
+
+              <p className="text-sm text-white/80">
+                {item.hypothesis || "No hypothesis text provided."}
+              </p>
+
+              <div className="flex flex-wrap gap-2 text-xs text-white/60">
+                <span className="inline-flex items-center gap-1">
+                  <Brain className="h-3.5 w-3.5" />
+                  {item.ai_generated ? "AI generated" : "Analyst authored"}
+                </span>
+                <span>Status: {item.status || "pending"}</span>
+              </div>
+
+              {item.data_sources && item.data_sources.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {item.data_sources.map((source) => (
+                    <span
+                      key={`${item.id}-${source}`}
+                      className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[10px] uppercase tracking-widest text-white/70"
+                    >
+                      {source}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+            </DashboardCard>
+          ))}
         </div>
       )}
 
       {errorText ? (
-        <div className="p-4 rounded-xl border border-red-400/40 bg-red-500/10 text-red-200 text-sm">
+        <DashboardCard className="border-red-400/40 bg-red-500/10 p-4 text-sm text-red-200">
           {errorText}
-        </div>
+        </DashboardCard>
       ) : null}
     </div>
   );

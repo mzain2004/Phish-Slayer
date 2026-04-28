@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Shield, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { dashboardNavItems } from "@/components/dashboard/dashboard-nav";
+import { dashboardNavGroups } from "@/components/dashboard/dashboard-nav";
 
 type SidebarProps = {
   mobileOpen: boolean;
@@ -31,30 +31,39 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       </div>
 
       <nav className="flex-1 overflow-y-auto py-3">
-        <div className="flex flex-col gap-1 px-2">
-          {dashboardNavItems.map((item) => {
-            const isActive =
-              item.href === "/dashboard"
-                ? pathname === "/dashboard"
-                : pathname?.startsWith(item.href);
+        <div className="flex flex-col gap-6 px-2">
+          {dashboardNavGroups.map((group) => (
+            <div key={group.label} className="flex flex-col gap-1">
+              <h3 className="px-3 text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500">
+                {group.label}
+              </h3>
+              <div className="flex flex-col gap-1">
+                {group.items.map((item) => {
+                  const isActive =
+                    item.href === "/dashboard"
+                      ? pathname === "/dashboard"
+                      : pathname?.startsWith(item.href);
 
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={onNavigate}
-                className={cn(
-                  "flex items-center gap-3 rounded-r-lg border-l-2 px-3 py-2.5 text-sm transition-colors",
-                  isActive
-                    ? "border-l-primary bg-primary/15 text-white"
-                    : "border-l-transparent text-gray-300 hover:border-l-accent hover:bg-accent/15 hover:text-white",
-                )}
-              >
-                <item.icon className="h-4 w-4 shrink-0" />
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={onNavigate}
+                      className={cn(
+                        "flex items-center gap-3 rounded-r-lg border-l-2 px-3 py-2 text-sm transition-colors",
+                        isActive
+                          ? "border-l-primary bg-primary/15 text-white"
+                          : "border-l-transparent text-gray-300 hover:border-l-accent hover:bg-accent/15 hover:text-white",
+                      )}
+                    >
+                      <item.icon className="h-4 w-4 shrink-0" />
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
       </nav>
     </>

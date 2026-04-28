@@ -3,15 +3,19 @@ import {
   AlertTriangle,
   Bot,
   CreditCard,
+  Eye,
   FileText,
   KeyRound,
   LayoutDashboard,
   LifeBuoy,
+  Mail,
   Plug,
   Radar,
   Search,
   Settings,
   Shield,
+  ShieldAlert,
+  ShieldCheck,
   Terminal,
   User,
   Users,
@@ -24,25 +28,81 @@ export type DashboardNavItem = {
   icon: LucideIcon;
 };
 
-export const dashboardNavItems: DashboardNavItem[] = [
-  { href: "/dashboard", label: "Command Center", icon: LayoutDashboard },
-  { href: "/dashboard/threats", label: "Threat Scanner", icon: Radar },
-  { href: "/dashboard/scans", label: "Scan History", icon: Search },
-  { href: "/dashboard/incidents", label: "Incidents", icon: AlertTriangle },
-  { href: "/dashboard/escalations", label: "Escalations", icon: Shield },
-  { href: "/dashboard/hunt", label: "Threat Hunt", icon: Activity },
-  { href: "/dashboard/agents", label: "Agents", icon: Bot },
-  { href: "/dashboard/terminal", label: "AI Terminal", icon: Terminal },
-  { href: "/dashboard/integrations", label: "Integrations", icon: Plug },
-  { href: "/dashboard/identity", label: "Identity", icon: Users },
-  { href: "/dashboard/intel", label: "Intel Vault", icon: FileText },
-  { href: "/dashboard/reports", label: "Reports", icon: FileText },
-  { href: "/dashboard/billing", label: "Billing", icon: CreditCard },
-  { href: "/dashboard/apikeys", label: "API Keys", icon: KeyRound },
-  { href: "/dashboard/support", label: "Support", icon: LifeBuoy },
-  { href: "/dashboard/settings", label: "Settings", icon: Settings },
-  { href: "/dashboard/profile", label: "Profile", icon: User },
+export type DashboardNavGroup = {
+  label: string;
+  items: DashboardNavItem[];
+};
+
+export const dashboardNavGroups: DashboardNavGroup[] = [
+  {
+    label: "Overview",
+    items: [
+      { href: "/dashboard", label: "Command Center", icon: LayoutDashboard },
+    ],
+  },
+  {
+    label: "Threat Scanner",
+    items: [
+      { href: "/dashboard/threats", label: "Threat Scanner", icon: Radar },
+      { href: "/dashboard/email-analyzer", label: "Email Analyzer", icon: Mail },
+      { href: "/dashboard/scans", label: "Scan History", icon: Search },
+    ],
+  },
+  {
+    label: "Incidents",
+    items: [
+      { href: "/dashboard/incidents", label: "Incidents", icon: AlertTriangle },
+      { href: "/dashboard/uba", label: "UBA", icon: ShieldAlert },
+      { href: "/dashboard/escalations", label: "Escalations", icon: Shield },
+    ],
+  },
+  {
+    label: "Threat Hunt",
+    items: [
+      { href: "/dashboard/hunt", label: "Threat Hunt", icon: Activity },
+      { href: "/dashboard/detection-rules", label: "Detection Rules", icon: ShieldCheck },
+    ],
+  },
+  {
+    label: "Vulnerabilities",
+    items: [
+      { href: "/dashboard/vulnerabilities", label: "Vulnerabilities", icon: AlertTriangle },
+    ],
+  },
+  {
+    label: "Intel Vault",
+    items: [
+      { href: "/dashboard/threat-intel", label: "Threat Intel", icon: FileText },
+      { href: "/dashboard/intel", label: "Intel Vault", icon: FileText },
+      { href: "/dashboard/darkweb", label: "Dark Web", icon: Eye },
+    ],
+  },
+  {
+    label: "Automation",
+    items: [
+      { href: "/dashboard/agents", label: "Agents", icon: Bot },
+      { href: "/dashboard/terminal", label: "AI Terminal", icon: Terminal },
+      { href: "/dashboard/integrations", label: "Integrations", icon: Plug },
+    ],
+  },
+  {
+    label: "Platform",
+    items: [
+      { href: "/dashboard/identity", label: "Identity", icon: Users },
+      { href: "/dashboard/reports", label: "Reports", icon: FileText },
+      { href: "/dashboard/billing", label: "Billing", icon: CreditCard },
+      { href: "/dashboard/apikeys", label: "API Keys", icon: KeyRound },
+      { href: "/dashboard/support", label: "Support", icon: LifeBuoy },
+      { href: "/dashboard/settings", label: "Settings", icon: Settings },
+      { href: "/dashboard/profile", label: "Profile", icon: User },
+    ],
+  },
 ];
+
+// Flat list for compatibility and lookups
+export const dashboardNavItems: DashboardNavItem[] = dashboardNavGroups.flatMap(
+  (group) => group.items,
+);
 
 function formatSegment(segment: string): string {
   return segment
