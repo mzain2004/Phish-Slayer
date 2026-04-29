@@ -29,6 +29,8 @@ export default function AlertsPage() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
   const [analysts, setAnalysts] = useState<{id: string, name: string}[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isBulkProcessing, setIsBulkProcessing] = useState(false);
 
   useEffect(() => {
     fetchAlerts();
@@ -53,6 +55,40 @@ export default function AlertsPage() {
   async function fetchAnalysts() {
     if (user) setAnalysts([{ id: user.id, name: user.fullName || "Current User" }]);
   }
+
+  async function handleBulkAction(action: 'close' | 'assign' | 'escalate' | 'suppress' | 'mark_fp', payload?: any) {
+    if (selectedIds.length === 0) return;
+    setIsBulkProcessing(true);
+    try {
+      const res = await fetch("/api/alerts/bulk", {
+        method: "POST",
+        body: JSON.stringify({ alertIds: selectedIds, action, payload })
+      });
+      if (res.ok) {
+        toast.success(`Bulk ${action} successful`);
+        setSelectedIds([]);
+        fetchAlerts();
+      } else {
+        toast.error("Bulk action failed");
+      }
+    } catch (error) {
+      toast.error("Network error during bulk action");
+    } finally {
+      setIsBulkProcessing(false);
+    }
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedIds.length === alerts.length && alerts.length > 0) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(alerts.map(a => a.id));
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+  };
 
   async function handleAcknowledge(id: string) {
     try {
@@ -103,12 +139,43 @@ export default function AlertsPage() {
 
   return (
     <div className="flex flex-col gap-6 text-white p-8">
-      <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <ShieldAlert className="text-primary" />
-          Alert Center
-        </h1>
-        <p className="text-white/50 text-sm">Real-time threat monitoring and triage</p>
+      <div className="flex justify-between items-center h-12">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <ShieldAlert className="text-primary" />
+            Alert Center
+          </h1>
+          <p className="text-white/50 text-sm">Real-time threat monitoring and triage</p>
+        </div>
+
+        {selectedIds.length > 0 && (
+          <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-full px-4 py-2 animate-in fade-in slide-in-from-top-4">
+            <span className="text-xs font-bold text-primary mr-2">{selectedIds.length} SELECTED</span>
+            <button 
+              disabled={isBulkProcessing}
+              onClick={() => handleBulkAction('close')}
+              className="text-[10px] font-bold hover:text-primary transition-colors uppercase disabled:opacity-50"
+            >
+              Close
+            </button>
+            <div className="w-px h-3 bg-white/10" />
+            <button 
+              disabled={isBulkProcessing}
+              onClick={() => handleBulkAction('suppress')}
+              className="text-[10px] font-bold hover:text-primary transition-colors uppercase disabled:opacity-50"
+            >
+              Suppress
+            </button>
+            <div className="w-px h-3 bg-white/10" />
+            <button 
+              disabled={isBulkProcessing}
+              onClick={() => handleBulkAction('mark_fp')}
+              className="text-[10px] font-bold hover:text-primary transition-colors uppercase disabled:opacity-50"
+            >
+              Mark FP
+            </button>
+          </div>
+        )}
       </div>
 
       <DashboardCard className="overflow-hidden">
@@ -121,6 +188,14 @@ export default function AlertsPage() {
             <table className="w-full text-left">
               <thead className="bg-white/5 text-white/70 text-xs uppercase tracking-wider">
                 <tr>
+                  <th className="px-6 py-4 w-10">
+                    <input 
+                      type="checkbox" 
+                      className="rounded border-white/20 bg-white/5 checked:bg-primary"
+                      checked={selectedIds.length === alerts.length && alerts.length > 0}
+                      onChange={toggleSelectAll}
+                    />
+                  </th>
                   <th className="px-6 py-4">Alert Details</th>
                   <th className="px-6 py-4">Severity</th>
                   <th className="px-6 py-4">Source IP</th>
@@ -132,6 +207,14 @@ export default function AlertsPage() {
               <tbody className="divide-y divide-white/10">
                 {alerts.map((alert) => (
                   <tr key={alert.id} className={`hover:bg-white/5 transition-colors ${alert.is_suppressed ? 'opacity-50 grayscale' : ''}`}>
+                    <td className="px-6 py-4">
+                      <input 
+                        type="checkbox" 
+                        className="rounded border-white/20 bg-white/5 checked:bg-primary"
+                        checked={selectedIds.includes(alert.id)}
+                        onChange={() => toggleSelect(alert.id)}
+                      />
+                    </td>
                     <td className="px-6 py-4">
                       <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-2">

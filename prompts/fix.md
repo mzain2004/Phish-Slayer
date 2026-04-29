@@ -3,146 +3,92 @@ Create one file at a time. After each file say "FILE DONE" then continue.
 Do not stop until all files complete.
 
 You are building L1 SOC features for PhishSlayer — agentic SOC platform.
-Stack: Next.js 15, TypeScript, Supabase, Clerk auth, Groq (llama-3.3-70b-versatile), MongoDB Atlas.
-Supabase project: txnkvbddcjdldksdjueu
+Stack: Next.js 15, TypeScript, Supabase, Clerk auth, Groq (llama-3.3-70b-versatile).
 
-ANTI-HALLUCINATION RULES (read before touching code):
-- Before using ANY npm package, run: cat package.json | grep <pkg>
-  If not found, implement manually in TypeScript OR install it. No guessing.
-- Before creating any file, run: find . -name "<filename>" 2>/dev/null
-  If exists, edit it — never duplicate.
-- Before any Supabase query, run: grep -r "supabase.from" lib/ --include="*.ts" -l
-  Copy exact client initialization pattern from existing files.
-- If ANY subtask hits an error: log the error, skip, continue next subtask.
-  Never stop the entire build for one failure.
-- After ALL subtasks: run npm run build. Fix EVERY TypeScript error shown.
-  Do not commit if build fails.
+ANTI-HALLUCINATION RULES:
+- Check package.json before using ANY library: cat package.json | grep <name>
+- Check if file exists before creating: ls -la <path> 2>/dev/null
+- Never invent Supabase table columns — check schema: grep existing migrations in supabase/migrations/
+- If subtask errors: log error to console, skip, continue. Never abort all tasks.
+- npm run build at end. Zero TS errors. No commit if build fails.
 
-TASK 1 — Alert Deduplication Engine:
-1. Read existing: cat lib/orchestrator.ts (or wherever alerts are processed)
-2. Create lib/l1/alertDedup.ts
-   - Function: deduplicateAlert(newAlert, orgId) → { isDuplicate, groupId, count }
-   - Logic: query alerts table, group by (rule_id OR title, source_ip, org_id)
-     within sliding 1-hour window
-   - If match exists: increment a dedup_count field, return isDuplicate=true
-   - If new: create dedup group, return isDuplicate=false
-   - Threshold: same alert fired >3x in 1hr = duplicate group
-3. Add columns to alerts table via Supabase client (use execute_sql pattern — check existing migrations first):
-   ALTER TABLE alerts ADD COLUMN IF NOT EXISTS dedup_group_id TEXT;
-   ALTER TABLE alerts ADD COLUMN IF NOT EXISTS dedup_count INTEGER DEFAULT 1;
-   ALTER TABLE alerts ADD COLUMN IF NOT EXISTS is_suppressed BOOLEAN DEFAULT false;
-4. Wire into existing alert ingestion: find app/api/wazuh/alert/route.ts or similar
-   Run deduplicateAlert before saving — if duplicate, mark suppressed, still save but skip orchestrator
+TASK 1 — Asset Criticality Scoring:
+1. Check existing assets table: grep -r "assets" supabase/migrations/ | head -20
+2. Add columns if not present:
+   ALTER TABLE assets ADD COLUMN IF NOT EXISTS criticality TEXT DEFAULT 'medium'
+     CHECK (criticality IN ('low','medium','high','critical'));
+   ALTER TABLE assets ADD COLUMN IF NOT EXISTS owner_user_id TEXT;
+   ALTER TABLE assets ADD COLUMN IF NOT EXISTS asset_tags TEXT[];
+3. Create lib/l1/assetCriticality.ts
+   - Function: getAlertCriticality(alert, orgId) → 'low'|'medium'|'high'|'critical'
+   - Logic: look up asset by IP/hostname in assets table
+   - If asset criticality=critical → auto-elevate alert to critical severity
+   - If asset is executive device (tag 'executive') → always critical
+   - Return final severity
+4. Wire into alert ingestion: after saving alert, call getAlertCriticality, update severity if elevated
+5. Create app/api/assets/[id]/criticality/route.ts — PUT { criticality, tags }
 
-TASK 2 — Alert Suppression Rules:
-1. Create lib/l1/suppressionEngine.ts
-   - Function: checkSuppression(alert, orgId) → { suppressed: boolean, ruleId?: string }
-   - Query suppression_rules table (create if not exist)
-   - Rule types: IP-based, domain-based, time-window (e.g. 2am–4am), severity-based
-   - Match logic: check all active rules → if any match, return suppressed=true
-2. Create Supabase migration file: supabase/migrations/20260429100000_suppression_rules.sql
-   CREATE TABLE IF NOT EXISTS suppression_rules (
+TASK 2 — Business Hours Anomaly:
+1. Create lib/l1/businessHours.ts
+   - Function: isBusinessHours(timestamp, timezone = 'UTC') → boolean
+   - Business hours: Mon–Fri 08:00–18:00 org local time
+   - Function: flagOutOfHoursLogin(alert) → boolean
+   - If alert.type includes 'login'|'authentication'|'access' AND outside business hours
+     → add flag 'OUT_OF_HOURS' to alert.tags
+2. Wire into alert ingestion after assetCriticality check
+3. Add org setting for timezone: ALTER TABLE organizations ADD COLUMN IF NOT EXISTS timezone TEXT DEFAULT 'UTC';
+
+TASK 3 — Bulk Alert Actions:
+1. Create app/api/alerts/bulk/route.ts
+   POST { alertIds: string[], action: 'close'|'assign'|'escalate'|'suppress'|'mark_fp', payload?: any }
+   - Validate all alertIds belong to same org (security check — never skip this)
+   - Execute action on all in single DB transaction
+   - Return { success: number, failed: number, errors: string[] }
+2. In frontend alerts table (find alerts page):
+   - Add checkbox per row
+   - "Select all" checkbox in header
+   - Bulk action bar appears when ≥1 selected: Close, Assign, Escalate, Suppress, Mark FP
+   - POST to /api/alerts/bulk with selected IDs
+
+TASK 4 — Shift Handover Report:
+1. Create lib/l1/shiftHandover.ts
+   - Function: generateHandoverReport(orgId, shiftEndTime) → HandoverReport
+   - Pull: open alerts, escalated cases, assigned-but-unresolved alerts, new IOCs added
+   - Groq prompt: given this SOC data, write a professional shift handover note
+   - Include: critical open items, analyst assignments, recommended next actions
+2. Create Supabase migration: supabase/migrations/20260429400000_shift_handover.sql
+   CREATE TABLE IF NOT EXISTS shift_handovers (
      id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
      organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
-     name TEXT NOT NULL,
-     rule_type TEXT CHECK (rule_type IN ('ip','domain','time_window','severity','rule_name')),
-     match_value TEXT,
-     time_start TIME,
-     time_end TIME,
-     is_active BOOLEAN DEFAULT true,
-     created_by TEXT,
-     expires_at TIMESTAMPTZ,
+     created_by TEXT NOT NULL,
+     shift_end TIMESTAMPTZ NOT NULL,
+     open_alerts_count INTEGER DEFAULT 0,
+     critical_cases JSONB DEFAULT '[]',
+     groq_narrative TEXT,
+     raw_data JSONB,
      created_at TIMESTAMPTZ DEFAULT NOW()
    );
-   ALTER TABLE suppression_rules ENABLE ROW LEVEL SECURITY;
-   Add org-scoped RLS policies (SELECT/INSERT/UPDATE/DELETE).
-3. Create app/api/suppression-rules/route.ts — GET (list), POST (create)
-4. Create app/api/suppression-rules/[id]/route.ts — PUT, DELETE
-5. Wire suppressionEngine into alert ingestion (same file as dedup): run check before dedup
+   ALTER TABLE shift_handovers ENABLE ROW LEVEL SECURITY;
+   Org-scoped RLS (SELECT/INSERT).
+3. Create app/api/shift-handover/route.ts
+   POST { organizationId } → generate report → save → return
+   GET → list past handovers for org
+4. Create /dashboard/shift-handover page:
+   - "Generate Handover" button → POST, show Groq narrative
+   - List of past handovers with timestamp + summary
 
-TASK 3 — False Positive Engine:
-1. Create lib/l1/falsePositiveEngine.ts
-   - Function: markFalsePositive(alertId, orgId, analystId) → void
-     - Update alert.is_false_positive = true
-     - Extract alert fingerprint: { rule_id, source_ip, destination_port, alert_type }
-     - Store fingerprint in fp_fingerprints table
-   - Function: checkFalsePositive(alert, orgId) → { isFP: boolean, confidence: number }
-     - Exact match fingerprint → confidence 1.0
-     - Partial match (same rule + same IP range /24) → confidence 0.7
-     - Return suppressed if confidence > 0.8
-2. Create Supabase migration: supabase/migrations/20260429200000_fp_engine.sql
-   CREATE TABLE IF NOT EXISTS fp_fingerprints (
-     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-     organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
-     rule_id TEXT,
-     source_ip TEXT,
-     source_ip_range TEXT,
-     destination_port INTEGER,
-     alert_type TEXT,
-     marked_by TEXT,
-     hit_count INTEGER DEFAULT 1,
-     last_hit_at TIMESTAMPTZ DEFAULT NOW(),
-     created_at TIMESTAMPTZ DEFAULT NOW()
-   );
-   ALTER TABLE fp_fingerprints ENABLE ROW LEVEL SECURITY;
-   Add org-scoped RLS (SELECT/INSERT/UPDATE).
-   ALTER TABLE alerts ADD COLUMN IF NOT EXISTS is_false_positive BOOLEAN DEFAULT false;
-   ALTER TABLE alerts ADD COLUMN IF NOT EXISTS fp_marked_by TEXT;
-   ALTER TABLE alerts ADD COLUMN IF NOT EXISTS fp_marked_at TIMESTAMPTZ;
-3. Create app/api/alerts/[id]/false-positive/route.ts
-   POST: mark alert as FP, store fingerprint, return updated alert
-
-TASK 4 — Alert Acknowledgment + Triage Timer:
-1. Add columns (check if exist first):
-   ALTER TABLE alerts ADD COLUMN IF NOT EXISTS acknowledged_by TEXT;
-   ALTER TABLE alerts ADD COLUMN IF NOT EXISTS acknowledged_at TIMESTAMPTZ;
-   ALTER TABLE alerts ADD COLUMN IF NOT EXISTS assigned_to TEXT;
-2. Create app/api/alerts/[id]/acknowledge/route.ts
-   POST { analystId } → set acknowledged_by, acknowledged_at
-   If already acknowledged by different analyst → return 409 conflict (prevent double-handle)
-3. Create app/api/alerts/[id]/assign/route.ts
-   POST { analystId } → set assigned_to
-4. In alert list query (find existing GET /api/alerts route), add computed field:
-   triage_age_seconds: seconds since created_at if not acknowledged
-
-TASK 5 — Watchlist:
-1. Create lib/l1/watchlistMatcher.ts
-   - On every new alert: extract IPs, domains, emails, users from alert data
-   - Query watchlist table for any matches
-   - If hit: boost alert severity, add tag "WATCHLIST_HIT", create notification
-2. Create Supabase migration: supabase/migrations/20260429300000_watchlist.sql
-   CREATE TABLE IF NOT EXISTS watchlist (
-     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-     organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
-     entity_type TEXT CHECK (entity_type IN ('ip','domain','email','user','hash')),
-     entity_value TEXT NOT NULL,
-     reason TEXT,
-     added_by TEXT,
-     expires_at TIMESTAMPTZ,
-     hit_count INTEGER DEFAULT 0,
-     last_hit_at TIMESTAMPTZ,
-     created_at TIMESTAMPTZ DEFAULT NOW(),
-     UNIQUE(organization_id, entity_type, entity_value)
-   );
-   ALTER TABLE watchlist ENABLE ROW LEVEL SECURITY;
-   Add org-scoped RLS (SELECT/INSERT/DELETE).
-3. Create app/api/watchlist/route.ts — GET, POST
-4. Create app/api/watchlist/[id]/route.ts — DELETE
-5. Wire watchlistMatcher into alert ingestion pipeline
-
-TASK 6 — Frontend pages (glassmorphism, bg #0a0a0f, purple #6366F1, cyan #00d4aa):
-a) /dashboard/suppression-rules
-   - Table: name, type, match_value, time window, active toggle
-   - "Add Rule" modal with form fields per rule_type
-b) Wire existing alerts table:
-   - Add "ACK" button per row → POST /api/alerts/[id]/acknowledge
-   - Add "Assign" dropdown per row
-   - Add "Mark FP" button → POST /api/alerts/[id]/false-positive
-   - Show dedup_count badge if >1 ("x12 duplicates")
-   - Show suppressed alerts as grayed out with "Suppressed" tag
+TASK 5 — Priority Queue Rebalancing:
+1. Create lib/l1/queueRebalancer.ts
+   - Function: rebalanceQueue(orgId) → void
+   - Logic: when critical alert arrives, find all 'medium' alerts older than 2hr
+     that have no acknowledgment → de-prioritize (update priority field to 'deferred')
+   - Ensures critical alerts surface to top
+2. Wire: call rebalanceQueue after any new critical alert is saved
+3. Add column: ALTER TABLE alerts ADD COLUMN IF NOT EXISTS queue_priority INTEGER DEFAULT 50;
+   Critical=100, High=75, Medium=50, Low=25. Deferred=10.
+4. Update existing GET /api/alerts to ORDER BY queue_priority DESC, created_at DESC
 
 After all tasks:
-npm run build
-Fix EVERY TypeScript error before finishing.
-List all files created/modified.
-Do git add -A && git commit -m "feat: L1 alert dedup, suppression, FP engine, ACK, watchlist" && git push origin main
+npm run build — fix ALL errors.
+git add -A && git commit -m "feat: L1 asset criticality, bulk actions, shift handover, queue rebalancer" && git push origin main
+List every file created/modified.

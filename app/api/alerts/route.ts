@@ -25,6 +25,7 @@ export async function GET(req: Request) {
     .from("alerts")
     .select("*")
     .eq("org_id", membership.organization_id)
+    .order("queue_priority", { ascending: false })
     .order("created_at", { ascending: false });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

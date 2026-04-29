@@ -116,10 +116,44 @@ export class IngestionPipeline {
         dedup_group_id: finalGroupId,
         dedup_count: finalCount,
         is_suppressed: suppressed || finalIsDuplicate || isFPDetected,
-        is_false_positive: isFPDetected
-      }).select("id").single();
+        is_false_positive: isFPDetected,
+        queue_priority: normalized.severity >= 13 ? 100 : normalized.severity >= 9 ? 75 : 50
+      }).select("id, severity_level").single();
 
       if (!alertError && alertData?.id) {
+        // TASK 1: Asset Criticality
+        const { getAlertCriticality } = await import("../l1/assetCriticality");
+        const elevatedSeverity = await getAlertCriticality(this.supabase, {
+          source_ip: entry.source_ip,
+          severity_level: alertData.severity_level,
+          org_id: entry.organization_id
+        });
+
+        // TASK 2: Business Hours
+        const { flagOutOfHoursLogin } = await import("../l1/businessHours");
+        const isOutOfHours = flagOutOfHoursLogin({ alert_type: normalized.category, title }, 'UTC');
+
+        const updates: any = {};
+        if (elevatedSeverity !== alertData.severity_level) {
+          updates.severity_level = elevatedSeverity;
+          updates.queue_priority = 100; // Force to top
+        }
+        
+        if (isOutOfHours) {
+          // Assuming we want to track this in tags or title
+          updates.title = `[OUT OF HOURS] ${isWatchlistHit ? `[WATCHLIST HIT] ${title}` : title}`;
+        }
+
+        if (Object.keys(updates).length > 0) {
+          await this.supabase.from("alerts").update(updates).eq("id", alertData.id);
+        }
+
+        // TASK 5: Queue Rebalancing (only if critical)
+        if (elevatedSeverity >= 13) {
+          const { rebalanceQueue } = await import("../l1/queueRebalancer");
+          void rebalanceQueue(this.supabase, entry.organization_id);
+        }
+
         await this.supabase.from("raw_logs").update({
           processed: true,
           alert_created: true
