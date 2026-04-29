@@ -1,0 +1,113 @@
+# Platform Status
+
+## Current API Routes (Working)
+- /api/actions/* (block-ip, escalate, isolate-identity, tier0-check)
+- /api/agent/* (commands, download, hunt, respond, triage, etc.)
+- /api/agents/* (l2, l3)
+- /api/alerts/*
+- /api/analysis/static
+- /api/assets/*
+- /api/attack-path/*
+- /api/autoclose/stats
+- /api/billing/* (checkout, portal, subscription, webhook)
+- /api/cases/*
+- /api/communications
+- /api/connectors/*
+- /api/containment/*
+- /api/cron/* (auto-playbooks, beaconing-scan, darkweb-scan, enrich-alerts, l1-triage, l2-respond, l3-hunt, etc.)
+- /api/cve/*
+- /api/darkweb/*
+- /api/deep-scan
+- /api/detection-rules/*
+- /api/detection/*
+- /api/digest/weekly
+- /api/email/analyze
+- /api/enrichment/*
+- /api/entity360/*
+- /api/flag-ioc
+- /api/health
+- /api/hunting/*
+- /api/incidents/*
+- /api/infrastructure/*
+- /api/ingest/*
+- /api/integrations/*
+- /api/intel/*
+- /api/knowledge-base/*
+- /api/l2/*
+- /api/l3/*
+- /api/metrics/*
+- /api/mitre/*
+- /api/orchestrator/*
+- /api/organizations
+- /api/osint/*
+- /api/pir/*
+- /api/platform/*
+- /api/playbooks/*
+- /api/reasoning
+- /api/recon/port-patrol
+- /api/reporting/*
+- /api/response/*
+- /api/sandbox/*
+- /api/scan/url
+- /api/shift-handover
+- /api/siem/push
+- /api/sigma/*
+- /api/support/*
+- /api/support-chat
+- /api/suppression-rules/*
+- /api/threat/ai-analysis
+- /api/tip/*
+- /api/uba/*
+- /api/ueba/*
+- /api/v1/scan
+- /api/v2/identity/*
+- /api/vulnerabilities/*
+- /api/waitlist
+- /api/watchlist/*
+- /api/webhooks/clerk
+
+## Current Agent Files (Working)
+- lib/agent/endpointMonitor.ts
+- lib/ai/groq.ts
+- lib/email/groqAnalyzer.ts
+- lib/osint/groqNarrator.ts
+
+## Current DB Tables (From Migrations)
+- agent_reasoning
+- multi_tenant (tenants, users, organizations)
+- static_analysis
+- wazuh_integrations
+- cases
+- ueba (anomalies, risk_scores)
+- hunting (hypotheses, runs)
+- sigma (rules)
+- intel (iocs, feeds)
+- attack_path
+- ingestion (logs)
+- orchestrator
+- cvss_threat_intel
+- mitre_tagging
+- forensics
+- notifications_assets_sla
+- email_analysis
+- url_sandbox
+- uba
+- detection_rules
+- darkweb
+- vulnerabilities
+- suppression_rules
+- fp_engine
+- watchlist
+- shift_handover
+- soc_extensions
+- containment
+- pir_knowledge
+- org_risk_score
+- osint_schema
+
+## Broken Things Found and Fixed
+- None (Build was fully successful with 0 errors)
+- Appended missing environment variables to `.env.example`
+
+## Build Status
+- PASSING
