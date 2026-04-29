@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { createClient } from "@/lib/supabase/client";
 import DashboardCard from "@/components/dashboard/DashboardCard";
-import { Loader2, ShieldAlert, CheckCircle, UserPlus, Ghost, ShieldOff } from "lucide-react";
+import { Loader2, ShieldAlert, CheckCircle, UserPlus, Ghost, ShieldOff, Activity } from "lucide-react";
 import { toast } from "sonner";
 
 type Alert = {
@@ -282,6 +282,29 @@ export default function AlertsPage() {
                           className="p-1.5 rounded hover:bg-red-500/20 text-white/40 hover:text-red-400 transition-all"
                         >
                           <Ghost className="w-4 h-4" />
+                        </button>
+                        <a 
+                          href={`/dashboard/entity360?type=ip&value=${alert.source_ip}`}
+                          title="Investigate Entity 360"
+                          className="p-1.5 rounded hover:bg-cyan-500/20 text-white/40 hover:text-cyan-400 transition-all"
+                        >
+                          <Activity className="w-4 h-4" />
+                        </a>
+                        <button 
+                          onClick={async () => {
+                            if (confirm(`Are you sure you want to block IP ${alert.source_ip}?`)) {
+                              const res = await fetch("/api/containment/block-ip", {
+                                method: "POST",
+                                body: JSON.stringify({ ip: alert.source_ip, alertId: alert.id, reason: "Manual containment from alert center", organizationId: user?.publicMetadata?.organizationId })
+                              });
+                              if (res.ok) toast.success("Containment action triggered");
+                              else toast.error("Containment failed");
+                            }
+                          }}
+                          title="Block IP"
+                          className="p-1.5 rounded hover:bg-red-500/20 text-white/40 hover:text-red-500 transition-all"
+                        >
+                          <ShieldOff className="w-4 h-4" />
                         </button>
                       </div>
                     </td>

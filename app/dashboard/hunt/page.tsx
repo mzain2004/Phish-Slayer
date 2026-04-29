@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Brain, Loader2, Sparkles } from "lucide-react";
+import { Brain, Loader2, Sparkles, Zap } from "lucide-react";
 import { useAuth, useOrganization } from "@clerk/nextjs";
 import DashboardCard from "@/components/dashboard/DashboardCard";
 import StatusBadge from "@/components/dashboard/StatusBadge";
@@ -41,8 +41,8 @@ export default function ThreatHuntsPage() {
   const [hypotheses, setHypotheses] = useState<HuntHypothesis[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorText, setErrorText] = useState<string | null>(null);
-  const [searchText, setSearchText] = useState("");
   const [generating, setGenerating] = useState(false);
+  const [automatedFindings, setAutomatedFindings] = useState<{beaconing: any[], lateral: any[]}>({beaconing: [], lateral: []});
 
   const fetchHypotheses = useCallback(async () => {
     if (!userId || !orgId) {
@@ -72,6 +72,24 @@ export default function ThreatHuntsPage() {
     }
   }, [orgId, userId]);
 
+  const loadAutomated = useCallback(async () => {
+    if (!orgId) return;
+    try {
+      const [bRes, lRes] = await Promise.all([
+        fetch(`/api/l2/beaconing?organizationId=${orgId}`),
+        fetch(`/api/l2/lateral-movement?organizationId=${orgId}`)
+      ]);
+      if (bRes.ok && lRes.ok) {
+        setAutomatedFindings({
+          beaconing: await bRes.json(),
+          lateral: await lRes.json()
+        });
+      }
+    } catch (e) {
+      console.error("Failed to load automated findings", e);
+    }
+  }, [orgId]);
+
   const handleGenerate = async () => {
     if (!orgId) return;
     setGenerating(true);
@@ -98,123 +116,90 @@ export default function ThreatHuntsPage() {
   };
 
   useEffect(() => {
-    if (!orgLoaded) return;
-    void fetchHypotheses();
-  }, [fetchHypotheses, orgLoaded]);
-
-  const filtered = useMemo(() => {
-    const search = searchText.trim().toLowerCase();
-    if (!search) return hypotheses;
-
-    return hypotheses.filter((item) => {
-      const title = item.title?.toLowerCase() || "";
-      const mitre = item.mitre_technique?.toLowerCase() || "";
-      return title.includes(search) || mitre.includes(search);
-    });
-  }, [hypotheses, searchText]);
+    if (orgLoaded) {
+      fetchHypotheses();
+      loadAutomated();
+    }
+  }, [orgLoaded, fetchHypotheses, loadAutomated]);
 
   return (
-    <div className="flex flex-col gap-6 text-white">
-      <div className="p-6 bg-[rgba(23,28,35,0.85)] backdrop-blur-3xl border border-[rgba(48,54,61,0.9)] rounded-2xl flex flex-col gap-4">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Threat Hunts</h1>
-            <p className="text-sm text-white/70">
-              Hypothesis-driven hunts generated from your recent alert patterns.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={handleGenerate}
-            disabled={!orgId || generating}
-            className="inline-flex items-center gap-2 rounded-xl border border-violet-400/30 bg-violet-500/20 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-violet-100 disabled:opacity-60"
-          >
-            {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            Generate AI Hypotheses
-          </button>
+    <div className="flex flex-col gap-6 p-8 text-white">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Brain className="text-primary" />
+            Threat Hunting
+          </h1>
+          <p className="text-white/50 text-sm">Hypothesis-driven and automated discovery</p>
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <input
-            value={searchText}
-            onChange={(event) => setSearchText(event.target.value)}
-            placeholder="Search title or MITRE technique"
-            className="rounded-xl border border-[rgba(48,54,61,0.9)] bg-black/30 px-3 py-2 text-sm"
-          />
-        </div>
+        <button 
+          onClick={handleGenerate}
+          disabled={generating}
+          className="bg-primary hover:bg-primary/90 text-white px-6 py-2 rounded-full flex items-center gap-2 font-semibold transition-all disabled:opacity-50"
+        >
+          {generating ? <Loader2 className="animate-spin w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
+          Generate Hypotheses
+        </button>
       </div>
 
-      {!orgLoaded ? (
-        <div className="p-6 bg-[rgba(23,28,35,0.85)] backdrop-blur-3xl border border-[rgba(48,54,61,0.9)] rounded-2xl text-white/70">
-          Loading organization...
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 flex flex-col gap-6">
+           <DashboardCard className="p-6">
+              <h2 className="text-lg font-bold mb-4">Active Hypotheses</h2>
+              {loading ? (
+                <div className="flex justify-center p-20"><Loader2 className="animate-spin text-primary" /></div>
+              ) : hypotheses.length === 0 ? (
+                <p className="text-center text-white/20 p-20">No active hypotheses found.</p>
+              ) : (
+                <div className="flex flex-col gap-3">
+                   {hypotheses.map(h => (
+                     <div key={h.id} className="p-4 bg-white/5 rounded-xl border border-white/10 flex justify-between items-center">
+                        <div>
+                          <p className="font-bold">{h.title}</p>
+                          <p className="text-xs text-white/40">{h.mitre_technique || "Generic"}</p>
+                        </div>
+                        <StatusBadge status={priorityTone(h.priority)} label={h.priority || "Medium"} />
+                     </div>
+                   ))}
+                </div>
+              )}
+           </DashboardCard>
         </div>
-      ) : !orgId ? (
-        <div className="p-6 bg-[rgba(23,28,35,0.85)] backdrop-blur-3xl border border-[rgba(48,54,61,0.9)] rounded-2xl text-white/70">
-          Select an organization to view hypotheses.
-        </div>
-      ) : loading ? (
-        <div className="rounded-2xl border border-[rgba(48,54,61,0.9)] bg-[rgba(23,28,35,0.85)] p-6">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <div
-                key={`hypothesis-skeleton-${index}`}
-                className="h-[200px] rounded-2xl border border-[rgba(48,54,61,0.9)] bg-black/20 animate-pulse"
-              />
-            ))}
-          </div>
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="p-6 bg-[rgba(23,28,35,0.85)] backdrop-blur-3xl border border-[rgba(48,54,61,0.9)] rounded-2xl text-white/70">
-          No hypotheses match your search.
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {filtered.map((item) => (
-            <DashboardCard key={item.id} className="flex flex-col gap-3">
-              <div className="flex items-start justify-between gap-3">
+
+        <div className="flex flex-col gap-6">
+          <DashboardCard className="p-6 border-cyan-500/20">
+             <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+               <Zap className="w-4 h-4 text-cyan-400" />
+               Automated Detections
+             </h2>
+             <div className="flex flex-col gap-4">
                 <div>
-                  <h2 className="text-lg font-semibold leading-tight text-white">{item.title}</h2>
-                  <p className="text-xs text-white/60">
-                    {item.mitre_technique ? `MITRE ${item.mitre_technique}` : "No MITRE technique"}
-                  </p>
+                   <p className="text-xs font-bold text-white/40 uppercase tracking-widest mb-2 border-b border-white/5 pb-1">Beaconing</p>
+                   {automatedFindings.beaconing.length === 0 ? <p className="text-xs text-white/20 italic">No patterns detected</p> : 
+                     automatedFindings.beaconing.map((b, i) => (
+                       <div key={i} className="mb-2 p-2 bg-white/5 rounded border border-white/5">
+                          <p className="text-xs font-mono text-cyan-300 truncate" title={`${b.srcIp} -> ${b.dstIp}`}>{b.srcIp} → {b.dstIp}</p>
+                          <p className="text-[10px] text-white/40">Interval: {b.interval}s • {Math.round(b.confidence*100)}% Conf</p>
+                       </div>
+                     ))
+                   }
                 </div>
-                <StatusBadge status={priorityTone(item.priority)} label={item.priority || "medium"} />
-              </div>
-
-              <p className="text-sm text-white/80">
-                {item.hypothesis || "No hypothesis text provided."}
-              </p>
-
-              <div className="flex flex-wrap gap-2 text-xs text-white/60">
-                <span className="inline-flex items-center gap-1">
-                  <Brain className="h-3.5 w-3.5" />
-                  {item.ai_generated ? "AI generated" : "Analyst authored"}
-                </span>
-                <span>Status: {item.status || "pending"}</span>
-              </div>
-
-              {item.data_sources && item.data_sources.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {item.data_sources.map((source) => (
-                    <span
-                      key={`${item.id}-${source}`}
-                      className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[10px] uppercase tracking-widest text-white/70"
-                    >
-                      {source}
-                    </span>
-                  ))}
+                <div>
+                   <p className="text-xs font-bold text-white/40 uppercase tracking-widest mb-2 border-b border-white/5 pb-1">Lateral Movement</p>
+                   {automatedFindings.lateral.length === 0 ? <p className="text-xs text-white/20 italic">No activity detected</p> : 
+                     automatedFindings.lateral.map((l, i) => (
+                       <div key={i} className="mb-2 p-2 bg-white/5 rounded border border-white/5">
+                          <p className="text-xs font-bold text-orange-400">{l.userId}</p>
+                          <p className="text-[10px] text-white/40">{l.machines.length} machines in {l.timespan}</p>
+                       </div>
+                     ))
+                   }
                 </div>
-              ) : null}
-            </DashboardCard>
-          ))}
+             </div>
+          </DashboardCard>
         </div>
-      )}
-
-      {errorText ? (
-        <DashboardCard className="border-red-400/40 bg-red-500/10 p-4 text-sm text-red-200">
-          {errorText}
-        </DashboardCard>
-      ) : null}
+      </div>
+      {errorText && <p className="text-red-400 text-sm text-center">{errorText}</p>}
     </div>
   );
 }
