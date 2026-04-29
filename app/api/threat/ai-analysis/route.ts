@@ -35,10 +35,10 @@ Return ONLY a valid JSON object with NO markdown, NO backticks:
 export async function POST(request: Request) {
   try {
     // Auth check
-    const { userId } = await auth();
-  if (!userId) {
+    const { userId, orgId } = await auth();
+    if (!userId || !orgId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+    }
 
   const supabase = await createClient();
 
@@ -92,6 +92,7 @@ export async function POST(request: Request) {
       .from('profiles')
       .select('api_calls_today, api_calls_reset_at')
       .eq('id', userId)
+      .eq('organization_id', orgId)
       .single();
 
     let calls = profile?.api_calls_today || 0;
@@ -118,7 +119,7 @@ export async function POST(request: Request) {
       await supabase.from('profiles').update({
         api_calls_today: calls + 1,
         api_calls_reset_at: resetAt.toISOString()
-      }).eq('id', userId);
+      }).eq('id', userId).eq('organization_id', orgId);
     } catch (error) {
       console.warn("AI heuristic analysis fallback used", {
         error: error instanceof Error ? error.message : "unknown",

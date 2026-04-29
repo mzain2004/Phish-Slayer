@@ -13,13 +13,15 @@ const schema = z.object({
   source_ip: z.string().optional().nullable()
 });
 
+import { auth } from '@clerk/nextjs/server';
+
 export async function POST(req: Request) {
+  const { userId } = await auth();
   const apiKey = req.headers.get("x-api-key");
-  if (!process.env.INGEST_API_KEY) {
-    console.error("CRITICAL ERROR: INGEST_API_KEY is not defined in environment variables.");
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
-  }
-  if (apiKey !== process.env.INGEST_API_KEY) {
+  const isApiAuthorized =
+    process.env.INGEST_API_KEY && apiKey === process.env.INGEST_API_KEY;
+
+  if (!userId && !isApiAuthorized) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

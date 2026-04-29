@@ -5,15 +5,23 @@ import { parseSigmaRule } from '@/lib/detection/sigmaParser';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
+import { auth } from '@clerk/nextjs/server';
+
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { userId, orgId } = await auth();
+  if (!userId || !orgId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   const { id } = await params;
   const supabase = await createClient();
-  const { data, error } = await supabase.from('detection_rules').select('*').eq('id', id).single();
+  const { data, error } = await supabase.from('detection_rules').select('*').eq('id', id).eq('organization_id', orgId).single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data);
 }
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { userId, orgId } = await auth();
+  if (!userId || !orgId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   const { id } = await params;
   const body = await req.json();
   const supabase = await createClient();
@@ -30,6 +38,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     .from('detection_rules')
     .update(body)
     .eq('id', id)
+    .eq('organization_id', orgId)
     .select()
     .single();
 
@@ -38,9 +47,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { userId, orgId } = await auth();
+  if (!userId || !orgId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   const { id } = await params;
   const supabase = await createClient();
-  const { error } = await supabase.from('detection_rules').delete().eq('id', id);
+  const { error } = await supabase.from('detection_rules').delete().eq('id', id).eq('organization_id', orgId);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return new Response(null, { status: 204 });
 }

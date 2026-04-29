@@ -1,13 +1,14 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { EnrichmentResult, EnrichmentSource } from "../types";
 
-export async function enrichHash(hash: string, supabase: SupabaseClient): Promise<EnrichmentResult> {
+export async function enrichHash(hash: string, orgId: string, supabase: SupabaseClient): Promise<EnrichmentResult> {
   const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const { data: cached } = await supabase
     .from("ioc_store")
     .select("*")
     .eq("ioc_type", "hash")
     .eq("value", hash)
+    .eq("organization_id", orgId)
     .gte("last_seen", twentyFourHoursAgo)
     .maybeSingle();
 
@@ -18,48 +19,58 @@ export async function enrichHash(hash: string, supabase: SupabaseClient): Promis
   const sources: EnrichmentSource[] = [];
   const results = await Promise.allSettled([
     // Source 1: VirusTotal
-    (async (): Promise<EnrichmentSource> => {
-      const apiKey = process.env.VIRUS_TOTAL_API_KEY;
-      if (!apiKey) throw new Error("Missing VIRUS_TOTAL_API_KEY");
-      const res = await fetch(`https://www.virustotal.com/api/v3/files/${hash}`, {
-        headers: { "x-apikey": apiKey }
-      });
-      if (!res.ok && res.status !== 404) throw new Error(`VT failed: ${res.statusText}`);
-      const data = res.status === 404 ? {} : await res.json();
-      const maliciousCount = data.data?.attributes?.last_analysis_stats?.malicious || 0;
-      return {
-        name: "VirusTotal",
-        malicious: maliciousCount > 3,
-        score: maliciousCount,
-        raw: data.data,
-        error: null
-      };
+    (async (): Promise<EnrichmentSource | null> => {
+      try {
+        const apiKey = process.env.VIRUS_TOTAL_API_KEY;
+        if (!apiKey) throw new Error("Missing VIRUS_TOTAL_API_KEY");
+        const res = await fetch(`https://www.virustotal.com/api/v3/files/${hash}`, {
+          headers: { "x-apikey": apiKey }
+        });
+        if (!res.ok && res.status !== 404) throw new Error(`HTTP ${res.status}`);
+        const data = res.status === 404 ? {} : await res.json();
+        const maliciousCount = data.data?.attributes?.last_analysis_stats?.malicious || 0;
+        return {
+          name: "VirusTotal",
+          malicious: maliciousCount > 3,
+          score: maliciousCount,
+          raw: data.data,
+          error: null
+        };
+      } catch (err) {
+        console.error('[Enrichment] VirusTotal fetch failed:', err);
+        return null;
+      }
     })(),
 
     // Source 2: MalwareBazaar
-    (async (): Promise<EnrichmentSource> => {
-      const formData = new URLSearchParams();
-      formData.append("query", "get_info");
-      formData.append("hash", hash);
-      const res = await fetch("https://mb-api.abuse.ch/api/v1/", {
-        method: "POST",
-        body: formData,
-        headers: { "Content-Type": "application/x-www-form-urlencoded" }
-      });
-      if (!res.ok) throw new Error(`MalwareBazaar failed: ${res.statusText}`);
-      const data = await res.json();
-      return {
-        name: "MalwareBazaar",
-        malicious: data.query_status === "ok",
-        score: data.query_status === "ok" ? 1 : 0,
-        raw: data,
-        error: null
-      };
+    (async (): Promise<EnrichmentSource | null> => {
+      try {
+        const formData = new URLSearchParams();
+        formData.append("query", "get_info");
+        formData.append("hash", hash);
+        const res = await fetch("https://mb-api.abuse.ch/api/v1/", {
+          method: "POST",
+          body: formData,
+          headers: { "Content-Type": "application/x-www-form-urlencoded" }
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        return {
+          name: "MalwareBazaar",
+          malicious: data.query_status === "ok",
+          score: data.query_status === "ok" ? 1 : 0,
+          raw: data,
+          error: null
+        };
+      } catch (err) {
+        console.error('[Enrichment] MalwareBazaar fetch failed:', err);
+        return null;
+      }
     })()
   ]);
 
   results.forEach((res) => {
-    if (res.status === "fulfilled") {
+    if (res.status === "fulfilled" && res.value) {
       sources.push(res.value);
     }
   });
@@ -87,6 +98,7 @@ export async function enrichHash(hash: string, supabase: SupabaseClient): Promis
   await supabase.from("ioc_store").upsert({
     ioc_type: "hash",
     value: hash,
+    organization_id: orgId,
     enrichment: result,
     malicious: finalMalicious,
     confidence_score: result.confidence_score,

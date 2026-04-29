@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/ingest-email",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/threat-intel",
+      "schedule": "0 * * * *"
+    }
+  ]
+}

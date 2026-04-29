@@ -1,12 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { parseSigmaRule } from '@/lib/detection/sigmaParser';
+import { z } from 'zod';
+
+const schema = z.object({ ruleContent: z.string(), type: z.string() });
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
+import { auth } from '@clerk/nextjs/server';
+
 export async function POST(req: NextRequest) {
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   try {
-    const { ruleContent, type } = await req.json();
+    const body = await req.json();
+    const parsed = schema.safeParse(body);
+    if (!parsed.success) return NextResponse.json({ error: parsed.error.issues }, { status: 400 });
+    const { ruleContent, type } = parsed.data;
 
     if (type === 'sigma') {
       try {

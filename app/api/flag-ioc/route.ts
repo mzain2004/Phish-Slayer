@@ -164,18 +164,19 @@ async function fireDiscordAlert(message: string): Promise<void> {
   }
 }
 
+import { auth } from '@clerk/nextjs/server';
+
 export async function POST(request: Request) {
-  // 1. Authenticate via AGENT_SECRET bearer token
+  const { userId } = await auth();
   const authHeader = request.headers.get("Authorization");
   const expectedToken = process.env.AGENT_SECRET;
   const providedToken = authHeader?.startsWith("Bearer ")
     ? authHeader.slice(7)
     : "";
-  if (
-    !expectedToken ||
-    !providedToken ||
-    !safeCompare(providedToken, expectedToken)
-  ) {
+  const isAgentAuthorized =
+    expectedToken && providedToken && safeCompare(providedToken, expectedToken);
+
+  if (!userId && !isAgentAuthorized) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

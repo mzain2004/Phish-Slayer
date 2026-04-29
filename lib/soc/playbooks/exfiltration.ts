@@ -59,7 +59,7 @@ const create_report: PlaybookStep = {
     await supabase.from("cases").update({
       severity: "p1",
       sla_deadline: sla
-    }).eq("id", context.case_id);
+    }).eq("id", context.case_id).eq("organization_id", context.organization_id);
     return { success: true, output: { severity: "p1", sla }, error: null, duration_ms: Date.now() - startTime };
   }
 };

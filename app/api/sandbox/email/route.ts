@@ -1,12 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
-import { parseEmailHeaders } from '@/lib/email/headerParser';
-import { analyzeHeadersWithGroq } from '@/lib/email/groqAnalyzer';
-import { detonateUrls, aggregateVerdicts } from '@/lib/sandbox/detonator';
-import { createClient } from '@/lib/supabase/server';
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import { parseEmailHeaders } from "@/lib/email/headerParser";
+import { analyzeHeadersWithGroq } from "@/lib/email/groqAnalyzer";
+import { detonateUrls, aggregateVerdicts } from "@/lib/sandbox/detonator";
+import { createClient } from "@/lib/supabase/server";
 
-export const dynamic = 'force-dynamic';
-export const runtime = 'nodejs';
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 const EmailSandboxSchema = z.object({
   rawEmail: z.string(),
@@ -28,9 +28,9 @@ export async function POST(req: NextRequest) {
 
     // 3. Save Header Analysis
     const supabase = await createClient();
-    await supabase.from('email_analyses').insert({
+    await supabase.from("email_analyses").insert({
       organization_id: organizationId,
-      raw_headers: rawEmail.substring(0, rawEmail.indexOf('\n\n')), // Crude header extract
+      raw_headers: rawEmail.substring(0, rawEmail.indexOf("\n\n")), // Crude header extract
       parsed_data: headerParsed,
       groq_analysis: headerGroq,
       risk_score: headerParsed.riskScore,
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
       scan_results: result,
     }));
     if (urlEntries.length > 0) {
-      await supabase.from('url_scans').insert(urlEntries);
+      await supabase.from("url_scans").insert(urlEntries);
     }
 
     return NextResponse.json({
@@ -58,13 +58,23 @@ export async function POST(req: NextRequest) {
         results: urlResults,
         verdict: overallUrlVerdict,
       },
-      overallRisk: Math.max(headerParsed.riskScore, overallUrlVerdict === 'malicious' ? 100 : overallUrlVerdict === 'suspicious' ? 70 : 0)
+      overallRisk: Math.max(
+        headerParsed.riskScore,
+        overallUrlVerdict === "malicious"
+          ? 100
+          : overallUrlVerdict === "suspicious"
+            ? 70
+            : 0,
+      ),
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues }, { status: 400 });
     }
-    console.error('Email Sandbox error:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    console.error("Email Sandbox error:", error);
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 },
+    );
   }
 }

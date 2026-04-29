@@ -200,7 +200,7 @@ export async function createIncident(data: any) {
     return { error: error.message || "Failed to create incident" };
   }
 
-  await logAuditEvent(userId || "system", "incident_created", payload.title, {
+  await logAuditEvent(userId || "system", "system", "incident_created", payload.title, {
     severity: payload.severity,
   });
 
@@ -258,7 +258,7 @@ export async function resolveIncident(id: string, comment: string) {
   }
 
   const { userId } = await auth();
-  await logAuditEvent(userId || "system", "incident_resolved", validId, {
+  await logAuditEvent(userId || "system", "system", "incident_resolved", validId, {
     comment: validComment,
   });
 
@@ -284,7 +284,7 @@ export async function deleteIncident(id: string) {
   }
 
   const { userId } = await auth();
-  await logAuditEvent(userId || "system", "incident_deleted", validId);
+  await logAuditEvent(userId || "system", "system", "incident_deleted", validId);
 
   revalidatePath("/dashboard");
 }
@@ -334,7 +334,7 @@ export async function blockIp(ipAddress: string) {
   });
 
   const { userId } = await auth();
-  await logAuditEvent(userId || "system", "ip_blocked", validIp, {
+  await logAuditEvent(userId || "system", "system", "ip_blocked", validIp, {
     source: "Manual Administrative Block",
   });
 
@@ -366,7 +366,7 @@ export async function addToWhitelist(target: string) {
   }
 
   const { userId } = await auth();
-  await logAuditEvent(userId || "system", "whitelist_added", validTarget);
+  await logAuditEvent(userId || "system", "system", "whitelist_added", validTarget);
 
   revalidatePath("/dashboard/threats");
   return { success: true };
@@ -477,7 +477,7 @@ export async function launchScan(target: string): Promise<{ error?: string }> {
   }
 
   // 7. Log audit event
-  await logAuditEvent(userId, "scan_launched", normalizedTarget, {
+  await logAuditEvent(userId, "system", "scan_launched", normalizedTarget, {
     tier: profile.subscription_tier,
   });
 
@@ -516,7 +516,7 @@ export async function launchScan(target: string): Promise<{ error?: string }> {
       return { error: "Target is whitelisted but failed to record scan." };
     }
 
-    await logAuditEvent(userId, "scan_completed", validTarget, {
+    await logAuditEvent(userId, "system", "scan_completed", validTarget, {
       verdict: "clean",
       reason: "whitelist_hit",
     });
@@ -595,7 +595,7 @@ export async function launchScan(target: string): Promise<{ error?: string }> {
       }
     }
 
-    await logAuditEvent(userId, "scan_completed", validTarget, {
+    await logAuditEvent(userId, "system", "scan_completed", validTarget, {
       verdict: "malicious",
       reason: "intel_hit",
     });
@@ -724,7 +724,7 @@ export async function launchScan(target: string): Promise<{ error?: string }> {
     return { error: err?.message || "Scan failed due to an unexpected error." };
   }
 
-  await logAuditEvent(userId, "scan_completed", validTarget, {
+  await logAuditEvent(userId, "system", "scan_completed", validTarget, {
     verdict: "scanned natively",
   });
   revalidatePath("/dashboard/scans");
@@ -772,7 +772,7 @@ export async function removeIntelIndicator(id: string) {
   }
 
   const { userId } = await auth();
-  await logAuditEvent(userId || "system", "intel_removed", parsed.data.id);
+  await logAuditEvent(userId || "system", "system", "intel_removed", parsed.data.id);
 
   revalidatePath("/dashboard/intel");
   revalidatePath("/dashboard/settings");
@@ -817,7 +817,7 @@ export async function assignIncident(
 
   if (error) return { error: error.message };
   const { userId } = await auth();
-  await logAuditEvent(userId || "system", "incident_assigned", incidentId, {
+  await logAuditEvent(userId || "system", "system", "incident_assigned", incidentId, {
     assigned_to: assignToUserId,
   });
 
@@ -922,7 +922,7 @@ export async function updateUserRole(userId: string, newRole: UserRole) {
     .eq("id", userId);
 
   if (error) return { error: error.message };
-  await logAuditEvent(currentUserId || "system", "user_role_changed", userId, {
+  await logAuditEvent(currentUserId || "system", "system", "user_role_changed", userId, {
     new_role: newRole,
   });
 
@@ -948,7 +948,7 @@ export async function toggleUserStatus(userId: string, isActive: boolean) {
     .eq("id", userId);
 
   if (error) return { error: error.message };
-  await logAuditEvent(currentUserId || "system", "user_status_changed", userId, {
+  await logAuditEvent(currentUserId || "system", "system", "user_status_changed", userId, {
     is_active: isActive,
   });
 
@@ -1005,7 +1005,7 @@ export async function inviteOrgUser(email: string, roleAssignment: UserRole) {
     }
   }
 
-  await logAuditEvent("system", "user_invited", email, {
+  await logAuditEvent("system", "system", "user_invited", email, {
     role: roleAssignment,
   });
 
@@ -1140,7 +1140,7 @@ export async function triggerWeeklyDigest() {
     });
   }
 
-  await logAuditEvent("system", "profile_updated", "weekly_digest", {
+  await logAuditEvent("system", "system", "profile_updated", "weekly_digest", {
     sent_to_count: emails.length,
   });
 

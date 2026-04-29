@@ -16,11 +16,13 @@ const QuerySchema = z.object({
 
 const WEBHOOK_BASE_URL = "https://phishslayer.tech/api/connectors/wazuh";
 
+import { auth } from "@clerk/nextjs/server";
+
 export async function GET(request: NextRequest) {
   try {
-    const user = await getAuthenticatedUser();
+    const { userId, orgId } = await auth();
 
-    if (!user) {
+    if (!userId) {
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
         { status: 401 },
@@ -28,7 +30,8 @@ export async function GET(request: NextRequest) {
     }
 
     const parsedQuery = QuerySchema.safeParse({
-      organization: request.nextUrl.searchParams.get("organization") ?? undefined,
+      organization:
+        request.nextUrl.searchParams.get("organization") ?? undefined,
     });
 
     if (!parsedQuery.success) {
@@ -47,7 +50,7 @@ export async function GET(request: NextRequest) {
     const userFullName = clerkUser?.fullName || undefined;
 
     const organization = await resolveOrganizationForUser({
-      userId: user.id,
+      userId: userId,
       preferredOrganizationId: parsedQuery.data.organization,
       organizationNameHint: userFullName || userEmail || undefined,
       userEmail: userEmail || undefined,

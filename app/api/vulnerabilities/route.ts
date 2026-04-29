@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-import { z } from 'zod';
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import { z } from "zod";
 
-export const dynamic = 'force-dynamic';
-export const runtime = 'nodejs';
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 const VulnSchema = z.object({
   organization_id: z.string().uuid(),
@@ -14,27 +14,36 @@ const VulnSchema = z.object({
   description: z.string().optional(),
   affected_product: z.string().optional(),
   patch_available: z.boolean().optional().default(false),
-  status: z.enum(['open', 'in_progress', 'resolved', 'accepted']).optional().default('open'),
+  status: z
+    .enum(["open", "in_progress", "resolved", "accepted"])
+    .optional()
+    .default("open"),
 });
 
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const severity = searchParams.get('severity');
-    const status = searchParams.get('status');
+    const severity = searchParams.get("severity");
+    const status = searchParams.get("status");
 
     const supabase = await createClient();
-    let query = supabase.from('vulnerabilities').select('*');
+    let query = supabase.from("vulnerabilities").select("*");
 
-    if (severity) query = query.eq('severity', severity);
-    if (status) query = query.eq('status', status);
+    if (severity) query = query.eq("severity", severity);
+    if (status) query = query.eq("status", status);
 
-    const { data, error } = await query.order('cvss_score', { ascending: false });
+    const { data, error } = await query.order("cvss_score", {
+      ascending: false,
+    });
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error)
+      return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json(data);
   } catch (error) {
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 },
+    );
   }
 }
 
@@ -45,15 +54,20 @@ export async function POST(req: NextRequest) {
     const supabase = await createClient();
 
     const { data, error } = await supabase
-      .from('vulnerabilities')
+      .from("vulnerabilities")
       .insert(validated)
       .select()
       .single();
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error)
+      return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json(data);
   } catch (error) {
-    if (error instanceof z.ZodError) return NextResponse.json({ error: error.issues }, { status: 400 });
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    if (error instanceof z.ZodError)
+      return NextResponse.json({ error: error.issues }, { status: 400 });
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 },
+    );
   }
 }

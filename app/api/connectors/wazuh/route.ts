@@ -1194,15 +1194,22 @@ export const config = {
   },
 };
 
+import { auth } from '@clerk/nextjs/server';
+
 export async function POST(request: NextRequest) {
-  const contentLength = parseInt(request.headers.get('content-length') || '0');
-  if (contentLength > 1_048_576) {
-    return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
-  }
+  const { userId } = await auth();
   const organizationParam =
     request.nextUrl.searchParams.get("organization") ||
     request.nextUrl.searchParams.get("organization_id");
   const apiKeyHeader = request.headers.get("x-api-key");
+  const authHeader = request.headers.get("authorization") || "";
+
+  // If no Clerk session, we must have valid webhook/API key auth
+  if (!userId && !organizationParam && !authHeader) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const contentLength = parseInt(request.headers.get('content-length') || '0');
 
   let organizationContext: OrganizationContext | null = null;
 

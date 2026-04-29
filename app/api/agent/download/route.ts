@@ -7,16 +7,13 @@ import { getServerRole } from "@/lib/rbac/serverRole";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
+import { auth } from '@clerk/nextjs/server';
+
 export async function GET() {
   try {
-    const user = await getAuthenticatedUser();
-    if (!user) {
+    const { userId, orgId } = await auth();
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const role = await getServerRole();
-    if (!role || !["admin", "manager", "super_admin"].includes(role)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const filePath = path.join(

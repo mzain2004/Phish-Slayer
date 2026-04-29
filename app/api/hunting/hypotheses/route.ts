@@ -15,7 +15,12 @@ const HypothesisSchema = z.object({
   search_patterns: z.any().optional(),
 });
 
+import { auth } from '@clerk/nextjs/server';
+
 export async function GET(req: NextRequest) {
+  const { userId, orgId } = await auth();
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   try {
     const supabase = await createClient();
     const { data, error } = await supabase
@@ -31,6 +36,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const { userId, orgId } = await auth();
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   try {
     const body = await req.json();
     const validated = HypothesisSchema.parse(body);

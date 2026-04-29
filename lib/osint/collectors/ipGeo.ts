@@ -13,7 +13,7 @@ export class IPGeoCollector extends BaseCollector {
       return { collector: this.name, success: true, data: { isPrivate: true }, iocs: [] };
     }
 
-    const data = await this.safeRequest(`http://ip-api.com/json/${ip}`);
+    const data = await this.safeRequest(`https://ip-api.com/json/${ip}`);
     
     if (!data || data.status === 'fail') {
       return { collector: this.name, success: false, data: null, iocs: [], error: data?.message || 'Geofetch failed' };

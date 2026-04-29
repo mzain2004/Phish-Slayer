@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { createClient } from '@/lib/supabase/server';
 import { tagAlertWithMitre } from '@/lib/mitre/tagger';
+import { z } from "zod";
+
+const schema = z.object({ alertId: z.string().optional(), caseId: z.string().optional() });
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -11,7 +14,10 @@ export async function POST(req: NextRequest) {
   if (!orgId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    const { alertId, caseId } = await req.json();
+    const body = await req.json();
+    const parsed = schema.safeParse(body);
+    if (!parsed.success) return NextResponse.json({ error: parsed.error.issues }, { status: 400 });
+    const { alertId, caseId } = parsed.data;
     const supabase = await createClient();
 
     if (alertId) {

@@ -6,12 +6,17 @@ import { scanWithYara } from '@/lib/detection/yaraScanner';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
+import { auth } from '@clerk/nextjs/server';
+
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { userId, orgId } = await auth();
+  if (!userId || !orgId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   const { id } = await params;
   const { sampleAlert } = await req.json();
 
   const supabase = await createClient();
-  const { data: rule, error } = await supabase.from('detection_rules').select('*').eq('id', id).single();
+  const { data: rule, error } = await supabase.from('detection_rules').select('*').eq('id', id).eq('organization_id', orgId).single();
 
   if (error || !rule) return NextResponse.json({ error: 'Rule not found' }, { status: 404 });
 

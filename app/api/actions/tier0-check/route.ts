@@ -20,60 +20,25 @@ function getAdminClient() {
   );
 }
 
-async function isAuthorized(request: NextRequest): Promise<boolean> {
-  const agentSecretHeader =
-    request.headers.get("AGENT_SECRET") ||
-    request.headers.get("agent_secret") ||
-    request.headers.get("x-agent-secret");
-
-  if (
-    Boolean(agentSecretHeader) &&
-    agentSecretHeader === process.env.AGENT_SECRET
-  ) {
-    return true;
-  }
-
-  const cookieStore = await cookies();
-  const callerClient = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value;
-        },
-      },
-    },
-  );
-
-  const {
-    data: { user },
-    error: authError,
-  } = await callerClient.auth.getUser();
-
-  if (authError || !user) {
-    return false;
-  }
-
-  const { data: profile, error: profileError } = await callerClient
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  if (profileError || !profile) {
-    return false;
-  }
-
-  return ["admin", "manager", "super_admin"].includes(profile.role);
-}
+import { auth } from '@clerk/nextjs/server';
 
 export async function POST(request: NextRequest) {
-  if (!(await isAuthorized(request))) {
-    return NextResponse.json(
-      { success: false, error: "Unauthorized" },
-      { status: 401 },
-    );
+  const { userId, orgId } = await auth();
+  if (!userId) {
+    const agentSecretHeader =
+      request.headers.get("AGENT_SECRET") ||
+      request.headers.get("agent_secret") ||
+      request.headers.get("x-agent-secret");
+
+    if (
+      !(Boolean(agentSecretHeader) &&
+      agentSecretHeader === process.env.AGENT_SECRET)
+    ) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 },
+      );
+    }
   }
 
   let body: unknown;

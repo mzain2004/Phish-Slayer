@@ -12,13 +12,14 @@ async function resolveTxt(domain: string): Promise<string[]> {
   });
 }
 
-export async function enrichEmail(email: string, supabase: SupabaseClient): Promise<EnrichmentResult> {
+export async function enrichEmail(email: string, orgId: string, supabase: SupabaseClient): Promise<EnrichmentResult> {
   const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const { data: cached } = await supabase
     .from("ioc_store")
     .select("*")
     .eq("ioc_type", "email")
     .eq("value", email)
+    .eq("organization_id", orgId)
     .gte("last_seen", twentyFourHoursAgo)
     .maybeSingle();
 
@@ -29,7 +30,7 @@ export async function enrichEmail(email: string, supabase: SupabaseClient): Prom
   const domain = email.split("@")[1];
   if (!domain) throw new Error("Invalid email address");
 
-  const domainEnrichment = await enrichDomain(domain, supabase);
+  const domainEnrichment = await enrichDomain(domain, orgId, supabase);
   
   // Security Checks
   const spfRecords = await resolveTxt(domain);
@@ -75,6 +76,7 @@ export async function enrichEmail(email: string, supabase: SupabaseClient): Prom
   await supabase.from("ioc_store").upsert({
     ioc_type: "email",
     value: email,
+    organization_id: orgId,
     enrichment: result,
     malicious: finalMalicious,
     confidence_score: result.confidence_score,

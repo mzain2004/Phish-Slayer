@@ -115,70 +115,78 @@ export async function checkVirusTotal(hash: string): Promise<VirusTotalResult> {
     };
   }
 
-  const response = await fetch(
-    `https://www.virustotal.com/api/v3/files/${encodeURIComponent(hash)}`,
-    {
-      method: "GET",
-      headers: {
-        "x-apikey": apiKey,
+  try {
+    const response = await fetch(
+      `https://www.virustotal.com/api/v3/files/${encodeURIComponent(hash)}`,
+      {
+        method: "GET",
+        headers: {
+          "x-apikey": apiKey,
+        },
       },
-    },
-  );
+    );
 
-  if (response.status === 404) {
+    if (response.status === 404) {
+      return {
+        detected: 0,
+        total: 0,
+        score: "0/0",
+        permalink: `https://www.virustotal.com/gui/file/${hash}`,
+        result: { not_found: true },
+      };
+    }
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const payload = (await response.json()) as {
+      data?: {
+        attributes?: {
+          last_analysis_stats?: {
+            malicious?: number;
+            suspicious?: number;
+            harmless?: number;
+            undetected?: number;
+            timeout?: number;
+          };
+        };
+        links?: {
+          self?: string;
+        };
+      };
+    };
+
+    const stats = payload.data?.attributes?.last_analysis_stats;
+    const malicious = stats?.malicious || 0;
+    const suspicious = stats?.suspicious || 0;
+    const detected = malicious + suspicious;
+    const total =
+      (stats?.malicious || 0) +
+      (stats?.suspicious || 0) +
+      (stats?.harmless || 0) +
+      (stats?.undetected || 0) +
+      (stats?.timeout || 0);
+
+    return {
+      detected,
+      total,
+      score: `${detected}/${total}`,
+      permalink:
+        payload.data?.links?.self ||
+        `https://www.virustotal.com/gui/file/${hash}`,
+      result: payload as unknown as Record<string, unknown>,
+    };
+  } catch (err) {
+    console.error('[static-analysis] fetch failed:', err);
     return {
       detected: 0,
       total: 0,
       score: "0/0",
-      permalink: `https://www.virustotal.com/gui/file/${hash}`,
-      result: { not_found: true },
+      permalink: null,
+      result: {},
     };
   }
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(
-      `VirusTotal request failed (${response.status}): ${errorText}`,
-    );
-  }
-
-  const payload = (await response.json()) as {
-    data?: {
-      attributes?: {
-        last_analysis_stats?: {
-          malicious?: number;
-          suspicious?: number;
-          harmless?: number;
-          undetected?: number;
-          timeout?: number;
-        };
-      };
-      links?: {
-        self?: string;
-      };
-    };
-  };
-
-  const stats = payload.data?.attributes?.last_analysis_stats;
-  const malicious = stats?.malicious || 0;
-  const suspicious = stats?.suspicious || 0;
-  const detected = malicious + suspicious;
-  const total =
-    (stats?.malicious || 0) +
-    (stats?.suspicious || 0) +
-    (stats?.harmless || 0) +
-    (stats?.undetected || 0) +
-    (stats?.timeout || 0);
-
-  return {
-    detected,
-    total,
-    score: `${detected}/${total}`,
-    permalink:
-      payload.data?.links?.self ||
-      `https://www.virustotal.com/gui/file/${hash}`,
-    result: payload as unknown as Record<string, unknown>,
-  };
 }
 
 export function buildGeminiAnalysisPrompt(data: StaticAnalysisInput): string {

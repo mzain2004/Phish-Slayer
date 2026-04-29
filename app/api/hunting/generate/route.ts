@@ -10,7 +10,12 @@ const GenerateSchema = z.object({
   organizationId: z.string().uuid(),
 });
 
+import { auth } from '@clerk/nextjs/server';
+
 export async function POST(req: NextRequest) {
+  const { userId, orgId: authOrgId } = await auth();
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   try {
     const body = await req.json();
     const { organizationId } = GenerateSchema.parse(body);

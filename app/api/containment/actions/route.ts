@@ -1,6 +1,9 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@/lib/supabase/server";
+import { z } from "zod";
+
+const schema = z.object({ actionId: z.string() });
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -30,7 +33,10 @@ export async function POST(req: Request) {
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    const { actionId } = await req.json();
+    const body = await req.json();
+    const parsed = schema.safeParse(body);
+    if (!parsed.success) return NextResponse.json({ error: parsed.error.issues }, { status: 400 });
+    const { actionId } = parsed.data;
     const supabase = await createClient();
 
     const { data: action } = await supabase.from("containment_actions").select("*").eq("id", actionId).single();

@@ -1,21 +1,24 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
-import { detectAnomalies } from '@/lib/uba/anomalyDetector';
-import { updateRiskProfile, logAnomalyEvent } from '@/lib/uba/profileBuilder';
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import { detectAnomalies } from "@/lib/uba/anomalyDetector";
+import { updateRiskProfile, logAnomalyEvent } from "@/lib/uba/profileBuilder";
 
-export const dynamic = 'force-dynamic';
-export const runtime = 'nodejs';
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 const AnalyzeSchema = z.object({
   userId: z.string(),
   organizationId: z.string().uuid(),
   currentActivity: z.object({
     ip: z.string(),
-    timestamp: z.string().optional().default(() => new Date().toISOString()),
+    timestamp: z
+      .string()
+      .optional()
+      .default(() => new Date().toISOString()),
     endpoint: z.string().optional(),
     action: z.string().optional(),
-    alertCountLastHour: z.number().optional()
-  })
+    alertCountLastHour: z.number().optional(),
+  }),
 });
 
 export async function POST(req: NextRequest) {
@@ -32,11 +35,15 @@ export async function POST(req: NextRequest) {
       timestamp: new Date(currentActivity.timestamp),
       endpoint: currentActivity.endpoint,
       action: currentActivity.action,
-      alertCountLastHour: currentActivity.alertCountLastHour
+      alertCountLastHour: currentActivity.alertCountLastHour,
     });
 
     // 2. Update Risk Profile
-    const profile = await updateRiskProfile(userId, organizationId, analysisResult);
+    const profile = await updateRiskProfile(
+      userId,
+      organizationId,
+      analysisResult,
+    );
 
     // 3. Log individual anomalies
     for (const anomaly of analysisResult.anomalies) {
@@ -48,7 +55,10 @@ export async function POST(req: NextRequest) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues }, { status: 400 });
     }
-    console.error('[UBA Analyze API] Error:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    console.error("[UBA Analyze API] Error:", error);
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 },
+    );
   }
 }

@@ -1,3 +1,4 @@
+import { auth } from '@clerk/nextjs/server';
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createSupabaseAdminClient } from "@supabase/supabase-js";
 import { z } from "zod";
@@ -21,13 +22,6 @@ function getAdminClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { autoRefreshToken: false, persistSession: false } },
-  );
-}
-
-function isAuthorized(request: NextRequest): boolean {
-  return (
-    Boolean(process.env.CRON_SECRET) &&
-    request.headers.get("authorization") === `Bearer ${process.env.CRON_SECRET}`
   );
 }
 
@@ -407,7 +401,12 @@ async function fetchOpenPhish(): Promise<RawIoc[]> {
 }
 
 export async function GET(request: NextRequest) {
-  if (!isAuthorized(request)) {
+  const { userId } = await auth();
+  const isCronAuthorized =
+    Boolean(process.env.CRON_SECRET) &&
+    request.headers.get("authorization") === `Bearer ${process.env.CRON_SECRET}`;
+
+  if (!userId && !isCronAuthorized) {
     return NextResponse.json(
       { success: false, error: "Unauthorized" },
       { status: 401 },

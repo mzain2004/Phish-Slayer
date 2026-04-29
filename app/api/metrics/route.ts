@@ -8,15 +8,12 @@ import { getServerRole } from "@/lib/rbac/serverRole";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-export async function GET() {
-  const user = await getAuthenticatedUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+import { auth } from "@clerk/nextjs/server";
 
-  const role = await getServerRole();
-  if (!role || !["admin", "manager", "super_admin"].includes(role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+export async function GET() {
+  const { userId, orgId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const ollamaOnline = await ollamaHealth();

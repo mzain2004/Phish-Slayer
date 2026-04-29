@@ -1,7 +1,10 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@/lib/supabase/server";
 import { generateHandoverReport } from "@/lib/l1/shiftHandover";
+import { z } from "zod";
+
+const schema = z.object({ organization_id: z.string() });
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -30,8 +33,10 @@ export async function POST(req: Request) {
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    const { organization_id } = await req.json();
-    if (!organization_id) return NextResponse.json({ error: "organization_id is required" }, { status: 400 });
+    const body = await req.json();
+    const parsed = schema.safeParse(body);
+    if (!parsed.success) return NextResponse.json({ error: parsed.error.issues }, { status: 400 });
+    const { organization_id } = parsed.data;
 
     const supabase = await createClient();
     const report = await generateHandoverReport(supabase, organization_id, userId);

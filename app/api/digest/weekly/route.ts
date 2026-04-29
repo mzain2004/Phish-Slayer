@@ -6,16 +6,20 @@ import { logAuditEvent } from "@/lib/audit/auditLogger";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-export async function GET(request: Request) {
-  try {
-    // Auth via CRON_SECRET
-    const authHeader = request.headers.get("authorization") || "";
-    const token = authHeader.replace("Bearer ", "");
-    const cronSecret = process.env.CRON_SECRET;
+import { auth } from '@clerk/nextjs/server';
 
-    if (!cronSecret || !safeCompare(token, cronSecret)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+export async function GET(request: Request) {
+  const { userId } = await auth();
+  const authHeader = request.headers.get("authorization") || "";
+  const token = authHeader.replace("Bearer ", "");
+  const cronSecret = process.env.CRON_SECRET;
+  const isCronAuthorized = cronSecret && safeCompare(token, cronSecret);
+
+  if (!userId && !isCronAuthorized) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
 
     // Use service role client
     const supabaseAdmin = createClient(

@@ -17,69 +17,29 @@ const IsolatePayloadSchema = z.object({
   tenantId: z.string().uuid().optional().nullable(),
 });
 
+import { auth } from '@clerk/nextjs/server';
+
 export async function POST(request: NextRequest) {
-  const agentSecretHeader =
-    request.headers.get("AGENT_SECRET") ||
-    request.headers.get("agent_secret") ||
-    request.headers.get("x-agent-secret");
-  const internalAuth =
-    Boolean(agentSecretHeader) &&
-    agentSecretHeader === process.env.AGENT_SECRET;
+  const { userId, orgId } = await auth();
+  if (!userId) {
+    const agentSecretHeader =
+      request.headers.get("AGENT_SECRET") ||
+      request.headers.get("agent_secret") ||
+      request.headers.get("x-agent-secret");
+    const internalAuth =
+      Boolean(agentSecretHeader) &&
+      agentSecretHeader === process.env.AGENT_SECRET;
 
-  let callerUserId: string | null = null;
-  let callerRole: string = "system";
-
-  if (!internalAuth) {
-    // ── 1. Build caller client (respects RLS, reads session) ──────────────────
-    const cookieStore = await cookies();
-    const callerClient = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
-          },
-        },
-      },
-    );
-
-    // ── 2. Verify caller is authenticated ────────────────────────────────────
-    const {
-      data: { user: callerUser },
-      error: authError,
-    } = await callerClient.auth.getUser();
-    if (authError || !callerUser) {
+    if (!internalAuth) {
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
         { status: 401 },
       );
     }
-
-    // ── 3. Verify caller has admin or manager role ────────────────────────────
-    const { data: callerProfile, error: profileError } = await callerClient
-      .from("profiles")
-      .select("role")
-      .eq("id", callerUser.id)
-      .single();
-
-    if (profileError || !callerProfile) {
-      return NextResponse.json(
-        { success: false, error: "Could not verify caller role" },
-        { status: 403 },
-      );
-    }
-
-    if (!["admin", "manager", "super_admin"].includes(callerProfile.role)) {
-      return NextResponse.json(
-        { success: false, error: "Forbidden: insufficient privileges" },
-        { status: 403 },
-      );
-    }
-
-    callerUserId = callerUser.id;
-    callerRole = callerProfile.role;
   }
+
+  const callerUserId = userId;
+  let callerRole: string = "system";
 
   // ── 4. Parse & validate request body ─────────────────────────────────────
   let body: unknown;

@@ -1,6 +1,15 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@/lib/supabase/server";
+import { z } from "zod";
+
+const schema = z.object({ 
+  title: z.string().optional(), 
+  content: z.string().optional(), 
+  category: z.string().optional(), 
+  tags: z.array(z.string()).optional(), 
+  organization_id: z.string().optional() 
+}).passthrough();
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -27,7 +36,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
   const { id } = await params;
   try {
-    const body = await req.json();
+    const rawBody = await req.json();
+    const parsed = schema.safeParse(rawBody);
+    if (!parsed.success) return NextResponse.json({ error: parsed.error.issues }, { status: 400 });
+    const body = parsed.data;
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("knowledge_base")

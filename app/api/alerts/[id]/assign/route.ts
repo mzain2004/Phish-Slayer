@@ -1,6 +1,9 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@/lib/supabase/server";
+import { z } from "zod";
+
+const schema = z.object({ analystId: z.string() });
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -12,8 +15,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const { id } = await params;
   
   try {
-    const { analystId } = await req.json();
-    if (!analystId) return NextResponse.json({ error: "analystId is required" }, { status: 400 });
+    const body = await req.json();
+    const parsed = schema.safeParse(body);
+    if (!parsed.success) return NextResponse.json({ error: parsed.error.issues }, { status: 400 });
+    const { analystId } = parsed.data;
 
     const supabase = await createClient();
     const { data, error } = await supabase

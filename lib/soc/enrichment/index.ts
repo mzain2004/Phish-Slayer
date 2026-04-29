@@ -28,19 +28,19 @@ export async function enrichIOC(ioc: IOC, supabase: SupabaseClient, organization
 
   switch (ioc.type) {
     case "ip":
-      return enrichIP(ioc.value, supabase);
+      return enrichIP(ioc.value, organization_id, supabase);
     case "domain":
-      return enrichDomain(ioc.value, supabase);
+      return enrichDomain(ioc.value, organization_id, supabase);
     case "hash":
-      return enrichHash(ioc.value, supabase);
+      return enrichHash(ioc.value, organization_id, supabase);
     case "email":
-      return enrichEmail(ioc.value, supabase);
+      return enrichEmail(ioc.value, organization_id, supabase);
     case "url":
       try {
         const url = new URL(ioc.value);
-        return enrichDomain(url.hostname, supabase);
+        return enrichDomain(url.hostname, organization_id, supabase);
       } catch {
-        return enrichDomain(ioc.value, supabase);
+        return enrichDomain(ioc.value, organization_id, supabase);
       }
     default:
       throw new Error(`Unsupported IOC type: ${ioc.type}`);

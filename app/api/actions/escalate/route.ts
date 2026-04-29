@@ -33,69 +33,28 @@ const severityColorMap: Record<"low" | "medium" | "high" | "critical", number> =
     low: 3329330,
   };
 
+import { auth } from '@clerk/nextjs/server';
+
 export async function POST(request: NextRequest) {
-  const cookieStore = await cookies();
-  const agentSecretHeader =
-    request.headers.get("AGENT_SECRET") ||
-    request.headers.get("agent_secret") ||
-    request.headers.get("x-agent-secret");
-  const internalAuth =
-    Boolean(agentSecretHeader) &&
-    agentSecretHeader === process.env.AGENT_SECRET;
+  const { userId, orgId } = await auth();
+  if (!userId) {
+    const agentSecretHeader =
+      request.headers.get("AGENT_SECRET") ||
+      request.headers.get("agent_secret") ||
+      request.headers.get("x-agent-secret");
+    const internalAuth =
+      Boolean(agentSecretHeader) &&
+      agentSecretHeader === process.env.AGENT_SECRET;
 
-  let callerUserId: string | null = null;
-
-  if (!internalAuth) {
-    const callerClient = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
-          },
-        },
-      },
-    );
-
-    const {
-      data: { user: callerUser },
-      error: authError,
-    } = await callerClient.auth.getUser();
-
-    if (authError || !callerUser) {
+    if (!internalAuth) {
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
         { status: 401 },
       );
     }
-
-    const { data: callerProfile, error: profileError } = await callerClient
-      .from("profiles")
-      .select("role")
-      .eq("id", callerUser.id)
-      .single();
-
-    if (profileError || !callerProfile) {
-      return NextResponse.json(
-        { success: false, error: "Could not verify caller role" },
-        { status: 403 },
-      );
-    }
-
-    if (
-      !(["admin", "manager", "super_admin"] as const).includes(
-        callerProfile.role,
-      )
-    ) {
-      return NextResponse.json(
-        { success: false, error: "Forbidden: insufficient privileges" },
-        { status: 403 },
-      );
-    }
-
-    callerUserId = callerUser.id;
   }
+
+  const callerUserId = userId;
 
   let body: unknown;
   try {

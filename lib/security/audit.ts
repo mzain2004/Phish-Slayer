@@ -3,6 +3,7 @@ import { redactSensitive } from "@/lib/security/redact";
 
 export async function logAuditEvent(
   userId: string,
+  orgId: string,
   action: string,
   resource?: string,
   details?: Record<string, unknown>,
@@ -13,6 +14,7 @@ export async function logAuditEvent(
     const safeDetails = redactSensitive(details || undefined) || null;
     await supabase.from("audit_logs").insert({
       user_id: userId,
+      organization_id: orgId,
       action,
       resource,
       details: safeDetails,

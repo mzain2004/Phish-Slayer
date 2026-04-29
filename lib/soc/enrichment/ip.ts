@@ -1,7 +1,7 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { EnrichmentResult, EnrichmentSource } from "../types";
 
-export async function enrichIP(ip: string, supabase: SupabaseClient): Promise<EnrichmentResult> {
+export async function enrichIP(ip: string, orgId: string, supabase: SupabaseClient): Promise<EnrichmentResult> {
   // 1. Check cache
   const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const { data: cached } = await supabase
@@ -9,6 +9,7 @@ export async function enrichIP(ip: string, supabase: SupabaseClient): Promise<En
     .select("*")
     .eq("ioc_type", "ip")
     .eq("value", ip)
+    .eq("organization_id", orgId)
     .gte("last_seen", twentyFourHoursAgo)
     .maybeSingle();
 
@@ -25,73 +26,93 @@ export async function enrichIP(ip: string, supabase: SupabaseClient): Promise<En
   // Define sources in parallel
   const results = await Promise.allSettled([
     // Source 1: VirusTotal
-    (async (): Promise<EnrichmentSource> => {
-      const apiKey = process.env.VIRUS_TOTAL_API_KEY;
-      if (!apiKey) throw new Error("Missing VIRUS_TOTAL_API_KEY");
-      const res = await fetch(`https://www.virustotal.com/api/v3/ip_addresses/${ip}`, {
-        headers: { "x-apikey": apiKey }
-      });
-      if (!res.ok) throw new Error(`VT failed: ${res.statusText}`);
-      const data = await res.json();
-      const stats = data.data?.attributes?.last_analysis_stats;
-      const maliciousCount = stats?.malicious || 0;
-      return {
-        name: "VirusTotal",
-        malicious: maliciousCount > 2,
-        score: maliciousCount,
-        raw: data.data
-      } as EnrichmentSource;
+    (async (): Promise<EnrichmentSource | null> => {
+      try {
+        const apiKey = process.env.VIRUS_TOTAL_API_KEY;
+        if (!apiKey) throw new Error("Missing VIRUS_TOTAL_API_KEY");
+        const res = await fetch(`https://www.virustotal.com/api/v3/ip_addresses/${ip}`, {
+          headers: { "x-apikey": apiKey }
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const stats = data.data?.attributes?.last_analysis_stats;
+        const maliciousCount = stats?.malicious || 0;
+        return {
+          name: "VirusTotal",
+          malicious: maliciousCount > 2,
+          score: maliciousCount,
+          raw: data.data
+        } as EnrichmentSource;
+      } catch (err) {
+        console.error('[Enrichment] VirusTotal fetch failed:', err);
+        return null;
+      }
     })(),
 
     // Source 2: AbuseIPDB
-    (async (): Promise<EnrichmentSource> => {
-      const apiKey = process.env.ABUSEIPDB_API_KEY;
-      if (!apiKey) throw new Error("Missing ABUSEIPDB_API_KEY");
-      const res = await fetch(`https://api.abuseipdb.com/api/v2/check?ipAddress=${encodeURIComponent(ip)}&maxAgeInDays=90`, {
-        headers: { "Key": apiKey, "Accept": "application/json" }
-      });
-      if (!res.ok) throw new Error(`AbuseIPDB failed: ${res.statusText}`);
-      const data = await res.json();
-      const score = data.data?.abuseConfidenceScore || 0;
-      return {
-        name: "AbuseIPDB",
-        malicious: score > 25,
-        score: score,
-        raw: data.data
-      } as EnrichmentSource;
+    (async (): Promise<EnrichmentSource | null> => {
+      try {
+        const apiKey = process.env.ABUSEIPDB_API_KEY;
+        if (!apiKey) throw new Error("Missing ABUSEIPDB_API_KEY");
+        const res = await fetch(`https://api.abuseipdb.com/api/v2/check?ipAddress=${encodeURIComponent(ip)}&maxAgeInDays=90`, {
+          headers: { "Key": apiKey, "Accept": "application/json" }
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const score = data.data?.abuseConfidenceScore || 0;
+        return {
+          name: "AbuseIPDB",
+          malicious: score > 25,
+          score: score,
+          raw: data.data
+        } as EnrichmentSource;
+      } catch (err) {
+        console.error('[Enrichment] AbuseIPDB fetch failed:', err);
+        return null;
+      }
     })(),
 
     // Source 3: IPInfo
-    (async (): Promise<EnrichmentSource> => {
-      const res = await fetch(`https://ipinfo.io/${ip}/json`);
-      if (!res.ok) throw new Error(`IPInfo failed: ${res.statusText}`);
-      const data = await res.json();
-      return {
-        name: "IPInfo",
-        malicious: data.bogon ? false : null, // Bogons aren't inherently malicious but can be blocked
-        score: data.bogon ? 0 : null,
-        raw: data
-      } as EnrichmentSource;
+    (async (): Promise<EnrichmentSource | null> => {
+      try {
+        const res = await fetch(`https://ipinfo.io/${ip}/json`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        return {
+          name: "IPInfo",
+          malicious: data.bogon ? false : null, // Bogons aren't inherently malicious but can be blocked
+          score: data.bogon ? 0 : null,
+          raw: data
+        } as EnrichmentSource;
+      } catch (err) {
+        console.error('[Enrichment] IPInfo fetch failed:', err);
+        return null;
+      }
     })(),
 
     // Source 4: Shodan (InternetDB)
-    (async (): Promise<EnrichmentSource> => {
-      const res = await fetch(`https://internetdb.shodan.io/${ip}`);
-      if (!res.ok && res.status !== 404) throw new Error(`Shodan failed: ${res.statusText}`);
-      const data = res.status === 404 ? { vulns: [] } : await res.json();
-      return {
-        name: "Shodan",
-        malicious: (data.vulns?.length || 0) > 0,
-        score: data.vulns?.length || 0,
-        raw: data
-      } as EnrichmentSource;
+    (async (): Promise<EnrichmentSource | null> => {
+      try {
+        const res = await fetch(`https://internetdb.shodan.io/${ip}`);
+        if (!res.ok && res.status !== 404) throw new Error(`HTTP ${res.status}`);
+        const data = res.status === 404 ? { vulns: [] } : await res.json();
+        return {
+          name: "Shodan",
+          malicious: (data.vulns?.length || 0) > 0,
+          score: data.vulns?.length || 0,
+          raw: data
+        } as EnrichmentSource;
+      } catch (err) {
+        console.error('[Enrichment] Shodan fetch failed:', err);
+        return null;
+      }
     })()
   ]);
 
   results.forEach((res) => {
-    if (res.status === "fulfilled") {
+    if (res.status === "fulfilled" && res.value) {
       sources.push(res.value);
-    } else {
+    } else if (res.status === "rejected") {
       console.error("Enrichment source failed:", res.reason);
     }
   });
@@ -130,6 +151,7 @@ export async function enrichIP(ip: string, supabase: SupabaseClient): Promise<En
   const iocData = {
     ioc_type: "ip",
     value: ip,
+    organization_id: orgId,
     enrichment: result,
     malicious: finalMalicious,
     confidence_score: result.confidence_score,
@@ -137,7 +159,7 @@ export async function enrichIP(ip: string, supabase: SupabaseClient): Promise<En
   };
 
   if (cached?.id) {
-    await supabase.from("ioc_store").update(iocData).eq("id", cached.id);
+    await supabase.from("ioc_store").update(iocData).eq("id", cached.id).eq("organization_id", orgId);
   } else {
     await supabase.from("ioc_store").insert({ ...iocData, first_seen: new Date().toISOString() });
   }

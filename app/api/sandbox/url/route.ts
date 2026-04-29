@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
-import { createClient } from '@/lib/supabase/server';
-import { detonateUrls } from '@/lib/sandbox/detonator';
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import { createClient } from "@/lib/supabase/server";
+import { detonateUrls } from "@/lib/sandbox/detonator";
 
-export const dynamic = 'force-dynamic';
-export const runtime = 'nodejs';
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 const UrlScanSchema = z.object({
   urls: z.array(z.string().url()),
@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { urls, organizationId } = UrlScanSchema.parse(body);
 
-    const scanResults = await detonateUrls(urls.join('\n'));
+    const scanResults = await detonateUrls(urls.join("\n"));
     const supabase = await createClient();
 
     const dbEntries = Object.entries(scanResults).map(([url, result]) => ({
@@ -28,8 +28,8 @@ export async function POST(req: NextRequest) {
     }));
 
     if (dbEntries.length > 0) {
-      const { error } = await supabase.from('url_scans').insert(dbEntries);
-      if (error) console.error('Supabase error:', error);
+      const { error } = await supabase.from("url_scans").insert(dbEntries);
+      if (error) console.error("Supabase error:", error);
     }
 
     return NextResponse.json(scanResults);
@@ -37,7 +37,10 @@ export async function POST(req: NextRequest) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues }, { status: 400 });
     }
-    console.error('URL Scan error:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    console.error("URL Scan error:", error);
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 },
+    );
   }
 }

@@ -1,8 +1,11 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@/lib/supabase/server";
 import { runInvestigation } from "@/lib/osint/orchestrator";
 import { OsintTargetType } from "@/lib/osint/types";
+import { z } from "zod";
+
+const schema = z.object({ targetType: z.string(), targetValue: z.string(), organizationId: z.string() });
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -12,7 +15,10 @@ export async function POST(req: Request) {
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    const { targetType, targetValue, organizationId } = await req.json();
+    const body = await req.json();
+    const parsed = schema.safeParse(body);
+    if (!parsed.success) return NextResponse.json({ error: parsed.error.issues }, { status: 400 });
+    const { targetType, targetValue, organizationId } = parsed.data;
     
     if (!['domain','ip','email','hash','person','company'].includes(targetType)) {
       return NextResponse.json({ error: "Invalid target type" }, { status: 400 });

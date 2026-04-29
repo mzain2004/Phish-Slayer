@@ -11,7 +11,14 @@ const CheckoutSchema = z.object({
   email: z.string().email(),
 });
 
+import { auth } from '@clerk/nextjs/server';
+
 export async function POST(request: Request) {
+  const { userId: authUserId } = await auth();
+  if (!authUserId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   if (!process.env.POLAR_ACCESS_TOKEN) {
     return NextResponse.json({ error: "Service unavailable" }, { status: 503 });
   }

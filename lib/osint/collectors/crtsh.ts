@@ -12,7 +12,7 @@ export class CrtshCollector extends BaseCollector {
       return { collector: this.name, success: false, data: { subdomains: [] }, iocs: [], error: 'crt.sh failure' };
     }
 
-    const subdomains = Array.from(new Set(data.map(item => item.common_name).concat(data.map(item => item.name_value.split('\n')).flat())));
+    const subdomains = Array.from(new Set(data.map(item => item.common_name).concat(data.map(item => (item.name_value || '').split('\n')).flat())));
     const filteredSubdomains = subdomains.filter(s => s && s.includes(target.value) && !s.includes('*'));
 
     return {

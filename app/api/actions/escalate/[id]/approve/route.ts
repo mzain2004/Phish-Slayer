@@ -19,54 +19,17 @@ function getAdminClient() {
   );
 }
 
-async function getAuthorizedUserId(): Promise<string | null> {
-  const cookieStore = await cookies();
-  const callerClient = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value;
-        },
-      },
-    },
-  );
-
-  const {
-    data: { user },
-    error: authError,
-  } = await callerClient.auth.getUser();
-  if (authError || !user) {
-    return null;
-  }
-
-  const { data: profile, error: profileError } = await callerClient
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  if (profileError || !profile) {
-    return null;
-  }
-
-  if (!["admin", "manager", "super_admin"].includes(profile.role)) {
-    return null;
-  }
-
-  return user.id;
-}
+import { auth } from '@clerk/nextjs/server';
 
 export async function PATCH(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  const userId = await getAuthorizedUserId();
+  const { userId, orgId } = await auth();
   if (!userId) {
     return NextResponse.json(
-      { success: false, error: "Forbidden: insufficient privileges" },
-      { status: 403 },
+      { success: false, error: "Unauthorized" },
+      { status: 401 },
     );
   }
 

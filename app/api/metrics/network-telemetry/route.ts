@@ -31,10 +31,12 @@ function toLabel(date: Date) {
   });
 }
 
+import { auth } from '@clerk/nextjs/server';
+
 export async function GET() {
   try {
-    const user = await getAuthenticatedUser();
-    if (!user) {
+    const { userId } = await auth();
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

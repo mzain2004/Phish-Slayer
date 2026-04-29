@@ -12,7 +12,12 @@ const AnalyzeSchema = z.object({
   organizationId: z.string().uuid(),
 });
 
+import { auth } from '@clerk/nextjs/server';
+
 export async function POST(req: NextRequest) {
+  const { userId, orgId } = await auth();
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   try {
     const body = await req.json();
     const validatedData = AnalyzeSchema.parse(body);

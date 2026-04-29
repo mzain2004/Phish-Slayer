@@ -39,8 +39,8 @@ export interface AuditEntry {
 
 export async function logAuditEvent(entry: AuditEntry): Promise<void> {
   try {
-    const { userId } = await auth();
-    if (!userId) return;
+    const { userId, orgId } = await auth();
+    if (!userId || !orgId) return;
 
     const supabase = await createClient();
 
@@ -55,6 +55,7 @@ export async function logAuditEvent(entry: AuditEntry): Promise<void> {
     await supabase.from("audit_logs").insert([
       {
         user_id: userId,
+        organization_id: orgId,
         user_email: profile?.email || null,
         user_role: profile?.role || "unknown",
         action: entry.action,
