@@ -48,18 +48,75 @@ export class IngestionPipeline {
 
     // 2. High severity detection -> Alert
     if (normalized.severity > 8) {
-      const severityMap: Record<number, string> = {
-        9: "p3", 10: "p3", 11: "p2", 12: "p2", 13: "p1", 14: "p1", 15: "p1"
-      };
-      
+      const title = `Auto-Alert: ${normalized.action}`;
+
+      // TASK 2: Alert Suppression
+      const { checkSuppression } = await import("../l1/suppressionEngine");
+      const { suppressed, ruleId } = await checkSuppression(this.supabase, {
+        title,
+        source_ip: entry.source_ip,
+        severity_level: normalized.severity,
+        raw_log: normalized,
+        org_id: entry.organization_id
+      });
+
+      // TASK 3: False Positive Engine
+      let isFPDetected = false;
+      if (!suppressed) {
+        const { checkFalsePositive } = await import("../l1/falsePositiveEngine");
+        const { isFP } = await checkFalsePositive(this.supabase, {
+          title,
+          source_ip: entry.source_ip,
+          alert_type: normalized.category,
+          raw_log: normalized,
+          org_id: entry.organization_id
+        });
+        isFPDetected = isFP;
+      }
+
+      // TASK 5: Watchlist Matcher
+      let isWatchlistHit = false;
+      let watchlistReason = "";
+      if (!suppressed && !isFPDetected) {
+        const { matchWatchlist } = await import("../l1/watchlistMatcher");
+        const { isMatch, reason } = await matchWatchlist(this.supabase, {
+          source_ip: entry.source_ip,
+          raw_log: normalized,
+          org_id: entry.organization_id
+        });
+        isWatchlistHit = isMatch;
+        watchlistReason = reason || "";
+      }
+
+      let finalIsDuplicate = false;
+      let finalGroupId = null;
+      let finalCount = 1;
+
+      if (!suppressed && !isFPDetected) {
+        // TASK 1: Alert Deduplication
+        const { deduplicateAlert } = await import("../l1/alertDedup");
+        const { isDuplicate, groupId, count } = await deduplicateAlert(this.supabase, {
+          title,
+          source_ip: entry.source_ip,
+          org_id: entry.organization_id
+        });
+        finalIsDuplicate = isDuplicate;
+        finalGroupId = groupId;
+        finalCount = isDuplicate ? count : 1;
+      }
+
       const { data: alertData, error: alertError } = await this.supabase.from("alerts").insert({
         org_id: entry.organization_id,
         alert_type: normalized.category,
-        severity_level: normalized.severity,
+        severity_level: isWatchlistHit ? Math.min(15, normalized.severity + 3) : normalized.severity,
         source_ip: entry.source_ip,
         raw_log: normalized,
-        status: "open",
-        title: `Auto-Alert: ${normalized.action}`
+        status: isFPDetected ? "closed" : "open",
+        title: isWatchlistHit ? `[WATCHLIST HIT] ${title}` : title,
+        dedup_group_id: finalGroupId,
+        dedup_count: finalCount,
+        is_suppressed: suppressed || finalIsDuplicate || isFPDetected,
+        is_false_positive: isFPDetected
       }).select("id").single();
 
       if (!alertError && alertData?.id) {
@@ -68,12 +125,13 @@ export class IngestionPipeline {
           alert_created: true
         }).eq("id", entry.id);
 
-        // 3. Trigger Autonomous Orchestrator (Async)
-        const orchestrator = new AutonomousOrchestrator(this.supabase);
-        void orchestrator.processAlert(alertData.id, entry.organization_id);
+        // 3. Trigger Autonomous Orchestrator (Async) - Skip if duplicate, suppressed, or FP
+        if (!finalIsDuplicate && !suppressed && !isFPDetected) {
+          const orchestrator = new AutonomousOrchestrator(this.supabase);
+          void orchestrator.processAlert(alertData.id, entry.organization_id);
+        }
       }
     }
-
     return entry;
   }
 
