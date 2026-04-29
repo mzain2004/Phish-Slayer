@@ -1,7 +1,14 @@
 import { Groq } from "groq-sdk";
 import { OsintTarget, CollectorResult, OsintReport } from "./types";
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+let groq: Groq | null = null;
+
+function getGroq(): Groq {
+  if (!groq) {
+    groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+  }
+  return groq;
+}
 
 export async function generateNarrative(target: OsintTarget, results: CollectorResult[]): Promise<OsintReport> {
   const context = results.filter(r => r.success).map(r => `[${r.collector}] ${JSON.stringify(r.data)}`).join("\n");
@@ -19,7 +26,7 @@ export async function generateNarrative(target: OsintTarget, results: CollectorR
   Ensure the response is valid JSON and nothing else.`;
 
   try {
-    const chatCompletion = await groq.chat.completions.create({
+    const chatCompletion = await getGroq().chat.completions.create({
       messages: [{ role: "user", content: prompt }],
       model: "llama-3.3-70b-versatile",
       response_format: { type: "json_object" }

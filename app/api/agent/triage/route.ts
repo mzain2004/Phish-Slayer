@@ -395,6 +395,7 @@ async function fetchPendingWazuhAlerts(
   options: {
     alertId?: string;
     minAgeMinutes?: number;
+    organizationId?: string | null;
   } = {},
 ): Promise<{ data: AlertRecord[] | null; error: { message: string } | null }> {
   const sinceIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -414,6 +415,10 @@ async function fetchPendingWazuhAlerts(
     )
     .eq("status", "pending")
     .eq("source", "wazuh");
+
+  if (options.organizationId) {
+    query = query.eq("organization_id", options.organizationId);
+  }
 
   if (options.alertId) {
     query = query.eq("id", options.alertId).limit(1);

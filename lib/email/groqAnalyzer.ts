@@ -1,8 +1,15 @@
 import Groq from "groq-sdk";
 
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY || "",
-});
+let groq: Groq | null = null;
+
+function getGroq(): Groq {
+  if (!groq) {
+    groq = new Groq({
+      apiKey: process.env.GROQ_API_KEY || "",
+    });
+  }
+  return groq;
+}
 
 export interface GroqAnalysisResult {
   summary: string;
@@ -34,7 +41,7 @@ export async function analyzeHeadersWithGroq(
   `;
 
   try {
-    const chatCompletion = await groq.chat.completions.create({
+    const chatCompletion = await getGroq().chat.completions.create({
       messages: [
         {
           role: "system",

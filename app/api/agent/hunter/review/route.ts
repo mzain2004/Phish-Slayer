@@ -174,13 +174,18 @@ export async function GET(request: NextRequest) {
 
   const escalationsLastHour = count || 0;
 
-  const { data: findingsRows } = await adminClient
+  let findingsQuery = adminClient
     .from("hunt_findings")
     .select(
       "id, severity, confidence, title, description, indicators, source_records",
     )
-    .order("created_at", { ascending: false })
-    .limit(25);
+    .order("created_at", { ascending: false });
+    
+  if (organizationId) {
+    findingsQuery = findingsQuery.eq("organization_id", organizationId);
+  }
+
+  const { data: findingsRows } = await findingsQuery.limit(25);
 
   const recentFindings = (
     (findingsRows || []) as Array<Record<string, unknown>>

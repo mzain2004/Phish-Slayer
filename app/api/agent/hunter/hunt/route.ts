@@ -173,6 +173,7 @@ async function queryMatchingScans(
   adminClient: ReturnType<typeof getAdminClient>,
   iocType: string,
   iocValue: string,
+  organizationId: string | null,
 ): Promise<Record<string, unknown>[]> {
   const pattern = `%${iocValue}%`;
 
@@ -181,21 +182,31 @@ async function queryMatchingScans(
       ? `url.ilike.${pattern},target.ilike.${pattern},ai_summary.ilike.${pattern}`
       : `url.ilike.${pattern},target.ilike.${pattern}`;
 
-  const primary = await adminClient
+  let primaryQuery = adminClient
     .from("scans")
     .select("*")
-    .or(primaryOr)
-    .limit(10);
+    .or(primaryOr);
+    
+  if (organizationId) {
+    primaryQuery = primaryQuery.eq("organization_id", organizationId);
+  }
+  
+  const primary = await primaryQuery.limit(10);
 
   if (!primary.error) {
     return (primary.data || []) as Record<string, unknown>[];
   }
 
-  const fallback = await adminClient
+  let fallbackQuery = adminClient
     .from("scans")
     .select("*")
-    .ilike("target", pattern)
-    .limit(10);
+    .ilike("target", pattern);
+    
+  if (organizationId) {
+    fallbackQuery = fallbackQuery.eq("organization_id", organizationId);
+  }
+  
+  const fallback = await fallbackQuery.limit(10);
 
   if (fallback.error) {
     throw new Error(
@@ -333,6 +344,7 @@ export async function GET(request: NextRequest) {
         adminClient,
         ioc.ioc_type,
         ioc.ioc_value,
+        organizationId,
       );
       scansCrossReferenced += scans.length;
 
