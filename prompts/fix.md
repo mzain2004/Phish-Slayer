@@ -2,121 +2,133 @@ Before starting, list every file you will create.
 Create one file at a time. After each file say "FILE DONE" then continue.
 Do not stop until all files complete.
 
-You are building L2 SOC investigation features for PhishSlayer — agentic SOC platform.
-Stack: Next.js 15, TypeScript, Supabase, Clerk, Groq (llama-3.3-70b-versatile), MongoDB Atlas.
+You are building L3 executive and compliance features for PhishSlayer — agentic SOC platform.
+Stack: Next.js 15, TypeScript, Supabase, Clerk, Groq (llama-3.3-70b-versatile).
 
 ANTI-HALLUCINATION RULES:
-- Every file you create: first run ls -la <path> to confirm it doesn't exist
-- Every Supabase table you query: first grep supabase/migrations/ to confirm it exists
-- Every npm package: grep package.json first. If absent, npm install it OR implement manually
-- Any subtask that throws: catch the error, log it, move to next task. Never stop entirely
-- Final step always: npm run build → fix all TypeScript errors shown → only then commit
+- Before touching any table: grep supabase/migrations/ for it. If not found, create migration first.
+- Before any npm import: cat package.json | grep <pkg>. Not found = install or implement manually.
+- If subtask fails: console.error the failure, skip, continue with next. Never abort all.
+- npm run build at end. Fix ALL TypeScript errors. List every file touched.
+- DO NOT touch server.js or middleware.ts ever.
 
-TASK 1 — Entity 360 View:
-1. Create lib/l2/entity360.ts
-   - Function: getEntityProfile(entityType, entityValue, orgId) → Entity360Profile
-   - entityType: 'ip' | 'domain' | 'user' | 'email' | 'hash'
-   - For IP: query alerts (source_ip match), assets (ip match), endpoint_events (ip match),
-     incidents (related_ips contains), threat_iocs if table exists
-   - For user: query alerts (user_id match), incidents, uba_anomaly_events, escalations
-   - For domain: query alerts (domain match), url_scans, email_analyses
-   - Aggregate: { recentAlerts, incidents, riskScore, firstSeen, lastSeen, relatedEntities[] }
-   - relatedEntities: IPs seen with same user, users seen from same IP, etc.
-2. Create app/api/entity360/route.ts
-   POST { entityType, entityValue, organizationId }
-   Call getEntityProfile → return full profile
-3. Create app/api/entity360/pivot/route.ts
-   POST { fromType, fromValue, toType, organizationId }
-   "Given this IP, find all users" — pivot queries
-   Example: ip → users (from alerts + endpoint_events)
-            user → ips, domains, assets
-            domain → ips, users, alerts
-4. Create /dashboard/entity360 page:
-   - Search bar: entity type select + value input
-   - On search → POST /api/entity360
-   - Show profile card: risk score gauge, timeline of activity, related alerts list
-   - "Pivot to" buttons: click IP → "Show all users from this IP"
-   - Keep glassmorphism design (#0a0a0f bg, #6366F1 purple, #00d4aa cyan)
+TASK 1 — CISO Executive Dashboard:
+1. Create lib/l3/cisoMetrics.ts
+   - Function: getCISOMetrics(orgId, days=30) → CISOMetrics
+   - Pull from Supabase:
+     MTTD: avg(acknowledged_at - created_at) WHERE acknowledged_at IS NOT NULL
+     MTTR: avg(resolved_at - created_at) FROM incidents WHERE status='resolved'
+     Alert volume by day (last 30 days)
+     SLA breach rate: alerts where acknowledged_at - created_at > 4hr / total alerts
+     Top attack types (COUNT by alert category)
+     False positive rate: is_false_positive=true / total alerts
+     Escalation rate: escalated / total
+     Analyst performance: alerts handled per analyst (grouped by acknowledged_by)
+   - Return typed CISOMetrics object
+2. Create app/api/l3/ciso-metrics/route.ts — GET { organizationId, days }
+3. Create /dashboard/ciso page:
+   - Guard: only show if user role = 'admin' or 'owner' (check via get_my_role())
+   - Stat cards: MTTD, MTTR, SLA Breach %, FP Rate, Total Incidents this month
+   - Line chart: alert volume last 30 days (use recharts — check package.json first)
+   - Pie/bar chart: top 5 attack types
+   - Analyst leaderboard: alerts handled, avg triage time
+   - Keep glassmorphism design
 
-TASK 2 — Automated Containment (1-click block):
-1. Create lib/l2/containment.ts
-   - Function: blockIP(ip, orgId, analystId, reason) → ContainmentResult
-     - Save to containment_actions table
-     - If Wazuh connector active: POST to Wazuh manager API active-response endpoint
-       Env: WAZUH_API_URL, WAZUH_API_USER, WAZUH_API_PASS (check .env.production first)
-     - If MS Graph connector active: call Graph API to block sign-in for user
-     - Always save action regardless of connector status
-   - Function: disableAccount(userId, orgId, analystId, reason) → ContainmentResult
-     - MS Graph: PATCH /users/{id} { accountEnabled: false }
-     - Save to containment_actions
-   - Function: isolateEndpoint(agentId, orgId, analystId, reason) → ContainmentResult
-     - Wazuh active-response: trigger isolation script on agent
-     - Save to containment_actions
-2. Create Supabase migration: supabase/migrations/20260429500000_containment.sql
-   CREATE TABLE IF NOT EXISTS containment_actions (
+TASK 2 — Risk Score Per Org:
+1. Create lib/l3/orgRiskScore.ts
+   - Function: calculateOrgRisk(orgId) → { score: number, level: string, factors: RiskFactor[] }
+   - Factors (weighted):
+     - Open critical alerts: 25pts each, max 40
+     - Unresolved credential leaks: 15pts each, max 30
+     - High-risk users (UBA score>80): 10pts each, max 20
+     - Critical open CVEs: 5pts each, max 20
+     - No detections for common MITRE techniques: -10pts penalty per gap (capped at 30)
+   - Total 0-100, level: LOW/MEDIUM/HIGH/CRITICAL
+2. Store in organizations table:
+   ALTER TABLE organizations ADD COLUMN IF NOT EXISTS risk_score INTEGER DEFAULT 0;
+   ALTER TABLE organizations ADD COLUMN IF NOT EXISTS risk_level TEXT DEFAULT 'LOW';
+   ALTER TABLE organizations ADD COLUMN IF NOT EXISTS risk_updated_at TIMESTAMPTZ;
+3. Create app/api/l3/org-risk/route.ts — GET, POST (trigger recalculate)
+4. Create app/api/cron/org-risk-update/route.ts — recalculate all orgs daily
+5. Show org risk score badge on /dashboard main page header
+
+TASK 3 — Detection Coverage Gap Analysis:
+1. Create lib/l3/detectionCoverage.ts
+   - MITRE ATT&CK techniques that PhishSlayer should cover (define array of ~40 key techniques):
+     T1078 Valid Accounts, T1566 Phishing, T1190 Exploit Public-Facing App,
+     T1059 Command Scripting, T1053 Scheduled Task, T1055 Process Injection,
+     T1003 OS Credential Dumping, T1021 Remote Services, T1071 App Layer Protocol,
+     T1041 Exfil over C2, ... (include all common ones)
+   - Function: analyzeCoverage(orgId) → CoverageReport
+   - Query detection_rules table: get all mitre_technique values for active rules
+   - Query alerts table: get all mitre_tags from recent alerts (last 90 days)
+   - Diff: techniques with no rule AND no recent alert = gap
+   - Return: { covered[], gaps[], coveragePercent, recommendations[] }
+   - Groq: generate 3 specific detection recommendations for top gaps
+2. Create app/api/l3/detection-coverage/route.ts — GET { organizationId }
+3. Create /dashboard/detection-coverage page:
+   - MITRE ATT&CK matrix view (simplified grid)
+   - Green = covered, Red = gap, Yellow = partial
+   - Coverage % gauge
+   - Groq recommendations list
+   - "Create Rule" button per gap → opens detection-rules page with pre-filled template
+
+TASK 4 — Compliance Posture Dashboard:
+1. Create lib/l3/complianceMapper.ts
+   - Map SOC detections + features to compliance controls:
+     NIST CSF: Identify/Protect/Detect/Respond/Recover
+     ISO 27001: A.12 (Operations), A.16 (Incidents), A.14 (Development)
+     SOC 2 Type II: CC6, CC7, CC8
+   - Function: getCompliancePosture(orgId) → ComplianceReport
+   - For each control: check if PhishSlayer capability covers it
+   - Example: CC7.2 (System monitoring) → covered if alerts table has >0 rules firing
+   - Return: { framework, controls[], passCount, failCount, evidenceLinks[] }
+2. Create app/api/l3/compliance/route.ts — GET { organizationId, framework }
+3. Create /dashboard/compliance page:
+   - Framework selector: NIST CSF / ISO 27001 / SOC 2
+   - Control list with PASS/FAIL/PARTIAL badges
+   - Evidence snippets (link to actual data: "47 alerts this month → CC7.2 evidence")
+   - Export button: generate PDF evidence package (use existing PDF lib or jsPDF if present)
+
+TASK 5 — Post-Incident Review + Knowledge Base:
+1. Create Supabase migration: supabase/migrations/20260429600000_pir_knowledge.sql
+   CREATE TABLE IF NOT EXISTS post_incident_reviews (
      id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
      organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
-     action_type TEXT CHECK (action_type IN ('block_ip','disable_account','isolate_endpoint','unblock_ip','enable_account')),
-     target_value TEXT NOT NULL,
-     reason TEXT,
-     alert_id UUID,
      incident_id UUID,
-     executed_by TEXT NOT NULL,
-     connector_used TEXT,
-     status TEXT DEFAULT 'pending' CHECK (status IN ('pending','success','failed','partial')),
-     response_data JSONB,
-     executed_at TIMESTAMPTZ DEFAULT NOW(),
-     reversed_at TIMESTAMPTZ,
-     reversed_by TEXT
+     title TEXT NOT NULL,
+     timeline TEXT,
+     root_cause TEXT,
+     impact TEXT,
+     response_actions TEXT,
+     lessons_learned TEXT,
+     action_items JSONB DEFAULT '[]',
+     created_by TEXT,
+     created_at TIMESTAMPTZ DEFAULT NOW()
    );
-   ALTER TABLE containment_actions ENABLE ROW LEVEL SECURITY;
-   Add org-scoped RLS (SELECT/INSERT/UPDATE).
-3. Create app/api/containment/block-ip/route.ts — POST { ip, alertId, reason, organizationId }
-4. Create app/api/containment/disable-account/route.ts — POST { userId, reason, organizationId }
-5. Create app/api/containment/isolate-endpoint/route.ts — POST { agentId, reason, organizationId }
-6. Create app/api/containment/actions/route.ts — GET list, POST reverse action
-7. Wire into alert detail view: add containment action buttons (Block IP, Disable User, Isolate)
-   Show confirmation modal before executing. Show result status after.
-
-TASK 3 — Attack Chain Reconstruction:
-1. Create lib/l2/attackChain.ts
-   - Function: reconstructChain(incidentId, orgId) → AttackChain
-   - Pull all alerts linked to incident (by incident_id or shared IOCs)
-   - Sort by timestamp
-   - Map each alert to MITRE ATT&CK phase:
-     Recon → Resource Dev → Initial Access → Execution → Persistence →
-     Privilege Escalation → Defense Evasion → C2 → Exfiltration → Impact
-   - Use Groq to generate narrative: "Attacker first... then... finally..."
-   - Return: { phases[], timeline[], narrative, killChainCoverage[] }
-2. Create app/api/incidents/[id]/attack-chain/route.ts
-   GET → call reconstructChain → return
-3. In /dashboard/incidents/[id] page: add "Attack Chain" tab
-   Show kill chain visualization (horizontal timeline, phases as boxes, alerts as dots)
-   Show Groq narrative below
-
-TASK 4 — Beaconing Detection:
-1. Create lib/l2/beaconingDetector.ts
-   - Function: detectBeaconing(orgId, lookbackHours=24) → BeaconingResult[]
-   - Query endpoint_events or alerts for outbound connection events
-   - Group by (source_ip, destination_ip, destination_port)
-   - Calculate: interval variance (low variance = regular = beaconing)
-   - Threshold: >5 connections, interval variance <20% → flag as beaconing
-   - Return: { srcIp, dstIp, dstPort, interval, connectionCount, confidence }
-2. Create app/api/l2/beaconing/route.ts — GET { organizationId } → run detector → return
-3. Create app/api/cron/beaconing-scan/route.ts — run daily per org
-
-TASK 5 — Lateral Movement Detection:
-1. Create lib/l2/lateralMovement.ts
-   - Function: detectLateralMovement(orgId, lookbackHours=24) → LateralMovementEvent[]
-   - Query endpoint_events or alerts for authentication/login events
-   - Detect: same user_id seen on >3 distinct machines within 2-hour window
-   - Detect: admin credential used on non-admin asset
-   - Detect: service account login outside scheduled hours
-   - Return: { userId, machines[], timespan, pattern, confidence }
-2. Create app/api/l2/lateral-movement/route.ts — GET { organizationId }
-3. Show results in /dashboard/hunt page under new "Automated Detections" section
+   CREATE TABLE IF NOT EXISTS knowledge_base (
+     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+     organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
+     title TEXT NOT NULL,
+     category TEXT CHECK (category IN ('runbook','playbook','ttp_reference','past_incident','procedure')),
+     content TEXT,
+     tags TEXT[],
+     created_by TEXT,
+     updated_at TIMESTAMPTZ DEFAULT NOW(),
+     created_at TIMESTAMPTZ DEFAULT NOW()
+   );
+   RLS on both tables. Org-scoped policies.
+2. Create CRUD routes:
+   app/api/pir/route.ts — GET (list), POST (create)
+   app/api/pir/[id]/route.ts — GET, PUT
+   app/api/knowledge-base/route.ts — GET, POST
+   app/api/knowledge-base/[id]/route.ts — GET, PUT, DELETE
+3. Create /dashboard/knowledge-base page:
+   - Search bar + category filter
+   - Card grid of articles
+   - Click → full article view with markdown render
 
 After all tasks:
-npm run build — fix every TypeScript error.
-git add -A && git commit -m "feat: L2 entity360, containment, attack chain, beaconing, lateral movement" && git push origin main
+npm run build — fix ALL TypeScript errors.
+git add -A && git commit -m "feat: L3 CISO dashboard, org risk score, detection coverage, compliance, PIR, KB" && git push origin main
 List all files created/modified.

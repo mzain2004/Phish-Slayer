@@ -1,192 +1,124 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import DashboardCard from '@/components/dashboard/DashboardCard';
-import { ShieldCheck, FileText, Layout, Activity, Download, Loader2 } from 'lucide-react';
+import { useEffect, useState } from "react";
+import { useUser } from "@clerk/nextjs";
+import { createClient } from "@/lib/supabase/client";
+import DashboardCard from "@/components/dashboard/DashboardCard";
+import { Loader2, ShieldCheck, CheckCircle2, XCircle, Info, Download } from "lucide-react";
+import { toast } from "sonner";
 
 export default function CompliancePage() {
+  const { user } = useUser();
+  const [report, setReport] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [coverage, setCoverage] = useState<any[]>([]);
-  const [generating, setGenerating] = useState(false);
-  const supabase = createClient();
+  const [framework, setFramework] = useState("NIST CSF");
+  const [orgId, setOrgId] = useState<string | null>(null);
 
   useEffect(() => {
-    async function fetchData() {
-      try {
-        setLoading(true);
-        // In a real scenario, we'd query alerts and group by mitre_technique
-        // For this frontend build, we'll mock the aggregated data
-        const mockCoverage = [
-          { id: 'T1566', name: 'Phishing', tactic: 'Initial Access', count: 124, status: 'covered' },
-          { id: 'T1059', name: 'Command and Scripting Interpreter', tactic: 'Execution', count: 86, status: 'covered' },
-          { id: 'T1053', name: 'Scheduled Task/Job', tactic: 'Persistence', count: 42, status: 'partial' },
-          { id: 'T1003', name: 'OS Credential Dumping', tactic: 'Credential Access', count: 12, status: 'covered' },
-          { id: 'T1027', name: 'Obfuscated Files or Information', tactic: 'Defense Evasion', count: 54, status: 'covered' },
-          { id: 'T1046', name: 'Network Service Scanning', tactic: 'Discovery', count: 31, status: 'gap' },
-        ];
-        setCoverage(mockCoverage);
-      } catch (err) {
-        console.error('Error fetching compliance data:', err);
-      } finally {
-        setLoading(false);
+    async function loadOrg() {
+      if (!user) return;
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("organization_members")
+        .select("organization_id")
+        .eq("user_id", user.id)
+        .limit(1)
+        .maybeSingle();
+      if (data) {
+        setOrgId(data.organization_id);
+        fetchReport(data.organization_id, framework);
       }
     }
+    loadOrg();
+  }, [user, framework]);
 
-    fetchData();
-  }, []);
-
-  const handleGenerateReport = async () => {
+  async function fetchReport(id: string, fw: string) {
+    setLoading(true);
     try {
-      setGenerating(true);
-      const response = await fetch('/api/reports/compliance', { method: 'POST' });
-      if (!response.ok) throw new Error('Failed to generate report');
-      
-      // Simulate download
-      alert('Compliance report generated and sent to your email.');
-    } catch (err: any) {
-      alert(err.message);
+      const res = await fetch(`/api/l3/compliance?organizationId=${id}&framework=${fw}`);
+      if (res.ok) setReport(await res.json());
+    } catch (e) {
+      toast.error("Failed to load compliance posture");
     } finally {
-      setGenerating(false);
+      setLoading(false);
     }
-  };
-
-  const frameworks = [
-    { name: 'MITRE ATT&CK', coverage: 84, controls: 182, lastUpdated: '2h ago' },
-    { name: 'SOC 2 Type II', coverage: 92, controls: 42, lastUpdated: '1d ago' },
-    { name: 'ISO 27001', coverage: 76, controls: 114, lastUpdated: '3d ago' },
-  ];
-
-  if (loading) {
-    return (
-      <div className="flex flex-col gap-6 animate-pulse">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map(i => (
-            <div key={i} className="h-24 bg-white/5 rounded-xl border border-white/10" />
-          ))}
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="h-48 bg-white/5 rounded-xl border border-white/10" />
-          ))}
-        </div>
-        <div className="h-64 bg-white/5 rounded-xl border border-white/10" />
-      </div>
-    );
   }
 
+  if (loading) return <div className="p-20 flex justify-center"><Loader2 className="animate-spin text-primary" /></div>;
+  if (!report) return <div className="p-20 text-center text-white/40">Failed to load report.</div>;
+
   return (
-    <div className="flex flex-col gap-8">
-      <div className="flex justify-between items-start">
+    <div className="flex flex-col gap-6 p-8 text-white max-w-7xl mx-auto">
+      <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-white">Compliance</h1>
-          <p className="text-gray-400">Framework mapping and autonomous audit readiness</p>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <ShieldCheck className="text-primary" />
+            Compliance Posture
+          </h1>
+          <p className="text-white/50 text-sm">Automated control validation and evidence collection</p>
         </div>
-        <button 
-          onClick={handleGenerateReport}
-          disabled={generating}
-          className="px-4 py-2 bg-[#22d3ee] text-[#0a0a0a] rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-[#22d3ee]/90 transition-all shadow-[0_0_20px_rgba(34,211,238,0.2)] disabled:opacity-50"
-        >
-          {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
-          Generate Report
-        </button>
+        <div className="flex items-center gap-4">
+           <select 
+              className="bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm outline-none focus:border-primary"
+              value={framework}
+              onChange={e => setFramework(e.target.value)}
+           >
+              <option value="NIST CSF">NIST CSF</option>
+              <option value="SOC 2">SOC 2 Type II</option>
+              <option value="ISO 27001">ISO 27001</option>
+           </select>
+           <button className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all">
+              <Download className="w-4 h-4" /> Export Evidence
+           </button>
+        </div>
       </div>
 
-      {/* Stats Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <DashboardCard className="p-5">
-          <p className="dashboard-card-label">MITRE Techniques</p>
-          <div className="flex items-end gap-2 mt-1">
-            <p className="dashboard-metric-value">124</p>
-            <p className="text-xs text-green-400 mb-1.5 font-medium">+12%</p>
-          </div>
-        </DashboardCard>
-        <DashboardCard className="p-5">
-          <p className="dashboard-card-label">Alerts Mapped</p>
-          <div className="flex items-end gap-2 mt-1">
-            <p className="dashboard-metric-value">8,291</p>
-            <p className="text-xs text-[#22d3ee] mb-1.5 font-medium">100%</p>
-          </div>
-        </DashboardCard>
-        <DashboardCard className="p-5">
-          <p className="dashboard-card-label">Frameworks Active</p>
-          <div className="flex items-end gap-2 mt-1">
-            <p className="dashboard-metric-value">{frameworks.length}</p>
-          </div>
-        </DashboardCard>
-        <DashboardCard className="p-5">
-          <p className="dashboard-card-label">Last Audit</p>
-          <div className="flex items-end gap-2 mt-1">
-            <p className="dashboard-metric-value text-xl">24 Apr 2026</p>
-          </div>
-        </DashboardCard>
-      </div>
-
-      {/* Framework Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {frameworks.map((f, i) => (
-          <DashboardCard key={i} className="p-6 flex flex-col gap-6">
-            <div className="flex justify-between items-start">
-              <h3 className="font-bold text-white">{f.name}</h3>
-              <span className="text-xs text-gray-500">{f.lastUpdated}</span>
-            </div>
-            <div className="flex flex-col gap-2">
-              <div className="flex justify-between text-xs">
-                <span className="text-gray-400">Overall Coverage</span>
-                <span className="text-[#22d3ee] font-bold">{f.coverage}%</span>
-              </div>
-              <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-gradient-to-r from-[#22d3ee] to-[#a78bfa] rounded-full transition-all duration-1000" 
-                  style={{ width: `${f.coverage}%` }}
-                />
-              </div>
-            </div>
-            <div className="flex justify-between items-center pt-2">
-              <span className="text-xs text-gray-500">{f.controls} Controls Monitored</span>
-              <ShieldCheck className="w-4 h-4 text-green-400" />
-            </div>
-          </DashboardCard>
-        ))}
+         <DashboardCard className="p-6">
+            <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Controls Passed</p>
+            <p className="text-3xl font-black text-emerald-400 mt-1">{report.passCount}</p>
+         </DashboardCard>
+         <DashboardCard className="p-6">
+            <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Controls Failed</p>
+            <p className="text-3xl font-black text-red-500 mt-1">{report.failCount}</p>
+         </DashboardCard>
+         <DashboardCard className="p-6">
+            <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Compliance Health</p>
+            <p className="text-3xl font-black text-primary mt-1">{Math.round((report.passCount / (report.passCount + report.failCount)) * 100)}%</p>
+         </DashboardCard>
       </div>
 
-      {/* Technique Coverage Table */}
       <DashboardCard className="overflow-hidden">
-        <div className="p-6 border-b border-white/10">
-          <h2 className="dashboard-section-heading">MITRE ATT&CK Technique Coverage</h2>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-white/5 text-gray-400 text-xs uppercase tracking-wider">
-                <th className="px-6 py-4 font-semibold">Technique ID</th>
-                <th className="px-6 py-4 font-semibold">Technique Name</th>
-                <th className="px-6 py-4 font-semibold">Tactic</th>
-                <th className="px-6 py-4 font-semibold">Alerts Mapped</th>
-                <th className="px-6 py-4 font-semibold">Coverage</th>
-              </tr>
+         <table className="w-full text-left">
+            <thead className="bg-white/5 text-white/40 text-[10px] uppercase tracking-widest font-black">
+               <tr>
+                  <th className="px-6 py-4">Control ID</th>
+                  <th className="px-6 py-4">Requirement</th>
+                  <th className="px-6 py-4">Status</th>
+                  <th className="px-6 py-4">Automated Evidence</th>
+               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {coverage.map((tech) => (
-                <tr key={tech.id} className="hover:bg-white/[0.02] transition-colors">
-                  <td className="px-6 py-4 font-mono text-sm text-[#22d3ee]">{tech.id}</td>
-                  <td className="px-6 py-4 text-white font-medium">{tech.name}</td>
-                  <td className="px-6 py-4 text-xs text-gray-400 uppercase tracking-widest">{tech.tactic}</td>
-                  <td className="px-6 py-4 font-mono text-sm">{tech.count}</td>
-                  <td className="px-6 py-4">
-                    <span className={`badge ${
-                      tech.status === 'covered' ? 'badge-clean' : 
-                      tech.status === 'partial' ? 'badge-medium' : 
-                      'badge-risk'
-                    }`}>
-                      {tech.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+               {report.controls.map((c: any) => (
+                  <tr key={c.id} className="hover:bg-white/5 transition-all">
+                     <td className="px-6 py-4 font-mono text-sm font-bold text-primary">{c.id}</td>
+                     <td className="px-6 py-4 text-sm font-medium">{c.name}</td>
+                     <td className="px-6 py-4">
+                        <span className={`flex items-center gap-1.5 text-[10px] font-black uppercase ${c.status === 'PASS' ? 'text-emerald-400' : 'text-red-500'}`}>
+                           {c.status === 'PASS' ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                           {c.status}
+                        </span>
+                     </td>
+                     <td className="px-6 py-4">
+                        <div className="flex items-center gap-2 text-[11px] text-white/60">
+                           <Info className="w-3 h-3 text-cyan-400" />
+                           {c.evidence}
+                        </div>
+                     </td>
+                  </tr>
+               ))}
             </tbody>
-          </table>
-        </div>
+         </table>
       </DashboardCard>
     </div>
   );

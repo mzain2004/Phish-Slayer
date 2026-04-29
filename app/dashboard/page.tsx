@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import KpiCards from "./components/KpiCards";
 import QuickActionsPanel from "./components/QuickActionsPanel";
 import L1AgentStatusWidget from "@/components/dashboard/L1AgentStatusWidget";
-import AgentChainStatusWidget from "@/components/dashboard/AgentChainStatusWidget";
+import AgentChainStatusWidget from "@/components/dashboard/AgentChainStatusWidget";        
 import InfrastructureHealthWidget from "@/components/dashboard/InfrastructureHealthWidget";
 import SOCTierBadge from "@/components/soc/SOCTierBadge";
 import AgentSwarmPanel from "@/components/soc/AgentSwarmPanel";
@@ -14,6 +14,7 @@ import L1DecisionLog from "@/components/soc/L1DecisionLog";
 import NetworkTelemetryChart from "@/components/dashboard/NetworkTelemetryChart";
 import DashboardCard from "@/components/dashboard/DashboardCard";
 import StatusBadge from "@/components/dashboard/StatusBadge";
+import { ShieldCheck } from "lucide-react";
 
 type ScanRow = {
   target: string | null;
@@ -41,15 +42,14 @@ export default async function DashboardOverviewPage() {
     .eq("user_id", userId)
     .limit(1)
     .maybeSingle();
-  
+
   const orgId = membership?.organization_id;
-  
+
   if (!orgId) {
-    // Return empty data if no org membership
     return <></>;
   }
 
-  const [{ data: scans }, { data: incidents }, { count: intelCount }] =
+  const [{ data: scans }, { data: incidents }, { count: intelCount }, { data: orgData }] =
     await Promise.all([
       supabase
         .from("scans")
@@ -62,6 +62,11 @@ export default async function DashboardOverviewPage() {
         .from("proprietary_intel")
         .select("*", { count: "exact", head: true })
         .eq("organization_id", orgId),
+      supabase
+        .from("organizations")
+        .select("name, risk_score, risk_level")
+        .eq("id", orgId)
+        .single(),
     ]);
 
   const scanRows = (scans ?? []) as ScanRow[];
@@ -78,13 +83,6 @@ export default async function DashboardOverviewPage() {
     (incident.status || "").toLowerCase().includes("resolved"),
   ).length;
 
-  const recentScans = scanRows.slice(0, 5).map((scan) => ({
-    target: scan.target || "Unknown target",
-    verdict: (scan.verdict || "clean").toLowerCase(),
-    dateLabel: scan.date ? new Date(scan.date).toLocaleString() : "Just now",
-    riskScore: scan.risk_score ?? 0,
-  }));
-
   const averageRiskScore =
     totalScans > 0
       ? Math.round(
@@ -92,125 +90,83 @@ export default async function DashboardOverviewPage() {
             totalScans,
         )
       : 0;
-  const formattedRiskScore = `${Math.min(100, Math.max(0, averageRiskScore))}/100`;
-  const timeToContain = "00:00:00";
 
   return (
     <div className="flex flex-col gap-6 text-white">
-      <DashboardCard className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <SOCTierBadge tier={1} />
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 w-full lg:w-auto">
-          <DashboardCard className="bg-black/20 px-3 py-2">
-            <p className="dashboard-card-label">Total Scans</p>
-            <p className="dashboard-metric-value text-white">{totalScans}</p>
-          </DashboardCard>
-          <DashboardCard className="bg-black/20 px-3 py-2">
-            <p className="dashboard-card-label">Malicious</p>
-            <p className="dashboard-metric-value text-red-300">
-              {maliciousScans}
+      <DashboardCard className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between p-6">
+        <div className="flex items-center gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/20 border border-primary/30">
+            <ShieldCheck className="h-6 w-6 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold tracking-tight">
+              {orgData?.name || "Command Center"}
+            </h1>
+            <p className="text-xs text-white/50 uppercase tracking-widest font-black">
+              Autopilot Mode: <span className="text-emerald-400">ACTIVE</span>
             </p>
-          </DashboardCard>
-          <DashboardCard className="bg-black/20 px-3 py-2">
-            <p className="dashboard-card-label">Incidents</p>
-            <p className="dashboard-metric-value text-orange-200">
-              {activeIncidents}
-            </p>
-          </DashboardCard>
-          <DashboardCard className="bg-black/20 px-3 py-2">
-            <p className="dashboard-card-label">Intel Records</p>
-            <p className="dashboard-metric-value text-cyan-200">
-              {intelCount ?? 0}
-            </p>
-          </DashboardCard>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-6">
+           <div className="flex flex-col items-end">
+              <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Global Risk Posture</span>
+              <div className="flex items-center gap-2">
+                 <span className={`text-xl font-black ${orgData?.risk_level === 'CRITICAL' ? 'text-red-500' : orgData?.risk_level === 'HIGH' ? 'text-orange-500' : 'text-emerald-400'}`}>
+                    {orgData?.risk_level || 'LOW'}
+                 </span>
+                 <div className="h-6 w-px bg-white/10" />
+                 <span className="text-xl font-black text-white">{orgData?.risk_score || 0}%</span>
+              </div>
+           </div>
+           <SOCTierBadge tier={1} />
         </div>
       </DashboardCard>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 w-full">
+        <DashboardCard className="bg-black/20 px-3 py-2">
+          <p className="dashboard-card-label">Total Scans</p>
+          <p className="dashboard-metric-value text-white">{totalScans}</p>
+        </DashboardCard>
+        <DashboardCard className="bg-black/20 px-3 py-2">
+          <p className="dashboard-card-label">Malicious</p>
+          <p className="dashboard-metric-value text-red-300">
+            {maliciousScans}
+          </p>
+        </DashboardCard>
+        <DashboardCard className="bg-black/20 px-3 py-2">
+          <p className="dashboard-card-label">Incidents</p>
+          <p className="dashboard-metric-value text-orange-200">
+            {activeIncidents}
+          </p>
+        </DashboardCard>
+        <DashboardCard className="bg-black/20 px-3 py-2">
+          <p className="dashboard-card-label">Intel Records</p>
+          <p className="dashboard-metric-value text-cyan-200">
+            {intelCount ?? 0}
+          </p>
+        </DashboardCard>
+      </div>
 
       <AgentSwarmPanel />
 
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
-        <div className="xl:col-span-3">
-          <EscalationQueue />
-        </div>
-        <div className="xl:col-span-2">
-          <Tier0BlockFeed />
-        </div>
-      </div>
-
-      <L1DecisionLog />
-
-      <div className="grid grid-cols-1 gap-6">
-        <KpiCards
-          timeToContain={timeToContain}
-          activeIncidents={activeIncidents}
-          resolvedIncidents={resolvedIncidents}
-          formattedRiskScore={formattedRiskScore}
-        />
-
-        <DashboardCard className="flex flex-col gap-6">
-          <div className="flex justify-between items-center">
-            <h2 className="dashboard-section-heading text-white">
-              Network Telemetry (Live)
-            </h2>
-            <StatusBadge status="healthy" label="Live" />
-          </div>
-
+        <div className="xl:col-span-3 flex flex-col gap-6">
           <NetworkTelemetryChart />
-        </DashboardCard>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <QuickActionsPanel />
-
-          <DashboardCard className="flex flex-col gap-4">
-            <div className="flex justify-between items-center mb-2">
-              <h2 className="dashboard-section-heading text-white">
-                Event Feed
-              </h2>
-              <StatusBadge status="healthy" label="Recent scans" />
-            </div>
-
-            <div className="flex flex-col gap-3">
-              {recentScans.length === 0 ? (
-                <div className="p-3 rounded-lg bg-[rgba(23,28,35,0.85)] border border-[rgba(48,54,61,0.9)] text-sm text-white/60">
-                  No recent scans yet.
-                </div>
-              ) : (
-                recentScans.map((scan, index) => (
-                  <DashboardCard
-                    key={`${scan.target}-${index}`}
-                    className="flex items-start gap-3 p-3"
-                  >
-                    <div
-                      className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${
-                        scan.verdict === "malicious"
-                          ? "bg-red-500"
-                          : scan.verdict === "suspicious"
-                            ? "bg-yellow-500"
-                            : "bg-[#2DD4BF]"
-                      }`}
-                    />
-                    <div className="flex flex-col min-w-0">
-                      <span className="text-sm text-white/90 font-medium truncate">
-                        {scan.target}
-                      </span>
-                      <span className="text-xs text-white/50">
-                        {scan.dateLabel} • Risk {scan.riskScore}
-                      </span>
-                    </div>
-                  </DashboardCard>
-                ))
-              )}
-            </div>
-          </DashboardCard>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+             <EscalationQueue />
+             <Tier0BlockFeed />
+          </div>
+          <L1DecisionLog />
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        <div className="xl:col-span-2 flex flex-col gap-6">
+          <QuickActionsPanel />
           <L1AgentStatusWidget />
-          <AgentChainStatusWidget />
+          <AgentChainStatusWidget />        
           <InfrastructureHealthWidget />
         </div>
       </div>
-
-      <div className="hidden">{maliciousScans + (intelCount ?? 0)}</div>
     </div>
   );
 }
