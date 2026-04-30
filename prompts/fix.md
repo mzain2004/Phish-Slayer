@@ -1,53 +1,69 @@
 @GEMINI.md @graph.md
 New session. You are a senior security engineer on PhishSlayer.
 Read GEMINI.md and graph.md first. State current sprint.
-AUDIT: Read existing osint_findings schema. Check for credential_exposures, email_posture_results, attack_surface tables. Create ONLY if missing.
+AUDIT: Check existing static_analysis tables. Check existing url_scans, email_analysis tables. ALTER missing columns, do not duplicate.
 BUILD: npm run build must pass.
 
-You are building Sprint 5: Full OSINT Agent Suite.
+You are building Sprint 6: Malware Analysis (Static + Dynamic Sandbox).
 
 USE SUPABASE CONNECTOR for migrations.
 
-AGENT 1 — PASTE SITE MONITOR (/lib/osint/paste-monitor.ts)
-Scrape: Pastebin, Ghostbin, Rentry (via public APIs/scrapers).
-Match against: org domains, executive names, internal hostnames.
-On match: ARCHIVE CONTENT IMMEDIATELY to paste_archives table (id, org_id, paste_url, paste_content, content_hash).
-Severity: credentials found = CRITICAL, domain mention = HIGH.
-Schedule: every 4 hours.
+PART 1 — STATIC ANALYSIS ENHANCEMENT
+/lib/malware/static-analyzer.ts
+Read existing static analysis code first. Enhance it:
 
-AGENT 2 — CREDENTIAL LEAK MONITOR (/lib/osint/credential-monitor.ts)
-Use HaveIBeenPwned domain search API (requires key in env).
-Check org email domain. Store breaches in credential_exposures table.
-Fields: email, breach_name, breach_date, data_classes[], remediation_status.
-Schedule: daily.
+PE Header Parsing:
+- Extract: compile timestamp, sections (name, raw_size, virtual_size, entropy), imports (DLLs + functions), exports.
+- Entropy > 7.0 = likely packed/encrypted flag.
+- Suspicious imports: VirtualAlloc, WriteProcessMemory, CreateRemoteThread = injection flag.
 
-AGENT 3 — EMAIL SECURITY POSTURE (/lib/osint/email-posture.ts)
-DNS checks for org domains:
-- SPF: parse v=spf1 record. Flag +all (CRITICAL). Score 0-100.
-- DKIM: check common selectors. Flag key < 2048bit.
-- DMARC: check _dmarc record. Flag p=none (HIGH), missing (CRITICAL).
-- Open relay: attempt SMTP relay test.
-Store in email_posture_results table.
-Schedule: weekly.
+String Extraction:
+- Extract printable strings > 4 chars from binary buffer.
+- Regex match: IPs, domains, URLs, registry keys (HKLM\\...), file paths (C:\\...).
 
-AGENT 4 — INFRASTRUCTURE FOOTPRINT (/lib/osint/infra-footprint.ts)
-Use Shodan API (requires key).
-Search by org name + known IP ranges.
-Capture: open ports, services, banners, vulns, TLS cert details.
-Diff against previous scan: new host = MEDIUM, new port = MEDIUM, new vuln = HIGH.
-Store in attack_surface table.
-Schedule: weekly.
+YARA Integration:
+- Define 10 critical YARA rules inline as strings (phishing, ransomware, cobalt_strike, credential_dump, keylog, rat, trojan, backdoor, miner, rootkit).
+- Execute via subprocess if yara-python installed, else skip gracefully.
 
-AGENT 5 — VULNERABILITY INTELLIGENCE (/lib/osint/vuln-intelligence.ts)
-Daily NVD pull (new CVEs from last 24h).
-Match CVEs against org assets (check assets table for software names).
-Check CISA KEV match.
-Calculate priority_score = (CVSS*10) + (EPSS*20) + (KEV*30) + (has_PoC*15).
-Store in vuln_tracking table.
-Schedule: daily.
+PART 2 — DYNAMIC SANDBOX INTEGRATION
+/lib/malware/sandbox.ts
+Function: submitToSandbox(fileBuffer: Buffer, fileHash: string): Promise<SandboxResult>
 
-CRON: /app/api/cron/osint-full/route.ts
-CRON_SECRET auth. Run all 5 agents sequentially.
-Create alerts for CRITICAL findings.
+Support Multiple Sandbox APIs (check env for keys, skip if missing):
+1. Any.run API: Upload file, poll for report.
+2. Hatching Triage API: Upload file, poll for report.
+3. VirusTotal API: Upload + retrieve behavioral report.
 
-FINAL: npm run build. git commit -m "feat(osint): Sprint 5 full OSINT suite (paste, creds, email, infra, vuln)". git push.
+Parse sandbox report into standard format:
+interface SandboxResult {
+  sandbox_type: string
+  score: number (0-100 malicious)
+  mitre_techniques: string[] (extract from report)
+  network_iocs: { ips: string[], domains: string[], urls: string[] }
+  filesystem_changes: string[]
+  processes_spawned: string[]
+  raw_report_url: string
+}
+
+If no sandbox API key configured: return null with console.log("No sandbox API key configured").
+
+PART 3 — MALWARE ANALYSIS ORCHESTRATOR
+/lib/malware/orchestrator.ts
+async function analyzeMalware(fileBuffer: Buffer, orgId: string, alertId?: string): Promise<Analysis>
+1. Calculate hashes (MD5, SHA1, SHA256).
+2. Check enrichment cache / threat_iocs — is this hash already known malicious?
+3. Run static analysis.
+4. If file is PE or script: submit to sandbox.
+5. Merge results: static findings + dynamic findings.
+6. Store in static_analysis table (update schema if missing columns for sandbox data).
+7. Extract IOCs from sandbox result → store in threat_iocs global table.
+8. Auto-tag MITRE techniques from sandbox report.
+9. Return combined analysis.
+
+PART 4 — API ROUTES
+POST /api/malware/analyze
+Auth + org scope. Accept multipart file upload. Call orchestrator.
+GET /api/malware/{hash}
+Auth + org scope. Return cached analysis for hash.
+
+FINAL: npm run build. git commit -m "feat(malware): Sprint 6 static analysis enhancement + sandbox integration". git push.
