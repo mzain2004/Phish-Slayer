@@ -1,41 +1,39 @@
 @GEMINI.md @graph.md
-New session. Read files. State sprint. Audit existing notification tables/code. BUILD MUST PASS.
+New session. Read files. State sprint. Check existing intel tables. BUILD MUST PASS.
 USE SUPABASE CONNECTOR FOR ALL MIGRATIONS.
 
-Sprint 9: Multi-Channel Notification Engine + On-Call Rotation.
+Sprint 11: Threat Actor Profiles + Campaign Tracker.
 
-PART 1 — SCHEMA
-Check/Create tables:
-notification_channels: id, org_id(RLS), name, type('email'|'slack'|'teams'|'pagerduty'|'webhook'), config(JSONB - stores webhook url, email, api key etc), is_active.
-notification_rules: id, org_id(RLS), name, channel_id(FK), trigger_conditions(JSONB - {severities:[], event_types:[]}), cooldown_minutes, is_active.
-notification_log: id, org_id(RLS), rule_id(FK), channel_id(FK), alert_id(FK), case_id(FK), status('sent'|'failed'|'skipped'), error_message, sent_at.
-on_call_rotations: id, org_id(RLS), name, members(JSONB array of {user_id, email, slack_id}), current_index, handoff_time.
+PART 1 — ACTOR DATABASE
+/lib/intel/actor-profiles.ts
+Embed 30 actor profiles as TypeScript const:
+Lazarus, APT28, APT29, APT41, FIN7, FIN8, Carbanak, Conti, LockBit, Cl0p, ALPHV, Scattered Spider, Lapsus$, Kimsuky, Patchwork, SideWinder, Turla, Gamaredon, Sandworm, Fancy Bear, Charming Kitten, MuddyWater, OilRig, APT33, APT35, APT15, APT10, ThreatConnect, Equation Group, DarkSide.
+Per actor: {id, name, country, target_sectors[], mitre_techniques[], malware_families[], description}.
 
-PART 2 — DISPATCHER
-/lib/notifications/dispatcher.ts
-async function notify(orgId: string, event: {severity: string, event_type: string, alert_id?: string, case_id?: string, message: string})
-1. Fetch active rules for org matching event severity/type.
-2. Check cooldown: has this rule fired for this alert_id in last cooldown_minutes? If yes, skip (dedup).
-3. For each matched rule: send to channel.
-4. Log result to notification_log.
+Check/Create threat_actors table:
+id(UUID), org_id(RLS), actor_id(string matches TS const), match_confidence(decimal), first_seen, last_seen, associated_incidents(UUID[]).
 
-PART 3 — CHANNEL SENDERS
-/lib/notifications/channels/slack.ts: POST to webhook URL. JSON payload {text, blocks}. Catch errors.
-/lib/notifications/channels/email.ts: Use Node.js nodemailer (add to package.json if missing). SMTP config from notification_channels.config.
-/lib/notifications/channels/pagerduty.ts: POST to PagerDuty Events API v2. Trigger incident.
-/lib/notifications/channels/teams.ts: POST to Microsoft Teams webhook. Adaptive card format.
+PART 2 — ACTOR MATCHING ENGINE
+/lib/intel/actor-matcher.ts
+async function matchActor(orgId: string, techniques: string[]): Promise<ActorMatch[]>
+1. For each embedded actor: calculate Jaccard similarity = (intersection of techniques) / (union of techniques).
+2. If similarity > 0.3: return as match with confidence score.
+3. Sort by confidence desc.
 
-PART 4 — ON-CALL ENGINE
-/lib/notifications/on-call.ts
-async function getCurrentOnCall(orgId: string, rotationId: string): Promise<Member>
-Check handoff_time. If past, increment current_index (mod members.length). Update handoff_time to +24h. Return current member.
-Wire into dispatcher: If severity=CRITICAL, also route to current on-call's Slack/Email directly.
+PART 3 — CAMPAIGN TRACKER
+Check/Create campaigns table:
+id(UUID), org_id(RLS), name, actor_id(string), status('active'|'dormant'|'concluded'), iocs(JSONB), linked_cases(UUID[]), linked_alerts(UUID[]), first_seen, last_seen, tlp.
 
-PART 5 — ROUTES
-POST /api/notifications/test — send test message to a channel (auth+org).
-GET /api/notifications/log — paginated log (auth+org).
-POST /api/notifications/rules — create rule (auth+org).
+/lib/intel/campaign-tracker.ts
+async function checkCampaignLink(orgId: string, alert: any): Promise<void>
+1. Extract IOCs from alert (IPs, domains, hashes).
+2. Query existing campaigns for matching IOCs (JSONB contains).
+3. If match found: UPDATE campaign, add alert_id to linked_alerts.
+4. If no match but actor confidence > 0.7: CREATE new campaign, name = "{Actor Name} Campaign - {Date}".
 
-WIRE: Update Case lifecycle (Sprint 7) and Playbook executor (Sprint 8) to call notify() on status changes. Read those files, add import, add call. Do not rewrite the files, just inject the function call.
+PART 4 — ROUTES
+GET /api/intel/actors — list all embedded actors with match status for org (auth+org).
+GET /api/intel/campaigns — list campaigns (auth+org).
+GET /api/intel/campaigns/[id] — campaign detail with timeline (auth+org).
 
-FINAL: npm run build. git commit -m "feat(notifications): Sprint 9 multi-channel engine, on-call, dedup". git push.
+FINAL: npm run build. git commit -m "feat(intel): Sprint 11 threat actor profiles, Jaccard matching, campaign tracker". git push.

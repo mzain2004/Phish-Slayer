@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { IngestionPipeline } from "@/lib/ingestion/pipeline";
+import { logAudit } from "@/lib/compliance/audit-logger";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -34,6 +35,15 @@ export async function POST(req: Request) {
     // Generic ingest endpoint doesn't always have connector ID, use zero-uuid
     const connectorId = '00000000-0000-0000-0000-000000000000';
     const result = await pipeline.ingestEvent(raw_content, connectorId, organization_id, source_type);
+
+    void logAudit(organization_id, {
+        actor_type: userId ? 'USER' : 'SYSTEM',
+        actor_id: userId || 'INGEST_API',
+        action: 'DATA_INGESTED',
+        resource_type: 'INGEST_EVENT',
+        resource_id: result.id,
+        metadata: { source_type, source_ip }
+    });
 
     return NextResponse.json(result);
   } catch (error) {

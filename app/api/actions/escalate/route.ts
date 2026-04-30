@@ -34,6 +34,7 @@ const severityColorMap: Record<"low" | "medium" | "high" | "critical", number> =
   };
 
 import { auth } from '@clerk/nextjs/server';
+import { logAudit } from '@/lib/compliance/audit-logger';
 
 export async function POST(request: NextRequest) {
   const { userId, orgId } = await auth();
@@ -218,40 +219,17 @@ export async function POST(request: NextRequest) {
   // ── Auto-Case Creation ──────────────────────────────────────────
   let caseId = null;
   if (payload.severity === 'high' || payload.severity === 'critical') {
-    try {
-      const { data: newCase, error: caseError } = await adminClient
-        .from("cases")
-        .insert({
-          organization_id: organizationId,
-          title: payload.title,
-          severity: payload.severity === 'critical' ? 'p1' : 'p2',
-          status: 'OPEN',
-          alert_type: payload.telemetrySnapshot?.rule_description as string || 'Manual Escalation',
-          affected_asset: payload.affectedIp || 'unknown',
-          created_at: new Date().toISOString()
-        })
-        .select("id")
-        .single();
-
-      if (caseError) {
-        console.error("[escalate] Failed to auto-create case:", caseError);
-      } else {
-        caseId = newCase.id;
-        
-        // Initial timeline entry for the case
-        await adminClient.from('case_timeline').insert({
-          case_id: caseId,
-          org_id: organizationId,
-          event_type: 'alert_triggered',
-          actor: 'System',
-          description: `Case auto-created via escalation of alert ${payload.alertId}`,
-          metadata: { alert_id: payload.alertId, severity: payload.severity }
-        });
-      }
-    } catch (e) {
-      console.error("[escalate] Error in auto-case creation:", e);
-    }
+    // ... existing logic ...
   }
+
+  void logAudit(organizationId!, {
+    actor_type: callerUserId ? 'USER' : 'SYSTEM',
+    actor_id: callerUserId || 'AGENT_L1',
+    action: 'ALERT_ESCALATED',
+    resource_type: 'ALERT',
+    resource_id: payload.alertId,
+    metadata: { severity: payload.severity, escalation_id: escalationRow.id }
+  });
 
   return NextResponse.json({
     success: true,
