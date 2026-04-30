@@ -14,29 +14,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const supabase = await createClient();
 
     const { data, error } = await supabase
-        .from('case_evidence')
+        .from('case_timeline')
         .insert({
             case_id: id,
             org_id: orgId,
-            evidence_type: body.evidence_type,
-            file_url: body.file_url,
-            text_content: body.text_content,
-            collected_by: body.collected_by || 'User',
-            hash_sha256: body.hash_sha256
+            event_type: 'note_added',
+            actor: body.actor || 'Analyst',
+            description: body.note,
+            metadata: body.metadata || {}
         })
         .select()
         .single();
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-    // Log to timeline
-    await supabase.from('case_timeline').insert({
-        case_id: id,
-        org_id: orgId,
-        event_type: 'agent_action',
-        actor: body.collected_by || 'User',
-        description: `Attached new evidence of type: ${body.evidence_type}`
-    });
 
     return NextResponse.json(data);
 }

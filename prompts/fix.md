@@ -1,69 +1,75 @@
 @GEMINI.md @graph.md
 New session. You are a senior security engineer on PhishSlayer.
 Read GEMINI.md and graph.md first. State current sprint.
-AUDIT: Check existing static_analysis tables. Check existing url_scans, email_analysis tables. ALTER missing columns, do not duplicate.
+AUDIT: Read supabase/migrations/20260424000001_cases.sql. Read existing case code. Build ON TOP of existing schema. ALTER only if missing columns.
 BUILD: npm run build must pass.
 
-You are building Sprint 6: Malware Analysis (Static + Dynamic Sandbox).
+You are building Sprint 7: Case Management Lifecycle + Evidence + Timeline.
 
 USE SUPABASE CONNECTOR for migrations.
 
-PART 1 — STATIC ANALYSIS ENHANCEMENT
-/lib/malware/static-analyzer.ts
-Read existing static analysis code first. Enhance it:
+PART 1 — EVIDENCE & CHAIN OF CUSTODY
+Check/Create case_evidence table:
+- id, case_id (FK), alert_id (FK), org_id (RLS)
+- evidence_type ('log'|'pcap'|'screenshot'|'malware_sample'|'sandbox_report'|'osint_report')
+- file_url (S3 path if file), text_content (if text evidence)
+- collected_by ('L1_Agent'|'L2_Agent'|'L3_Agent'|'Manager')
+- collected_at, hash_sha256 (integrity verify)
 
-PE Header Parsing:
-- Extract: compile timestamp, sections (name, raw_size, virtual_size, entropy), imports (DLLs + functions), exports.
-- Entropy > 7.0 = likely packed/encrypted flag.
-- Suspicious imports: VirtualAlloc, WriteProcessMemory, CreateRemoteThread = injection flag.
+PART 2 — CASE TIMELINE
+Check/Create case_timeline table:
+- id, case_id (FK), org_id (RLS)
+- event_type ('alert_triggered'|'enrichment_complete'|'agent_action'|'containment_executed'|'mitre_tagged'|'note_added'|'status_changed')
+- actor (agent tier or user name)
+- description (text)
+- metadata (JSONB — stores related IOCs, confidence scores, etc)
+- timestamp
 
-String Extraction:
-- Extract printable strings > 4 chars from binary buffer.
-- Regex match: IPs, domains, URLs, registry keys (HKLM\\...), file paths (C:\\...).
+PART 3 — CASE LIFECYCLE ENGINE
+/lib/cases/lifecycle.ts
+async function advanceCaseStatus(caseId: string, orgId: string, newStatus: string, reason: string)
+Valid transitions:
+  OPEN → IN_PROGRESS → CONTAINED → REMEDIATED → CLOSED → ARCHIVED
+Reject invalid transitions with 400 error.
+On every transition:
+  1. Update cases.status
+  2. Add entry to case_timeline (type='status_changed')
+  3. If CLOSED: run closure checklist validation
 
-YARA Integration:
-- Define 10 critical YARA rules inline as strings (phishing, ransomware, cobalt_strike, credential_dump, keylog, rat, trojan, backdoor, miner, rootkit).
-- Execute via subprocess if yara-python installed, else skip gracefully.
+PART 4 — CLOSURE CHECKLIST
+/lib/cases/checklist.ts
+async function validateClosure(caseId: string, orgId: string): Promise<{passed: boolean, failures: string[]}>
+Check:
+- All related alerts have status != 'OPEN'
+- Root cause field is not empty
+- At least 1 evidence item attached
+- Containment action verified (if any run)
+- SLA was not breached (or breach is documented)
+Return failures list. If >0, block closure.
 
-PART 2 — DYNAMIC SANDBOX INTEGRATION
-/lib/malware/sandbox.ts
-Function: submitToSandbox(fileBuffer: Buffer, fileHash: string): Promise<SandboxResult>
+PART 5 — PIR GENERATOR
+/lib/cases/pir-generator.ts
+async function generatePIR(caseId: string, orgId: string): Promise<string>
+Use Groq LLM.
+Prompt: "Generate a Post-Incident Review document for this security case."
+Context: case details, timeline events, evidence summaries, root cause.
+Output: Structured markdown with sections: Executive Summary, Timeline, Root Cause, Impact, Lessons Learned, Recommendations.
 
-Support Multiple Sandbox APIs (check env for keys, skip if missing):
-1. Any.run API: Upload file, poll for report.
-2. Hatching Triage API: Upload file, poll for report.
-3. VirusTotal API: Upload + retrieve behavioral report.
+PART 6 — AUTO-CASE CREATION
+Wire into L1/L2 agent flow:
+- When L2 escalates an alert to HIGH/CRITICAL → auto-create case
+- Link alert to case
+- Add initial timeline entry
+- Trigger notification engine (if Sprint 4 exists, else stub with console.log)
 
-Parse sandbox report into standard format:
-interface SandboxResult {
-  sandbox_type: string
-  score: number (0-100 malicious)
-  mitre_techniques: string[] (extract from report)
-  network_iocs: { ips: string[], domains: string[], urls: string[] }
-  filesystem_changes: string[]
-  processes_spawned: string[]
-  raw_report_url: string
-}
+PART 7 — API ROUTES
+GET /api/cases — list cases (paginated, filterable by status)
+GET /api/cases/[id] — full case with timeline + evidence
+POST /api/cases/[id]/evidence — attach evidence
+POST /api/cases/[id]/notes — add timeline note
+POST /api/cases/[id]/close — attempt closure (runs checklist)
+GET /api/cases/[id]/pir — generate PIR document
 
-If no sandbox API key configured: return null with console.log("No sandbox API key configured").
+All routes: auth + org_id scope.
 
-PART 3 — MALWARE ANALYSIS ORCHESTRATOR
-/lib/malware/orchestrator.ts
-async function analyzeMalware(fileBuffer: Buffer, orgId: string, alertId?: string): Promise<Analysis>
-1. Calculate hashes (MD5, SHA1, SHA256).
-2. Check enrichment cache / threat_iocs — is this hash already known malicious?
-3. Run static analysis.
-4. If file is PE or script: submit to sandbox.
-5. Merge results: static findings + dynamic findings.
-6. Store in static_analysis table (update schema if missing columns for sandbox data).
-7. Extract IOCs from sandbox result → store in threat_iocs global table.
-8. Auto-tag MITRE techniques from sandbox report.
-9. Return combined analysis.
-
-PART 4 — API ROUTES
-POST /api/malware/analyze
-Auth + org scope. Accept multipart file upload. Call orchestrator.
-GET /api/malware/{hash}
-Auth + org scope. Return cached analysis for hash.
-
-FINAL: npm run build. git commit -m "feat(malware): Sprint 6 static analysis enhancement + sandbox integration". git push.
+FINAL: npm run build. git commit -m "feat(cases): Sprint 7 case lifecycle, evidence chain of custody, PIR generator". git push.

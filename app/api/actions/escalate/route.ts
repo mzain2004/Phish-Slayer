@@ -215,9 +215,48 @@ export async function POST(request: NextRequest) {
     created_at: new Date().toISOString(),
   });
 
+  // ── Auto-Case Creation ──────────────────────────────────────────
+  let caseId = null;
+  if (payload.severity === 'high' || payload.severity === 'critical') {
+    try {
+      const { data: newCase, error: caseError } = await adminClient
+        .from("cases")
+        .insert({
+          organization_id: organizationId,
+          title: payload.title,
+          severity: payload.severity === 'critical' ? 'p1' : 'p2',
+          status: 'OPEN',
+          alert_type: payload.telemetrySnapshot?.rule_description as string || 'Manual Escalation',
+          affected_asset: payload.affectedIp || 'unknown',
+          created_at: new Date().toISOString()
+        })
+        .select("id")
+        .single();
+
+      if (caseError) {
+        console.error("[escalate] Failed to auto-create case:", caseError);
+      } else {
+        caseId = newCase.id;
+        
+        // Initial timeline entry for the case
+        await adminClient.from('case_timeline').insert({
+          case_id: caseId,
+          org_id: organizationId,
+          event_type: 'alert_triggered',
+          actor: 'System',
+          description: `Case auto-created via escalation of alert ${payload.alertId}`,
+          metadata: { alert_id: payload.alertId, severity: payload.severity }
+        });
+      }
+    } catch (e) {
+      console.error("[escalate] Error in auto-case creation:", e);
+    }
+  }
+
   return NextResponse.json({
     success: true,
     escalation_id: escalationRow.id,
+    case_id: caseId,
     discord_notified: discordNotified,
     audit_logged: !auditError,
   });
