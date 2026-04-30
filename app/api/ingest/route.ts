@@ -31,7 +31,9 @@ export async function POST(req: Request) {
 
     const supabase = await createClient();
     const pipeline = new IngestionPipeline(supabase);
-    const result = await pipeline.ingestLog(raw_content, source_type, organization_id, source_ip);
+    // Generic ingest endpoint doesn't always have connector ID, use zero-uuid
+    const connectorId = '00000000-0000-0000-0000-000000000000';
+    const result = await pipeline.ingestEvent(raw_content, connectorId, organization_id, source_type);
 
     return NextResponse.json(result);
   } catch (error) {

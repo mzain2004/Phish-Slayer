@@ -1,254 +1,512 @@
-READ gemini.md fully before starting.
-VERIFY: Layer 0 is complete and npm run build passes.
+════════════════════════════════════════════════════════════
+SPRINT 0.5 — DATA INGESTION + UDM NORMALIZATION LAYER
+Run AFTER Pre-Sprint setup, BEFORE Layer 0
+════════════════════════════════════════════════════════════
 
-You are building Sprint 1: the Alert Enrichment Pipeline for PhishSlayer L1 agents.
-This is the #1 killer feature — every alert enriched automatically before analyst sees it.
+READ gemini.md and graph.md fully before starting.
+VERIFY: Pre-sprint complete, npm run build passes.
 
-CONTEXT:
-- Layer 0 runtime is built (state machine, confidence gates, ledger, DLQ, fallback LLM)
-- Current L1 agent does basic processing but no external enrichment
-- Need: IP geo, WHOIS, VirusTotal, AbuseIPDB, Shodan, passive DNS, hash lookup, email header parse
-- Must be: async, parallel where possible, graceful on API failure, org-scoped always
+You are building Sprint 0.5: Universal Data Ingestion Pipeline
+and Unified Data Model normalization layer. This is the
+foundation of the entire data pipeline. Every agent downstream
+depends on clean, normalized data from this layer.
 
 AUDIT FIRST:
-1. Read ALL existing L1 agent code
-2. Read ALL existing enrichment code if any
-3. Check: is every DB query scoped to org_id? Fix any that aren't.
-4. Check: any Groq client at module level? Fix to lazy init.
-5. Check: any unhandled promise rejections in agent chain? Fix.
-6. List all issues found and fixed before adding new code.
+1. Read ALL existing webhook/ingest code in app/api/webhooks/
+   and app/api/ingest/
+2. Check: is every ingest route scoped to org_id? Fix any missing.
+3. Check: any raw Wazuh data passed directly to agents without
+   normalization? Fix — all data must pass through UDM first.
+4. Fix ALL build errors before adding anything new.
+5. List all issues found and fixed.
 
-ADD THESE ENV VARS to .env.example (keys only, no values):
-VIRUSTOTAL_API_KEY=
-ABUSEIPDB_API_KEY=
-SHODAN_API_KEY=
-MAXMIND_LICENSE_KEY=
-GREYNOISE_API_KEY=
+USE SUPABASE CONNECTOR for all migration steps below.
 
-BUILD THESE:
+═══════════════════════════════════════
+PART 1 — UNIFIED DATA MODEL (UDM)
+═══════════════════════════════════════
 
-## 1. IP Enrichment Agent (/lib/agents/enrichment/ip-enricher.ts)
-Enrich every src_ip and dst_ip from alert:
-- MaxMind GeoIP (local DB download, no API call): country, city, ASN, org, connection type
-- AbuseIPDB API: confidence_score, usage_type, domain, is_tor, total_reports
-- VirusTotal API (/ip_addresses/{ip}): malicious count, suspicious count, reputation
-- Shodan API (/shodan/host/{ip}): open ports, services, banners, vulns (if any)
-- Greynoise API (/v3/community/{ip}): noise (scanner), riot (trusted), classification
-- ASN lookup: AS number, BGP prefix, upstream providers (use ipinfo.io)
-- Tor exit node check (download Tor exit list, cache 24h): boolean
-- VPN/hosting provider check (use ip2location or ipinfo.io)
+1. UDM Type Definitions (/lib/ingestion/udm.ts)
 
-Build:
-async function enrichIP(ip: string, orgId: string): Promise<IPEnrichment>
+Build the complete Unified Data Model TypeScript interface.
+Every event from every source normalizes to this schema:
 
-Rules:
-- All API calls: 5s timeout, fail gracefully (log + return partial)
-- Cache results in Supabase for 24h to avoid re-querying same IP
-- RFC1918 IPs (10.x, 172.16.x, 192.168.x): skip external APIs, mark as INTERNAL
-- Parallel: all API calls fire simultaneously via Promise.allSettled()
-- Never block alert processing if enrichment fails — return what you have
+interface UDMEvent {
+  // Identity
+  id: string                    // UUID generated at ingest
+  org_id: string                // MANDATORY — multi-tenant
+  connector_id: string          // which connector sent this
+  data_source_type: string      // 'wazuh'|'crowdstrike'|'o365'|'syslog'|etc
 
-## 2. Domain + URL Enrichment Agent (/lib/agents/enrichment/domain-enricher.ts)
-Enrich every domain and URL extracted from alert:
-- VirusTotal API (/urls or /domains/{domain}): detection counts, categories, reputation
-- URLhaus API: lookup domain/URL in malware DB
-- PhishTank API: is this a known phishing URL?
-- WHOIS/RDAP: registration date, registrar, registrant org (use whois npm package)
-- Domain age calculation: registration date → days old, flag if <30 days
-- DGA detection: entropy calculation + bigram analysis → 0-100 DGA score
-- Tranco/Alexa rank check (cached list): top 1M = likely legitimate, unranked = suspicious
-- Typosquatting check: Levenshtein distance vs org's protected domains (from connectors table)
-- URL redirect unrolling: follow all redirects (max 10 hops), capture final destination
-- HTTP safe fetch headers: server, X-Powered-By, Content-Type (no JS execution, just headers)
+  // Timestamps
+  timestamp_utc: string         // UTC ISO 8601 — event time
+  ingested_at: string           // UTC ISO 8601 — platform receipt time
+  clock_skew_ms: number         // delta between event time and ingest time
 
-Build:
-async function enrichDomain(domain: string, orgId: string): Promise<DomainEnrichment>
-async function enrichURL(url: string, orgId: string): Promise<URLEnrichment>
+  // Network
+  src_ip?: string               // always CIDR-normalized
+  dst_ip?: string
+  src_port?: number
+  dst_port?: number
+  protocol?: string             // tcp|udp|icmp|http|https|dns|smb|rdp|ssh
 
-## 3. Hash Enrichment Agent (/lib/agents/enrichment/hash-enricher.ts)
-Enrich every file hash from alert:
-- VirusTotal API (/files/{hash}): detection count, family, first_seen, last_seen, file_type
-- MalwareBazaar API: is this hash in the malware DB? tags, signature, file_type
-- NSRL lookup (cached local DB): is this hash a known-good system file?
-- SSDEEP fuzzy hash comparison (if ssdeep provided): similarity to known malware
-- Flag: hash not found anywhere → unknown binary → elevate confidence in alert
+  // Host
+  host_name?: string
+  host_fqdn?: string
+  host_ip?: string
+  host_os?: string              // windows|linux|macos|unknown
 
-Build:
-async function enrichHash(hash: string, hashType: 'md5'|'sha1'|'sha256', orgId: string): Promise<HashEnrichment>
+  // User
+  user_name?: string
+  user_domain?: string
+  user_upn?: string             // user principal name (email format)
 
-## 4. Email Header Enrichment Agent (/lib/agents/enrichment/email-enricher.ts)
-For alerts containing email data:
-- Parse raw email headers: Received chain, Message-ID, X-Originating-IP
-- SPF result extraction from Authentication-Results header
-- DKIM result extraction
-- DMARC result extraction
-- Sender domain WHOIS + age
-- Display name spoofing detection: display name contains "Security", "IT", "Admin" but domain is external
-- Look-alike sender: Levenshtein distance vs org's known sender domains
-- Reply-to vs From mismatch detection
-- Thread hijacking: In-Reply-To references + suspicious From
+  // Process
+  process_name?: string
+  process_pid?: number
+  process_cmdline?: string
+  process_hash_md5?: string
+  process_hash_sha256?: string
+  parent_process_name?: string
+  parent_process_pid?: number
 
-Build:
-async function enrichEmailHeaders(rawHeaders: string, orgId: string): Promise<EmailEnrichment>
+  // File
+  file_path?: string
+  file_name?: string
+  file_hash_md5?: string
+  file_hash_sha256?: string
+  file_size?: number
+  file_extension?: string
 
-## 5. User Context Enrichment Agent (/lib/agents/enrichment/user-enricher.ts)
-Enrich user identity from alert:
-- Connector lookup: if org has AD/Okta connector, query user details
-- Fields to get: display_name, department, manager, role, account_age, last_login, mfa_status
-- Privileged status: is this account in admin groups? service account? PAM account?
-- Account risk score: based on recent alert count for this user (from Supabase, org-scoped)
-- Peer group deviation: avg alerts for users in same department vs this user's alert count
-- If no identity connector: return basic enrichment from alert data only
+  // Network payload
+  network_bytes_in?: number
+  network_bytes_out?: number
+  dns_query?: string
+  dns_response?: string
+  http_method?: string
+  http_url?: string
+  http_status?: number
+  http_user_agent?: string
 
-Build:
-async function enrichUser(username: string, orgId: string): Promise<UserEnrichment>
+  // Event classification
+  event_type: string            // 'alert'|'log'|'audit'|'network'|'endpoint'
+  event_action?: string         // what happened: 'login'|'file_create'|'network_connect'|etc
+  event_outcome?: string        // 'success'|'failure'|'unknown'
+  event_category?: string[]     // MITRE-aligned: 'authentication'|'file'|'network'|'process'
 
-## 6. Asset Context Enrichment Agent (/lib/agents/enrichment/asset-enricher.ts)
-Enrich asset/host from alert:
-- CMDB lookup (from assets table — create if not exists)
-- Asset criticality tier: 1=Crown Jewel, 2=Business Critical, 3=Standard, 4=Test/Dev
-- Asset owner: team, cost center, BU
-- Network zone: DMZ, internal, OT, cloud — auto-detect from IP range + org config
-- Data classification: PCI? HIPAA? PII? → from asset record
-- Production flag: is this a production system?
-- EOL flag: is this end-of-life software/hardware?
-- Shadow IT: if asset NOT in inventory → create record, set criticality=UNKNOWN, alert "Shadow IT detected"
-- Business hours context: 3am alert on finance-classified asset = higher risk
+  // Alert fields (when event_type = 'alert')
+  alert_rule_id?: string
+  alert_rule_name?: string
+  alert_severity_raw?: string   // original severity from source
+  alert_severity_score?: number // normalized 0-100
 
-Build:
-async function enrichAsset(hostname: string, ip: string, orgId: string): Promise<AssetEnrichment>
+  // Raw preservation (ALWAYS POPULATED)
+  raw_log: string               // original log verbatim — never modify
 
-New migration needed:
-CREATE TABLE IF NOT EXISTS assets (
+  // Processing metadata
+  normalization_version: string // schema version used
+  normalization_warnings?: string[] // fields that couldn't be mapped
+}
+
+Also define:
+interface UDMBatch {
+  events: UDMEvent[]
+  batch_id: string
+  org_id: string
+  connector_id: string
+  received_at: string
+}
+
+
+2. UDM Storage Migration
+
+Use Supabase connector to run this migration:
+
+CREATE TABLE IF NOT EXISTS udm_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id UUID NOT NULL REFERENCES organizations(id),
-  hostname TEXT,
-  ip_addresses TEXT[],
-  criticality INTEGER DEFAULT 3 CHECK (criticality BETWEEN 1 AND 4),
-  owner_team TEXT,
-  network_zone TEXT,
-  data_classification TEXT[],
-  is_production BOOLEAN DEFAULT false,
-  is_eol BOOLEAN DEFAULT false,
-  tags JSONB DEFAULT '{}',
-  last_seen TIMESTAMPTZ DEFAULT now(),
-  created_at TIMESTAMPTZ DEFAULT now()
+  connector_id UUID REFERENCES connectors(id),
+  data_source_type TEXT NOT NULL,
+  timestamp_utc TIMESTAMPTZ NOT NULL,
+  ingested_at TIMESTAMPTZ DEFAULT now(),
+  clock_skew_ms INTEGER DEFAULT 0,
+  src_ip INET,
+  dst_ip INET,
+  src_port INTEGER,
+  dst_port INTEGER,
+  protocol TEXT,
+  host_name TEXT,
+  host_fqdn TEXT,
+  host_os TEXT,
+  user_name TEXT,
+  user_domain TEXT,
+  process_name TEXT,
+  process_pid INTEGER,
+  process_cmdline TEXT,
+  process_hash_sha256 TEXT,
+  file_path TEXT,
+  file_hash_sha256 TEXT,
+  dns_query TEXT,
+  http_url TEXT,
+  http_method TEXT,
+  event_type TEXT NOT NULL,
+  event_action TEXT,
+  event_outcome TEXT,
+  event_category TEXT[],
+  alert_rule_id TEXT,
+  alert_rule_name TEXT,
+  alert_severity_score INTEGER,
+  raw_log TEXT NOT NULL,
+  normalization_version TEXT DEFAULT '1.0',
+  normalization_warnings TEXT[],
+  extra JSONB DEFAULT '{}'  -- overflow for unmapped fields
 );
-ALTER TABLE assets ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "org_isolation" ON assets USING (org_id = current_setting('app.current_org_id')::uuid);
 
-## 7. Enrichment Cache Layer (/lib/agents/enrichment/cache.ts)
-- Cache all enrichment results in Supabase to avoid re-querying same IOC
-- IP cache TTL: 24 hours
-- Domain cache TTL: 6 hours  
-- Hash cache TTL: 7 days (malware doesn't un-malware)
-- User cache TTL: 1 hour
-- Asset cache TTL: 15 minutes
+ALTER TABLE udm_events ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "org_isolation" ON udm_events
+  USING (org_id = current_setting('app.current_org_id')::uuid);
 
-New migration:
-CREATE TABLE IF NOT EXISTS enrichment_cache (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  org_id UUID NOT NULL REFERENCES organizations(id),
-  ioc_type TEXT NOT NULL,
-  ioc_value TEXT NOT NULL,
-  enrichment_data JSONB NOT NULL,
-  source TEXT NOT NULL,
-  expires_at TIMESTAMPTZ NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  UNIQUE(org_id, ioc_type, ioc_value, source)
-);
-ALTER TABLE enrichment_cache ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "org_isolation" ON enrichment_cache USING (org_id = current_setting('app.current_org_id')::uuid);
+-- Performance indexes
+CREATE INDEX idx_udm_org_timestamp
+  ON udm_events(org_id, timestamp_utc DESC);
+CREATE INDEX idx_udm_src_ip
+  ON udm_events(org_id, src_ip);
+CREATE INDEX idx_udm_host
+  ON udm_events(org_id, host_name);
+CREATE INDEX idx_udm_user
+  ON udm_events(org_id, user_name);
+CREATE INDEX idx_udm_process
+  ON udm_events(org_id, process_hash_sha256);
 
-## 8. Master Enrichment Orchestrator (/lib/agents/enrichment/enrichment-orchestrator.ts)
-- Receives raw alert from Wazuh webhook
-- Extracts all IOCs: IPs, domains, URLs, hashes, emails, usernames, hostnames
-- Fires all enrichment agents in parallel (Promise.allSettled)
-- Aggregates results into unified EnrichmentData object
-- Stores enrichment in alerts.enrichment column (JSONB)
-- Calculates enrichment-based severity boost (from gemini.md modifier table)
-- Passes enriched alert to L1 agent chain
+-- Retention: auto-delete events older than 90 days (hot tier)
+-- Cold tier archival handled separately
+
+
+═══════════════════════════════════════
+PART 2 — FORMAT PARSERS
+═══════════════════════════════════════
+
+3. Parser Library (/lib/ingestion/parsers/)
+
+Build one parser per format. Each parser:
+  Input: raw string or Buffer
+  Output: Partial<UDMEvent> (fields it can extract)
+  Never throw — return partial on error + populate
+  normalization_warnings[]
+
+/lib/ingestion/parsers/wazuh.ts
+  Parse Wazuh JSON alert format:
+  Map: rule.level → alert_severity_score (level*6.25, cap 100)
+  Map: rule.id → alert_rule_id
+  Map: rule.description → alert_rule_name
+  Map: agent.ip → src_ip
+  Map: agent.name → host_name
+  Map: data.srcip → src_ip (if present, override agent.ip)
+  Map: data.dstip → dst_ip
+  Map: data.dstport → dst_port
+  Map: data.win.system.subjectUserName → user_name (Windows events)
+  Map: data.win.eventdata.commandLine → process_cmdline
+  Map: data.win.eventdata.hashes → extract SHA256 → process_hash_sha256
+  Map: full alert JSON → raw_log (stringify)
+
+/lib/ingestion/parsers/cef.ts
+  Parse CEF (Common Event Format — ArcSight):
+  Format: CEF:Version|DeviceVendor|Product|Version|SignatureId|Name|Severity|Extension
+  Extract all extension key=value pairs
+  Map standard CEF fields to UDM fields
+  Map: src → src_ip, dst → dst_ip, spt → src_port, dpt → dst_port
+  Map: suser → user_name, dhost → host_name
+  Map: act → event_action, outcome → event_outcome
+  Map: cs1/cs2/cs3 (custom string fields) → extra JSONB
+
+/lib/ingestion/parsers/leef.ts
+  Parse LEEF (Log Event Extended Format — QRadar):
+  Format: LEEF:Version|Vendor|Product|Version|EventID|delimiter|key=value pairs
+  Similar mapping to CEF but LEEF-specific field names
+
+/lib/ingestion/parsers/syslog.ts
+  Parse RFC 3164 and RFC 5424 syslog:
+  RFC 3164: <PRI>TIMESTAMP HOSTNAME TAG: MESSAGE
+  RFC 5424: <PRI>VERSION TIMESTAMP HOSTNAME APP PROCID MSGID SD MSG
+  Extract: priority → severity mapping, hostname, timestamp, message
+  Apply grok-like patterns for common syslog message formats:
+    - SSH auth: extract user, src_ip, outcome (accepted/failed)
+    - sudo: extract user, command
+    - cron: extract user, command
+    - kernel: extract subsystem, message
+
+/lib/ingestion/parsers/json-generic.ts
+  Parse generic JSON logs with schema inference:
+  Auto-detect common field names:
+    timestamp variants: timestamp, time, @timestamp, date, created_at, eventTime
+    IP variants: src_ip, srcip, source_ip, sourceIp, client_ip, clientIp
+    user variants: user, username, user_name, userName, account
+    host variants: host, hostname, host_name, hostName, computer, device
+  Fall back to extra JSONB for unmapped fields
+
+/lib/ingestion/parsers/cloudtrail.ts
+  Parse AWS CloudTrail JSON:
+  Map: eventTime → timestamp_utc
+  Map: sourceIPAddress → src_ip
+  Map: userIdentity.userName → user_name
+  Map: eventName → event_action
+  Map: errorCode → event_outcome (null=success, error=failure)
+  Map: resources[].ARN → extra.aws_resource
+
+/lib/ingestion/parsers/o365.ts
+  Parse Microsoft 365 Unified Audit Log:
+  Map: CreationTime → timestamp_utc
+  Map: UserId → user_upn
+  Map: ClientIP → src_ip
+  Map: Operation → event_action
+  Map: Workload → data_source_type suffix (Exchange/SharePoint/Teams)
+
+/lib/ingestion/parsers/suricata.ts
+  Parse Suricata EVE JSON:
+  Map: timestamp → timestamp_utc
+  Map: src_ip, dest_ip, src_port, dest_port, proto
+  Map: alert.signature → alert_rule_name
+  Map: alert.signature_id → alert_rule_id
+  Map: alert.severity → alert_severity_score (1=high: 75, 2=med: 50, 3=low: 25)
+  Map: dns.query → dns_query
+  Map: http.url → http_url, http.method → http_method
+
+/lib/ingestion/parsers/zeek.ts
+  Parse Zeek/Bro TSV logs:
+  Auto-detect log type from #path field (conn, dns, http, files, notice)
+  conn.log: map id.orig_h→src_ip, id.resp_h→dst_ip, proto, duration, bytes
+  dns.log: map query→dns_query, answers, rcode
+  http.log: map host+uri→http_url, method, status_code, user_agent
+  files.log: map md5, sha256 → file hashes
+
+Export from /lib/ingestion/parsers/index.ts:
+function detectFormat(raw: string | Buffer): string
+function parseEvent(raw: string | Buffer, format: string, connectorType: string): Partial<UDMEvent>
+
+
+═══════════════════════════════════════
+PART 3 — DATA QUALITY AGENT
+═══════════════════════════════════════
+
+4. Data Quality Agent (/lib/ingestion/data-quality.ts)
+
+Run on every event post-normalization:
+
+CHECKS (run all, collect warnings, never drop event):
+
+Clock skew check:
+  If |timestamp_utc - now()| > 300000ms (5 minutes):
+    Add warning: "CLOCK_SKEW: event is {delta}ms {ahead|behind} ingest time"
+    If delta > 3600000ms (1 hour): flag as STALE
+    Correct timestamp_utc to ingested_at for processing purposes
+    Preserve original in extra.original_timestamp
+
+Missing critical fields:
+  Required: org_id, data_source_type, timestamp_utc, raw_log, event_type
+  Important: at least one of src_ip OR host_name OR user_name
+  If required field missing: add warning "MISSING_REQUIRED: {field}"
+  If no identifying field: add warning "NO_ENTITY_IDENTIFIER"
+
+Duplicate detection:
+  SHA256 of: org_id + timestamp_utc + src_ip + alert_rule_id + raw_log
+  Check against last 60 seconds in dedup cache (Redis or Supabase)
+  Duplicate found: mark event.is_duplicate = true, still store but skip agent processing
+
+IP validation:
+  Validate src_ip and dst_ip are valid IP addresses
+  If invalid: clear field, add warning "INVALID_IP: {value}"
+  Normalize IPv6: expand compressed notation
+  Tag RFC1918: add extra.src_ip_internal = true if private range
+
+Hash validation:
+  MD5: must be 32 hex chars
+  SHA1: must be 40 hex chars
+  SHA256: must be 64 hex chars
+  If wrong length: clear field, add warning "INVALID_HASH"
+  Always lowercase hashes
+
+Encoding detection + fix:
+  Detect: UTF-8, Latin-1, Windows-1252
+  Convert to UTF-8
+  Replace unparseable bytes with Unicode replacement char
+
+Log volume anomaly:
+  Per connector, track rolling 5-min event rate
+  Baseline: average events/min over last 7 days for this connector
+  If current rate < 10% of baseline: log "SENSOR_SILENT" to connector_health table
+  If current rate > 500% of baseline: log "FLOOD_DETECTED", apply rate limiting
 
 Build:
-async function orchestrateEnrichment(alert: Alert, orgId: string): Promise<EnrichedAlert>
+function runQualityChecks(event: UDMEvent): QualityResult
+  Returns: {passed: boolean, warnings: string[], is_duplicate: boolean,
+            is_stale: boolean, quality_score: number}
 
-## 9. Severity Scoring Engine (/lib/agents/l1/severity-scorer.ts)
-Apply all modifiers from the architecture spec:
-Base severity from source (Wazuh rule level → 0-100) + these modifiers:
-- Asset criticality 1 (Crown Jewel): +40
-- Asset criticality 2 (Business Critical): +25
-- Asset criticality 3 (Standard): +10
-- Asset criticality 4 (Test): +0
-- Data classification (PCI/HIPAA/PII asset): +20
-- CISA KEV match: +15
-- EPSS score >0.5: +10
-- Active exploitation in wild (GreyNoise): +20
-- Threat intel IOC match: +25
-- Off-hours anomaly (alert time vs asset business hours): +10
-- Internet-facing asset: +15
-- Privileged account involved: +20
-- Active campaign match (from campaign_tracker table): +30
-- Repeated pattern (same signature 3x in 1hr from same source): +15
 
-Final score capped at 100 → map to severity label:
-- 90-100: CRITICAL
-- 70-89: HIGH
-- 40-69: MEDIUM
-- 10-39: LOW
-- 0-9: INFO
+5. Connector Health Monitor (/lib/ingestion/connector-health.ts)
 
-## 10. Watchlist Matching Agent (/lib/agents/l1/watchlist-matcher.ts)
-- On every alert, check all IOCs against org's watchlist
-- Watchlist table: org_id, ioc_type, ioc_value, label, confidence, source
-- Fuzzy match for domains: Levenshtein distance ≤ 2 = flag
-- Exact match for IPs and hashes
-- Regex match for custom patterns
-- Watchlist match → instant severity MAX + skip normal queue → priority processing
-- Watchlist populated from: CTI feeds + customer-defined entries
+Use Supabase connector for migration:
 
-New migration:
-CREATE TABLE IF NOT EXISTS watchlists (
+CREATE TABLE IF NOT EXISTS connector_health (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id UUID NOT NULL REFERENCES organizations(id),
-  ioc_type TEXT NOT NULL,
-  ioc_value TEXT NOT NULL,
-  label TEXT NOT NULL,
-  confidence DECIMAL(3,2) DEFAULT 1.0,
-  source TEXT,
-  created_at TIMESTAMPTZ DEFAULT now()
+  connector_id UUID NOT NULL REFERENCES connectors(id),
+  status TEXT DEFAULT 'healthy',
+    -- 'healthy'|'degraded'|'silent'|'flooding'|'unknown'
+  last_event_at TIMESTAMPTZ,
+  events_per_min_current DECIMAL(10,2),
+  events_per_min_baseline DECIMAL(10,2),
+  consecutive_silent_checks INTEGER DEFAULT 0,
+  last_checked TIMESTAMPTZ DEFAULT now(),
+  health_notes TEXT,
+  updated_at TIMESTAMPTZ DEFAULT now()
 );
-ALTER TABLE watchlists ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "org_isolation" ON watchlists USING (org_id = current_setting('app.current_org_id')::uuid);
+ALTER TABLE connector_health ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "org_isolation" ON connector_health
+  USING (org_id = current_setting('app.current_org_id')::uuid);
 
-## 11. Alert Deduplication + Correlation Agent (/lib/agents/l1/correlator.ts)
-- SHA256 fingerprint every normalized alert
-- Within 5-minute window + same src_ip + same dst_ip + same rule → collapse to 1 alert
-- Brute force grouping: 5+ failed auth alerts on same host within 10min → create incident group
-- Rule-based incident creation: configurable patterns per org
-- Cluster naming: LLM generates human-readable incident name from cluster context
+Build:
+async function updateConnectorHealth(connectorId: string, orgId: string): Promise<void>
+async function checkAllConnectors(orgId: string): Promise<ConnectorHealthReport>
+async function alertOnSilentConnector(connectorId: string, orgId: string): Promise<void>
+  // Creates CRITICAL alert: "Data source silent — possible blind spot"
 
-## 12. Update Wazuh Webhook (/app/api/webhooks/wazuh/route.ts)
-- After ingesting Wazuh alert, immediately trigger enrichment pipeline
-- Pass enriched alert to L1 agent chain
-- Return 200 fast (don't await full chain) — process async
-- Alert ID returned immediately, processing happens in background
 
-## 13. UI: Enrichment Display (/app/dashboard/alerts/[id]/page.tsx)
-- Show all enrichment data on alert detail page
-- IP enrichment: geo map pin, reputation scores, ASN info
-- Domain enrichment: WHOIS, age, DGA score, VT detections
-- Hash enrichment: VT detection count, malware family if known
-- Asset info: criticality badge, network zone badge, data classification tags
-- User info: department, risk score, privileged badge if applicable
-- Severity with breakdown: base score + each modifier applied + final score
-- Design: glassmorphism cards, IBM Plex Mono for IOC values, Inter for labels
-- 4px border-radius buttons, #7c6af7 primary color, #00d4aa accent
+═══════════════════════════════════════
+PART 4 — INGESTION PIPELINE
+═══════════════════════════════════════
 
-## FINAL STEPS:
-1. Update existing L1 agent to use new enrichment orchestrator
-2. Ensure all new code is fully typed (no `any` without comment explaining why)
-3. Add all new env vars to .env.example
+6. Ingestion Orchestrator (/lib/ingestion/pipeline.ts)
+
+Master pipeline: raw event in → UDM event stored → agent triggered
+
+async function ingestEvent(
+  raw: string | Buffer,
+  connectorId: string,
+  orgId: string,
+  format?: string  // if known, skip auto-detect
+): Promise<UDMEvent>
+
+Steps:
+  1. Auto-detect format if not provided
+  2. Parse to partial UDM
+  3. Fill mandatory fields (org_id, connector_id, ingested_at, id)
+  4. Run data quality checks
+  5. If duplicate: store with is_duplicate flag, return, skip agents
+  6. Store to udm_events table
+  7. Update connector_health last_event_at
+  8. If event_type = 'alert': trigger L1 agent pipeline
+     Pass UDMEvent to enrichment orchestrator (Sprint 1)
+  9. Return UDMEvent
+
+async function ingestBatch(
+  events: Array<{raw: string, format?: string}>,
+  connectorId: string,
+  orgId: string
+): Promise<{processed: number, duplicates: number, errors: number}>
+
+  Process in batches of 100
+  Promise.allSettled for parallel processing
+  Backpressure: if >1000 events queued, return 429 with Retry-After header
+  Never lose events — push failures to DLQ
+
+
+7. Multi-Protocol Receivers
+
+Update existing + add new ingest endpoints:
+
+/app/api/ingest/wazuh/route.ts (UPDATE existing webhook):
+  POST: receive Wazuh JSON alert
+  Auth: verify connector API key (bcrypt compare against connectors.api_key_hash)
+  Call: ingestEvent(body, connectorId, orgId, 'wazuh')
+  Return 200 immediately (async processing)
+
+/app/api/ingest/webhook/route.ts (GENERIC — NEW):
+  POST /api/ingest/webhook?connector={id}
+  Auth: X-API-Key header → connector lookup
+  Auto-detect format from Content-Type + body structure
+  Call: ingestEvent(body, connectorId, orgId)
+  Return 200 immediately
+
+/app/api/ingest/syslog/route.ts (UDP+TCP — NEW):
+  Note: Next.js can't receive raw UDP. 
+  Build separate Node.js syslog receiver at /lib/ingestion/syslog-server.ts
+  UDP port 514, TCP port 601
+  On receive: call ingestEvent(message, connectorId, orgId, 'syslog')
+  Run as separate process managed by PM2 on Azure VM
+
+/app/api/ingest/batch/route.ts (UPDATE existing):
+  POST: receive array of events
+  Auth: connector API key
+  Call: ingestBatch(events, connectorId, orgId)
+
+/app/api/ingest/cef/route.ts (NEW):
+  POST: receive CEF formatted events
+  Content-Type: text/plain or application/cef
+  Split by newline for multi-event payloads
+  Call: ingestBatch with format='cef'
+
+/app/api/ingest/stix/route.ts (NEW — TAXII receiver):
+  POST: receive STIX 2.x bundle
+  Parse indicators, threat-actors, attack-patterns from bundle
+  Import IOCs to watchlists table
+  Import TTPs to threat intel tables
+  Return 200 + summary of imported objects
+
+
+8. Log Retention + Archival Policy (/lib/ingestion/retention.ts)
+
+Automated log lifecycle:
+
+async function enforceRetentionPolicy(orgId: string): Promise<void>
+  Hot tier (Supabase udm_events): keep 30 days
+  Warm tier: events 30-90 days → compress to JSONB + move to udm_events_archive
+  Cold tier: events 90 days - 1 year → export to S3 as gzipped NDJSON
+  Archive tier: events 1-7 years → move S3 to Glacier
+  Delete: events >7 years (configurable, GDPR compliance)
+
+Use Supabase connector for archive table:
+CREATE TABLE IF NOT EXISTS udm_events_archive (
+  id UUID NOT NULL,
+  org_id UUID NOT NULL REFERENCES organizations(id),
+  timestamp_utc TIMESTAMPTZ NOT NULL,
+  compressed_data JSONB NOT NULL,
+  original_count INTEGER DEFAULT 1,
+  archived_at TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE udm_events_archive ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "org_isolation" ON udm_events_archive
+  USING (org_id = current_setting('app.current_org_id')::uuid);
+
+Cron: /app/api/cron/retention/route.ts — run daily 01:00 UTC
+
+
+9. Historical Log Search (/app/api/search/logs/route.ts)
+
+Full-text search across all stored logs:
+
+GET /api/search/logs?q={query}&start={date}&end={date}&limit=100
+
+Query against udm_events WHERE:
+  org_id = orgId (ALWAYS)
+  AND timestamp_utc BETWEEN start AND end
+  AND (
+    raw_log ILIKE '%{query}%'
+    OR host_name ILIKE '%{query}%'
+    OR user_name ILIKE '%{query}%'
+    OR src_ip::text = query (if valid IP)
+    OR process_hash_sha256 = query (if 64 chars)
+  )
+
+Also search udm_events_archive if date range extends past 30 days
+Return: events array, total_count, search_time_ms
+Rate limit: max 10 searches/min per org (expensive query)
+
+
+FINAL STEPS:
+1. Update Wazuh webhook to use new pipeline (not bypass it)
+2. Verify all existing alerts in DB still work with new schema
+3. Use Supabase connector to apply all migrations
 4. Run npm run build — fix ALL errors
-5. Run npm run build again — ZERO errors required
-6. Create SPRINT1_COMPLETE.md documenting: what was built, what APIs are called, cache TTLs, known limitations
-7. DO NOT COMMIT until build is completely clean
+5. ZERO errors before commit
+6. Create SPRINT0_5_COMPLETE.md:
+   document supported formats, parser coverage, retention policy  

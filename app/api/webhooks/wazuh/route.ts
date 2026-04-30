@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { orchestrateEnrichment } from "@/lib/agents/enrichment/enrichment-orchestrator";
-import { calculateSeverity } from "@/lib/agents/l1/severity-scorer";
-import { deduplicateAlert, fingerprintAlert } from "@/lib/agents/l1/correlator";
-import { matchWatchlist } from "@/lib/agents/l1/watchlist-matcher";
 import { createClient } from "@supabase/supabase-js";
+import { IngestionPipeline } from "@/lib/ingestion/pipeline";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -31,60 +28,18 @@ export async function POST(request: NextRequest) {
 
   let rawAlert;
   try {
-    rawAlert = await request.json();
+    rawAlert = await request.text(); // Pipeline parses strings
   } catch (e) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  // Acknowledge receipt to Wazuh immediately
-  const alertId = `wzh-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-  
+  const connectorId = '00000000-0000-0000-0000-000000000000'; // Default wazuh connector ID
+
   // Background processing - do not await
-  processAlertAsync({ id: alertId, source: 'wazuh', payload: rawAlert, rule_level: rawAlert.rule?.level }, orgId)
-    .catch(console.error);
-
-  return NextResponse.json({ success: true, alert_id: alertId }, { status: 200 });
-}
-
-async function processAlertAsync(alert: any, orgId: string) {
   const supabase = getAdminClient();
+  const pipeline = new IngestionPipeline(supabase);
   
-  // 1. Enrich
-  const enrichedAlert = await orchestrateEnrichment(alert, orgId);
-  
-  // 2. Deduplicate
-  const { isDuplicate, clusterId } = await deduplicateAlert(enrichedAlert, orgId);
-  
-  if (isDuplicate) {
-    console.log(`[Webhook] Alert ${alert.id} deduplicated into cluster ${clusterId}`);
-    return;
-  }
+  pipeline.ingestEvent(rawAlert, connectorId, orgId, 'wazuh').catch(console.error);
 
-  // 3. Severity & Watchlist
-  const severityResult = calculateSeverity(enrichedAlert);
-  const watchlistResult = await matchWatchlist(enrichedAlert, orgId);
-
-  if (watchlistResult.matched) {
-    severityResult.label = 'CRITICAL';
-    severityResult.score = 100;
-    severityResult.breakdown['Watchlist Match'] = 100;
-  }
-
-  // 4. Save to DB
-  await supabase.from('alerts').insert({
-    id: alert.id,
-    org_id: orgId,
-    source: 'wazuh',
-    status: 'open',
-    severity: severityResult.label,
-    rule_level: alert.rule_level,
-    payload: alert.payload,
-    enrichment: enrichedAlert.enrichment,
-    fingerprint: fingerprintAlert(enrichedAlert),
-    cluster_id: clusterId || alert.id,
-    queue_priority: severityResult.score,
-    created_at: new Date().toISOString()
-  });
-
-  // Here it would pass to the rest of the L1 chain (Triage, etc)
+  return NextResponse.json({ success: true, message: "Accepted" }, { status: 200 });
 }

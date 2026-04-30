@@ -33,7 +33,11 @@ export async function POST(req: Request) {
 
     const supabase = await createClient();
     const pipeline = new IngestionPipeline(supabase);
-    const stats = await pipeline.ingestBatch(entries, organization_id);
+    const connectorId = '00000000-0000-0000-0000-000000000000';
+    
+    // Remap entries to format
+    const formattedEntries = entries.map(e => ({ raw: e.raw_content, format: e.source_type }));
+    const stats = await pipeline.ingestBatch(formattedEntries, connectorId, organization_id);
 
     return NextResponse.json(stats);
   } catch (error) {

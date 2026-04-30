@@ -84,7 +84,8 @@ export async function syncCrowdStrike(supabase: SupabaseClient): Promise<Connect
 
   for (const det of detections) {
     try {
-        await pipeline.ingestLog(JSON.stringify(det), "json", orgId, det.device?.external_ip);
+        const connectorId = "00000000-0000-0000-0000-000000000000";
+        await pipeline.ingestEvent(JSON.stringify(det), connectorId, orgId, "json-generic");
         successCount++;
     } catch (e: any) {
         errors.push(e.message);

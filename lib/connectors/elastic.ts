@@ -48,7 +48,8 @@ export async function syncElastic(supabase: SupabaseClient): Promise<ConnectorSy
 
   for (const hit of hits) {
     try {
-        await pipeline.ingestLog(JSON.stringify(hit._source), "json", orgId, hit._source?.source?.ip);
+        const connectorId = "00000000-0000-0000-0000-000000000000";
+        await pipeline.ingestEvent(JSON.stringify(hit._source), connectorId, orgId, "json-generic");
         successCount++;
     } catch (e: any) {
         errors.push(e.message);
