@@ -1,71 +1,53 @@
 @GEMINI.md @graph.md
 New session. You are a senior security engineer on PhishSlayer.
 Read GEMINI.md and graph.md first. State current sprint.
-AUDIT: Check if threat_iocs or ioc_hits tables exist. If not, create. If yes, ALTER missing columns.
+AUDIT: Read existing osint_findings schema. Check for credential_exposures, email_posture_results, attack_surface tables. Create ONLY if missing.
 BUILD: npm run build must pass.
 
-You are building Sprint 4: Threat Intelligence Feed Ingestion Pipeline.
+You are building Sprint 5: Full OSINT Agent Suite.
 
 USE SUPABASE CONNECTOR for migrations.
 
-PART 1 — IOC DATA MODEL
-Check/Create threat_iocs table:
-- id, ioc_type (ip|domain|url|hash_md5|hash_sha256|email|cve), ioc_value (UNIQUE with type)
-- threat_score (0-100), confidence (decimal), tags[], malware_families[]
-- sources[], first_seen, last_seen, expires_at, is_active
-- NO org_id — this is a GLOBAL threat intel table
+AGENT 1 — PASTE SITE MONITOR (/lib/osint/paste-monitor.ts)
+Scrape: Pastebin, Ghostbin, Rentry (via public APIs/scrapers).
+Match against: org domains, executive names, internal hostnames.
+On match: ARCHIVE CONTENT IMMEDIATELY to paste_archives table (id, org_id, paste_url, paste_content, content_hash).
+Severity: credentials found = CRITICAL, domain mention = HIGH.
+Schedule: every 4 hours.
 
-Check/Create ioc_hits table:
-- id, org_id (RLS), ioc_id (FK), alert_id (FK), hit_at
+AGENT 2 — CREDENTIAL LEAK MONITOR (/lib/osint/credential-monitor.ts)
+Use HaveIBeenPwned domain search API (requires key in env).
+Check org email domain. Store breaches in credential_exposures table.
+Fields: email, breach_name, breach_date, data_classes[], remediation_status.
+Schedule: daily.
 
-Check/Create cti_feeds table:
-- id, name, feed_type, endpoint_url, auth_config (JSONB), pull_interval, last_pulled_at, is_active
+AGENT 3 — EMAIL SECURITY POSTURE (/lib/osint/email-posture.ts)
+DNS checks for org domains:
+- SPF: parse v=spf1 record. Flag +all (CRITICAL). Score 0-100.
+- DKIM: check common selectors. Flag key < 2048bit.
+- DMARC: check _dmarc record. Flag p=none (HIGH), missing (CRITICAL).
+- Open relay: attempt SMTP relay test.
+Store in email_posture_results table.
+Schedule: weekly.
 
-PART 2 — FEED CONNECTORS
-/lib/intel/feeds/abuse-ch.ts
-Pull MalwareBazaar, URLhaus, ThreatFox APIs. Free, no auth needed.
-Extract: hashes, urls, domains, malware families.
-Upsert to threat_iocs. If exists: boost confidence by 0.05, merge tags.
+AGENT 4 — INFRASTRUCTURE FOOTPRINT (/lib/osint/infra-footprint.ts)
+Use Shodan API (requires key).
+Search by org name + known IP ranges.
+Capture: open ports, services, banners, vulns, TLS cert details.
+Diff against previous scan: new host = MEDIUM, new port = MEDIUM, new vuln = HIGH.
+Store in attack_surface table.
+Schedule: weekly.
 
-/lib/intel/feeds/cisa-kev.ts
-GET https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json
-Import each CVE as ioc_type='cve'. Set threat_score=95, confidence=0.99.
+AGENT 5 — VULNERABILITY INTELLIGENCE (/lib/osint/vuln-intelligence.ts)
+Daily NVD pull (new CVEs from last 24h).
+Match CVEs against org assets (check assets table for software names).
+Check CISA KEV match.
+Calculate priority_score = (CVSS*10) + (EPSS*20) + (KEV*30) + (has_PoC*15).
+Store in vuln_tracking table.
+Schedule: daily.
 
-/lib/intel/feeds/nvd.ts
-GET https://services.nvd.nist.gov/rest/json/cves/2.0?pubStartDate={yesterday}
-Import CVEs. threat_score = CVSS * 10.
+CRON: /app/api/cron/osint-full/route.ts
+CRON_SECRET auth. Run all 5 agents sequentially.
+Create alerts for CRITICAL findings.
 
-PART 3 — IOC PROCESSING
-/lib/intel/ioc-processor.ts
-function normalizeIOC(type, value): normalized string
-- IPs: strip leading zeros, lowercase
-- Domains: lowercase, strip trailing dot
-- Hashes: lowercase hex
-- Validate formats via regex. Discard invalid.
-
-function deduplicateIOC(ioc): 'created' | 'updated'
-- Check if ioc_type + ioc_value exists
-- If yes: UPDATE confidence, sources, last_seen
-- If no: INSERT
-
-PART 4 — CONFIDENCE DECAY ENGINE
-/lib/intel/decay.ts
-Daily job: confidence *= 0.95 per run (weekly decay).
-If confidence < 0.20: is_active = false.
-NEVER decay CISA KEV entries (check tags for 'kev').
-
-PART 5 — IOC LOOKUP SERVICE
-/lib/intel/ioc-lookup.ts
-function lookupIOC(type, value): ThreatIOC | null
-- Query threat_iocs WHERE ioc_type=type AND ioc_value=value AND is_active=true
-- Cache result in memory for 5 minutes (Map<string, ThreatIOC>)
-
-Wire this into Sprint 1 enrichment:
-- Read lib/agents/enrichment/ip.ts (or wherever IP enrichment lives)
-- Add: const ioc = await lookupIOC('ip', ip); if(ioc) add to enrichment data
-
-PART 6 — CRON
-/app/api/cron/cti-feeds/route.ts
-CRON_SECRET auth. Pull all feeds. Run decay. Log results.
-
-FINAL: npm run build. git commit -m "feat(intel): Sprint 4 threat intel feed ingestion + IOC decay". git push.
+FINAL: npm run build. git commit -m "feat(osint): Sprint 5 full OSINT suite (paste, creds, email, infra, vuln)". git push.
