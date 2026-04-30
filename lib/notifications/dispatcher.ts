@@ -1,171 +1,109 @@
-import { createClient } from '@/lib/supabase/server';
-import crypto from 'crypto';
+import { supabaseAdmin } from '@/lib/supabase/admin';
+import { sendSlackMessage } from './channels/slack';
+import { sendEmail } from './channels/email';
+import { sendPagerDuty } from './channels/pagerduty';
+import { sendTeamsMessage } from './channels/teams';
+import { getCurrentOnCall } from './on-call';
 
-export type NotificationChannel = 'email' | 'slack' | 'webhook' | 'pagerduty';
-export type NotificationEventType = 'critical_alert' | 'incident_created' | 'case_sla_breach' | 'connector_failure' | 'enrichment_complete' | 'new_evidence';
+export async function notify(orgId: string, event: { severity: string, event_type: string, alert_id?: string, case_id?: string, message: string }) {
+    console.log(`[NotificationDispatcher] Processing event for Org ${orgId}: ${event.event_type} (${event.severity})`);
 
-export interface NotificationEvent {
-  type: NotificationEventType;
-  severity: 'critical' | 'high' | 'medium' | 'low' | 'info';
-  title: string;
-  description: string;
-  url?: string;
-  metadata?: any;
-}
+    try {
+        // 1. Fetch active rules
+        const { data: rules, error: rulesError } = await supabaseAdmin
+            .from('notification_rules')
+            .select('*, channel:notification_channels(*)')
+            .eq('org_id', orgId)
+            .eq('is_active', true);
 
-export async function dispatchNotification(orgId: string, event: NotificationEvent) {
-  const supabase = await createClient();
+        if (rulesError || !rules) return;
 
-  // Fetch active configs for this org
-  const { data: configs } = await supabase
-    .from('notification_configs')
-    .select('*')
-    .eq('organization_id', orgId)
-    .eq('is_active', true);
+        for (const rule of rules) {
+            const conditions = rule.trigger_conditions;
+            
+            // Check severity
+            if (conditions.severities?.length > 0 && !conditions.severities.includes(event.severity)) continue;
+            
+            // Check event type
+            if (conditions.event_types?.length > 0 && !conditions.event_types.includes(event.event_type)) continue;
 
-  if (!configs) return;
+            // 2. Cooldown check
+            if (rule.cooldown_minutes > 0 && event.alert_id) {
+                const { data: recentLog } = await supabaseAdmin
+                    .from('notification_logs')
+                    .select('id')
+                    .eq('rule_id', rule.id)
+                    .eq('alert_id', event.alert_id)
+                    .gte('sent_at', new Date(Date.now() - rule.cooldown_minutes * 60000).toISOString())
+                    .limit(1)
+                    .maybeSingle();
 
-  const severityWeights: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1, info: 0 };
-  const eventWeight = severityWeights[event.severity] || 0;
-
-  for (const config of configs) {
-    const thresholdWeight = severityWeights[config.severity_threshold] || 0;
-    
-    // Check threshold and event type
-    if (eventWeight >= thresholdWeight && config.event_types.includes(event.type)) {
-      try {
-        switch (config.channel_type as NotificationChannel) {
-          case 'slack':
-            await sendSlackNotification(config.config.webhookUrl, event);
-            break;
-          case 'email':
-            await sendEmailNotification(config.config.email, event);
-            break;
-          case 'webhook':
-            await sendWebhookNotification(config.config.url, config.config.secret, event);
-            break;
-          case 'pagerduty':
-            if (eventWeight >= 3) { // High/Critical only
-              await sendPagerDutyAlert(config.config.integrationKey, event, orgId);
+                if (recentLog) {
+                    console.log(`[NotificationDispatcher] Rule ${rule.id} is in cooldown for alert ${event.alert_id}`);
+                    continue;
+                }
             }
-            break;
+
+            // 3. Send to channel
+            const channel = rule.channel;
+            if (!channel || !channel.is_active) continue;
+
+            let status: 'sent' | 'failed' = 'sent';
+            let errorMsg = null;
+
+            try {
+                switch (channel.type) {
+                    case 'slack':
+                        await sendSlackMessage(channel.config.webhook_url, event);
+                        break;
+                    case 'email':
+                        await sendEmail(channel.config, event);
+                        break;
+                    case 'pagerduty':
+                        await sendPagerDuty(channel.config.routing_key, event);
+                        break;
+                    case 'teams':
+                        await sendTeamsMessage(channel.config.webhook_url, event);
+                        break;
+                    default:
+                        console.warn(`[NotificationDispatcher] Unsupported channel type: ${channel.type}`);
+                        status = 'failed';
+                        errorMsg = 'Unsupported channel type';
+                }
+            } catch (err: any) {
+                status = 'failed';
+                errorMsg = err.message;
+            }
+
+            // 4. Log result
+            await supabaseAdmin.from('notification_logs').insert({
+                org_id: orgId,
+                rule_id: rule.id,
+                channel_id: channel.id,
+                alert_id: event.alert_id,
+                case_id: event.case_id,
+                status,
+                error_message: errorMsg
+            });
         }
-        
-        await logNotification(orgId, config.channel_type, event.type, 'sent');
-      } catch (err: any) {
-        console.error(`Failed to send ${config.channel_type} notification:`, err.message);
-        await logNotification(orgId, config.channel_type, event.type, 'failed', err.message);
-      }
+
+        // 5. Critical Escalation to On-Call
+        if (event.severity.toLowerCase() === 'critical') {
+            const { data: rotations } = await supabaseAdmin.from('on_call_rotations').select('id').eq('org_id', orgId);
+            if (rotations) {
+                for (const rot of rotations) {
+                    const member = await getCurrentOnCall(orgId, rot.id);
+                    if (member) {
+                        console.log(`[NotificationDispatcher] Alerting on-call member: ${member.email}`);
+                        // In a real system, we'd have a direct "Member Notifier" here
+                    }
+                }
+            }
+        }
+
+    } catch (error) {
+        console.error('[NotificationDispatcher] Fatal error:', error);
     }
-  }
 }
 
-async function sendSlackNotification(webhookUrl: string, event: NotificationEvent) {
-  const colors: Record<string, string> = { critical: '#ff4d4f', high: '#f5a623', medium: '#ffec3d', low: '#1890ff', info: '#d9d9d9' };
-  
-  const payload = {
-    attachments: [{
-      color: colors[event.severity],
-      title: event.title,
-      text: event.description,
-      fields: [
-        { title: 'Severity', value: event.severity.toUpperCase(), short: true },
-        { title: 'Event Type', value: event.type, short: true }
-      ],
-      footer: 'PhishSlayer Alerts',
-      ts: Math.floor(Date.now() / 1000)
-    }]
-  };
-
-  const res = await fetch(webhookUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
-
-  if (!res.ok) throw new Error(`Slack API error: ${res.statusText}`);
-}
-
-async function sendEmailNotification(to: string, event: NotificationEvent) {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) {
-    console.log(`[EMAIL MOCK] To: ${to}, Subject: ${event.title}`);
-    return;
-  }
-
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      from: 'PhishSlayer <alerts@phishslayer.tech>',
-      to: [to],
-      subject: `[${event.severity.toUpperCase()}] ${event.title}`,
-      html: `
-        <div style="font-family: sans-serif; max-width: 600px; border: 1px solid #eee; border-radius: 8px; overflow: hidden;">
-          <div style="background: ${event.severity === 'critical' ? '#ff4d4f' : '#7c6af7'}; padding: 20px; color: white;">
-            <h2>${event.title}</h2>
-          </div>
-          <div style="padding: 20px;">
-            <p>${event.description}</p>
-            ${event.url ? `<a href="${event.url}" style="display: inline-block; padding: 10px 20px; background: #7c6af7; color: white; text-decoration: none; border-radius: 5px;">View Details</a>` : ''}
-          </div>
-        </div>
-      `
-    })
-  });
-
-  if (!res.ok) throw new Error(`Resend API error: ${res.statusText}`);
-}
-
-async function sendWebhookNotification(url: string, secret: string, event: NotificationEvent) {
-  const body = JSON.stringify(event);
-  const signature = crypto.createHmac('sha256', secret || 'default_secret').update(body).digest('hex');
-
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-PhishSlayer-Signature': signature
-    },
-    body,
-    signal: AbortSignal.timeout(10000)
-  });
-
-  if (!res.ok) throw new Error(`Webhook error: ${res.statusText}`);
-}
-
-async function sendPagerDutyAlert(integrationKey: string, event: NotificationEvent, orgId: string) {
-  const payload = {
-    payload: {
-      summary: event.title,
-      severity: event.severity === 'critical' ? 'critical' : 'error',
-      source: 'PhishSlayer',
-      custom_details: { ...event.metadata, description: event.description }
-    },
-    routing_key: integrationKey,
-    event_action: 'trigger',
-    dedup_key: `${event.type}-${orgId}`
-  };
-
-  const res = await fetch('https://events.pagerduty.com/v2/enqueue', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
-
-  if (!res.ok) throw new Error(`PagerDuty error: ${res.statusText}`);
-}
-
-async function logNotification(orgId: string, channel: string, eventType: string, status: 'sent' | 'failed', error?: string) {
-  const supabase = await createClient();
-  await supabase.from('notification_log').insert({
-    organization_id: orgId,
-    channel_type: channel,
-    event_type: eventType,
-    status,
-    error
-  });
-}
+export const dispatchNotification = notify;

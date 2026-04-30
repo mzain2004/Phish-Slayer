@@ -44,11 +44,10 @@ export async function checkSlaBreach(caseId: string): Promise<boolean> {
 
     // Dispatch notification
     await dispatchNotification(caseData.organization_id, {
-      type: 'case_sla_breach',
+      event_type: 'case_sla_breach',
       severity: 'high',
-      title: `SLA Breach: ${caseData.title}`,
-      description: `Case ${caseData.id} has breached its SLA of ${caseData.sla_due_at}`,
-      url: `/dashboard/cases/${caseData.id}`
+      case_id: caseId,
+      message: `SLA Breach: ${caseData.title}. Case ${caseData.id} has breached its SLA of ${caseData.sla_due_at}`
     });
 
     return true;

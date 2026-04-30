@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { PlaybookStep, RunResult, ROLLBACK_MAPPING } from './playbook-types';
 import { dispatchStep } from './action-dispatcher';
+import { notify } from '@/lib/notifications/dispatcher';
 
 export async function executePlaybook(
     playbookId: string, 
@@ -76,6 +77,14 @@ export async function executePlaybook(
         results,
         completed_at: new Date().toISOString()
     }).eq('id', run.id);
+
+    void notify(orgId, {
+        severity: currentStatus === 'FAILED' ? 'high' : 'info',
+        event_type: 'playbook_execution_finished',
+        alert_id: context.alert_id,
+        case_id: context.case_id,
+        message: `Playbook execution finished with status: ${currentStatus}`
+    });
 
     return { run_id: run.id, status: currentStatus, steps_completed: results.length, results };
 }

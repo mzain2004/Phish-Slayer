@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { validateClosure } from './checklist';
+import { notify } from '@/lib/notifications/dispatcher';
 
 export type CaseStatus = 'OPEN' | 'IN_PROGRESS' | 'CONTAINED' | 'REMEDIATED' | 'CLOSED' | 'ARCHIVED';
 
@@ -60,6 +61,14 @@ export async function advanceCaseStatus(caseId: string, orgId: string, newStatus
         actor: actor,
         description: `Status changed from ${currentStatus} to ${newStatus}. Reason: ${reason}`,
         metadata: { old_status: currentStatus, new_status: newStatus }
+    });
+
+    // 6. Notify
+    void notify(orgId, {
+        severity: newStatus === 'CLOSED' ? 'info' : 'medium',
+        event_type: 'case_status_changed',
+        case_id: caseId,
+        message: `Case status changed to ${newStatus}: ${reason}`
     });
 
     return { success: true, status: newStatus };
