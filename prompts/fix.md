@@ -1,75 +1,77 @@
 @GEMINI.md @graph.md
 New session. You are a senior security engineer on PhishSlayer.
 Read GEMINI.md and graph.md first. State current sprint.
-AUDIT: Read supabase/migrations/20260424000001_cases.sql. Read existing case code. Build ON TOP of existing schema. ALTER only if missing columns.
+AUDIT: Check existing playbook_executions table (seen in DB). Check containment table. ALTER missing columns.
 BUILD: npm run build must pass.
 
-You are building Sprint 7: Case Management Lifecycle + Evidence + Timeline.
+You are building Sprint 8: Response Playbook Builder + Execution Engine.
 
 USE SUPABASE CONNECTOR for migrations.
 
-PART 1 — EVIDENCE & CHAIN OF CUSTODY
-Check/Create case_evidence table:
-- id, case_id (FK), alert_id (FK), org_id (RLS)
-- evidence_type ('log'|'pcap'|'screenshot'|'malware_sample'|'sandbox_report'|'osint_report')
-- file_url (S3 path if file), text_content (if text evidence)
-- collected_by ('L1_Agent'|'L2_Agent'|'L3_Agent'|'Manager')
-- collected_at, hash_sha256 (integrity verify)
+PART 1 — PLAYBOOK SCHEMA
+Check/Create playbooks table:
+- id, org_id (RLS, null=platform default), name, description
+- trigger_conditions (JSONB: {severity_min, mitre_techniques[], event_types[]})
+- steps (JSONB: ordered array of step objects)
+- version (integer), status ('DRAFT'|'ACTIVE'|'DISABLED')
+- human_approval_required (boolean), approval_timeout_minutes (integer)
 
-PART 2 — CASE TIMELINE
-Check/Create case_timeline table:
-- id, case_id (FK), org_id (RLS)
-- event_type ('alert_triggered'|'enrichment_complete'|'agent_action'|'containment_executed'|'mitre_tagged'|'note_added'|'status_changed')
-- actor (agent tier or user name)
-- description (text)
-- metadata (JSONB — stores related IOCs, confidence scores, etc)
-- timestamp
+Check/Create playbook_runs table:
+- id, org_id (RLS), playbook_id (FK), case_id (FK), alert_id (FK)
+- status ('RUNNING'|'AWAITING_APPROVAL'|'COMPLETED'|'FAILED'|'ROLLED_BACK')
+- current_step_index, results (JSONB), started_at, completed_at
 
-PART 3 — CASE LIFECYCLE ENGINE
-/lib/cases/lifecycle.ts
-async function advanceCaseStatus(caseId: string, orgId: string, newStatus: string, reason: string)
-Valid transitions:
-  OPEN → IN_PROGRESS → CONTAINED → REMEDIATED → CLOSED → ARCHIVED
-Reject invalid transitions with 400 error.
-On every transition:
-  1. Update cases.status
-  2. Add entry to case_timeline (type='status_changed')
-  3. If CLOSED: run closure checklist validation
+PART 2 — PLAYBOOK STEP TYPES
+/lib/response/playbook-types.ts
+Define step types: block_ip, isolate_host, disable_account, quarantine_email, revoke_aws_key, notify, create_ticket, human_approval, wait, conditional, run_hunt.
+Define rollback mapping: block_ip → unblock_ip, isolate_host → unisolate_host, disable_account → enable_account.
 
-PART 4 — CLOSURE CHECKLIST
-/lib/cases/checklist.ts
-async function validateClosure(caseId: string, orgId: string): Promise<{passed: boolean, failures: string[]}>
-Check:
-- All related alerts have status != 'OPEN'
-- Root cause field is not empty
-- At least 1 evidence item attached
-- Containment action verified (if any run)
-- SLA was not breached (or breach is documented)
-Return failures list. If >0, block closure.
+PART 3 — ACTION DISPATCHER
+/lib/response/action-dispatcher.ts
+async function dispatchStep(step: PlaybookStep, context: any): Promise<ActionResult>
+Implement handlers:
+- block_ip: Log action. If firewall connector configured later, call it. Else: log "NO_CONNECTOR: block_ip". Do NOT crash.
+- isolate_host: Same pattern. Log action, check for EDR connector, graceful fallback.
+- notify: Use notification engine if exists, else console.log.
+- human_approval: Return special status 'AWAITING_APPROVAL', do not continue.
+CRITICAL: Every handler wrapped in try/catch. Never let one step failure crash the whole run.
 
-PART 5 — PIR GENERATOR
-/lib/cases/pir-generator.ts
-async function generatePIR(caseId: string, orgId: string): Promise<string>
-Use Groq LLM.
-Prompt: "Generate a Post-Incident Review document for this security case."
-Context: case details, timeline events, evidence summaries, root cause.
-Output: Structured markdown with sections: Executive Summary, Timeline, Root Cause, Impact, Lessons Learned, Recommendations.
+PART 4 — PLAYBOOK EXECUTOR
+/lib/response/playbook-executor.ts
+async function executePlaybook(playbookId: string, context: any, simulation?: boolean): Promise<RunResult>
+Loop through steps:
+1. Check condition (if conditional step).
+2. If human_approval: set status AWAITING_APPROVAL, pause.
+3. If simulation: log "WOULD_EXECUTE", skip real action.
+4. Call dispatchStep.
+5. Record result in playbook_runs.results JSONB.
+6. On failure: check step.on_failure ('continue'|'stop'|'rollback').
+7. If rollback: execute rollback steps in reverse order.
 
-PART 6 — AUTO-CASE CREATION
-Wire into L1/L2 agent flow:
-- When L2 escalates an alert to HIGH/CRITICAL → auto-create case
-- Link alert to case
-- Add initial timeline entry
-- Trigger notification engine (if Sprint 4 exists, else stub with console.log)
+PART 5 — CONTAINMENT VERIFICATION
+/lib/response/verifier.ts
+async function verifyAction(actionType: string, target: string): Promise<boolean>
+Basic verification stubs (expand later with real connector calls):
+- block_ip: try fetch to target IP, expect timeout/refused.
+- disable_account: log "Verification requires Identity connector".
+Store results in containment_verifications table.
+
+PART 6 — SEED DEFAULT PLAYBOOKS
+/lib/response/default-playbooks.ts
+Seed 3 platform-default playbooks (org_id=null):
+1. "Phishing Response": quarantine_email → block_domain → disable_account (conditional) → notify
+2. "Ransomware Containment": human_approval → isolate_host → snapshot_host → notify
+3. "Credential Compromise": disable_account → force_password_reset → notify → run_hunt
 
 PART 7 — API ROUTES
-GET /api/cases — list cases (paginated, filterable by status)
-GET /api/cases/[id] — full case with timeline + evidence
-POST /api/cases/[id]/evidence — attach evidence
-POST /api/cases/[id]/notes — add timeline note
-POST /api/cases/[id]/close — attempt closure (runs checklist)
-GET /api/cases/[id]/pir — generate PIR document
+GET /api/playbooks — list playbooks
+POST /api/playbooks — create playbook
+PUT /api/playbooks/[id] — update playbook
+POST /api/playbooks/[id]/execute — trigger execution (with simulation query param)
+GET /api/playbooks/runs — list run history
+POST /api/playbooks/runs/[id]/approve — approve human step
+POST /api/playbooks/runs/[id]/rollback — trigger rollback
 
 All routes: auth + org_id scope.
 
-FINAL: npm run build. git commit -m "feat(cases): Sprint 7 case lifecycle, evidence chain of custody, PIR generator". git push.
+FINAL: npm run build. git commit -m "feat(response): Sprint 8 playbook builder, executor, verification, default playbooks". git push.
