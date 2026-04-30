@@ -1,264 +1,254 @@
 READ gemini.md fully before starting.
+VERIFY: Layer 0 is complete and npm run build passes.
 
-You are building Layer 0: the Agent Runtime Infrastructure for PhishSlayer.
-This is the foundation everything else runs on. Be precise. Be complete.
+You are building Sprint 1: the Alert Enrichment Pipeline for PhishSlayer L1 agents.
+This is the #1 killer feature — every alert enriched automatically before analyst sees it.
 
 CONTEXT:
-- PhishSlayer is a 100% autonomous agentic SOC platform
-- Current state: Wazuh → L1 → L2 → L3 pipeline works but has no formal runtime infrastructure
-- Tech stack: Next.js 14, TypeScript, Supabase, Groq (lazy init), Redis target
-- Every query MUST be scoped to org_id — multi-tenant, RLS enforced
-- Design: #0a0a0f bg, #7c6af7 primary, #00d4aa accent, 4px buttons, Inter + IBM Plex Mono
+- Layer 0 runtime is built (state machine, confidence gates, ledger, DLQ, fallback LLM)
+- Current L1 agent does basic processing but no external enrichment
+- Need: IP geo, WHOIS, VirusTotal, AbuseIPDB, Shodan, passive DNS, hash lookup, email header parse
+- Must be: async, parallel where possible, graceful on API failure, org-scoped always
 
 AUDIT FIRST:
-1. Read ALL files in /lib/agents/ 
-2. Read ALL files in /app/api/agents/
-3. Read ALL agent-related files anywhere in the codebase
-4. Identify: missing error handling, missing org_id scoping, broken imports, any Groq client at module level
-5. Fix ALL found issues before adding any new code
+1. Read ALL existing L1 agent code
+2. Read ALL existing enrichment code if any
+3. Check: is every DB query scoped to org_id? Fix any that aren't.
+4. Check: any Groq client at module level? Fix to lazy init.
+5. Check: any unhandled promise rejections in agent chain? Fix.
+6. List all issues found and fixed before adding new code.
 
-BUILD THESE (in order):
+ADD THESE ENV VARS to .env.example (keys only, no values):
+VIRUSTOTAL_API_KEY=
+ABUSEIPDB_API_KEY=
+SHODAN_API_KEY=
+MAXMIND_LICENSE_KEY=
+GREYNOISE_API_KEY=
 
-## 1. Agent State Machine (/lib/agents/runtime/state-machine.ts)
-```typescript
-// Implement full state machine:
-type AgentState = 'IDLE'|'QUEUED'|'RUNNING'|'BLOCKED'|'ESCALATED'|'COMPLETED'|'FAILED'|'RETRYING'|'ARCHIVED'
+BUILD THESE:
 
-// State transitions (enforce these — invalid transitions throw errors):
-// IDLE → QUEUED (on new alert)
-// QUEUED → RUNNING (on agent start)
-// RUNNING → BLOCKED (on external API wait)
-// RUNNING → ESCALATED (on confidence < gate or explicit escalation)
-// RUNNING → COMPLETED (on success)
-// RUNNING → FAILED (on unrecoverable error)
-// FAILED → RETRYING (on retry attempt, max 3)
-// RETRYING → RUNNING (on retry start)
-// RETRYING → FAILED (on max retries exceeded)
-// Any → ARCHIVED (on case close)
+## 1. IP Enrichment Agent (/lib/agents/enrichment/ip-enricher.ts)
+Enrich every src_ip and dst_ip from alert:
+- MaxMind GeoIP (local DB download, no API call): country, city, ASN, org, connection type
+- AbuseIPDB API: confidence_score, usage_type, domain, is_tor, total_reports
+- VirusTotal API (/ip_addresses/{ip}): malicious count, suspicious count, reputation
+- Shodan API (/shodan/host/{ip}): open ports, services, banners, vulns (if any)
+- Greynoise API (/v3/community/{ip}): noise (scanner), riot (trusted), classification
+- ASN lookup: AS number, BGP prefix, upstream providers (use ipinfo.io)
+- Tor exit node check (download Tor exit list, cache 24h): boolean
+- VPN/hosting provider check (use ip2location or ipinfo.io)
 
-// Include: state validation, transition logging, timestamp tracking per state
-```
+Build:
+async function enrichIP(ip: string, orgId: string): Promise<IPEnrichment>
 
-## 2. Agent Communication Envelope (/lib/agents/runtime/types.ts)
-```typescript
-// Build complete TypeScript interfaces:
-interface AgentHandoff {
-  alert_id: string
-  org_id: string  // MANDATORY
-  agent_id: string
-  tier: 'L1' | 'L2' | 'L3'
-  confidence: number  // 0.0-1.0
-  findings: AgentFindings
-  actions_taken: AgentAction[]
-  handoff_context: Record<string, any>
-  timestamp: string  // UTC ISO 8601
-  state: AgentState
-  token_count: number
-  model_used: string
-}
+Rules:
+- All API calls: 5s timeout, fail gracefully (log + return partial)
+- Cache results in Supabase for 24h to avoid re-querying same IP
+- RFC1918 IPs (10.x, 172.16.x, 192.168.x): skip external APIs, mark as INTERNAL
+- Parallel: all API calls fire simultaneously via Promise.allSettled()
+- Never block alert processing if enrichment fails — return what you have
 
-interface AgentFindings {
-  severity_score: number
-  mitre_techniques: string[]
-  iocs: IOC[]
-  enrichment: EnrichmentData
-  risk_factors: string[]
-  recommended_actions: string[]
-  raw_llm_reasoning: string
-}
+## 2. Domain + URL Enrichment Agent (/lib/agents/enrichment/domain-enricher.ts)
+Enrich every domain and URL extracted from alert:
+- VirusTotal API (/urls or /domains/{domain}): detection counts, categories, reputation
+- URLhaus API: lookup domain/URL in malware DB
+- PhishTank API: is this a known phishing URL?
+- WHOIS/RDAP: registration date, registrar, registrant org (use whois npm package)
+- Domain age calculation: registration date → days old, flag if <30 days
+- DGA detection: entropy calculation + bigram analysis → 0-100 DGA score
+- Tranco/Alexa rank check (cached list): top 1M = likely legitimate, unranked = suspicious
+- Typosquatting check: Levenshtein distance vs org's protected domains (from connectors table)
+- URL redirect unrolling: follow all redirects (max 10 hops), capture final destination
+- HTTP safe fetch headers: server, X-Powered-By, Content-Type (no JS execution, just headers)
 
-interface IOC {
-  type: 'ip' | 'domain' | 'hash' | 'url' | 'email' | 'filename'
-  value: string
-  confidence: number
-  source: string
-  threat_score: number
-}
+Build:
+async function enrichDomain(domain: string, orgId: string): Promise<DomainEnrichment>
+async function enrichURL(url: string, orgId: string): Promise<URLEnrichment>
 
-interface EnrichmentData {
-  ip_geo?: IPGeoData
-  domain_age?: number
-  vt_score?: number
-  abuse_score?: number
-  asset_criticality?: 1|2|3|4
-  user_risk_score?: number
-}
-```
+## 3. Hash Enrichment Agent (/lib/agents/enrichment/hash-enricher.ts)
+Enrich every file hash from alert:
+- VirusTotal API (/files/{hash}): detection count, family, first_seen, last_seen, file_type
+- MalwareBazaar API: is this hash in the malware DB? tags, signature, file_type
+- NSRL lookup (cached local DB): is this hash a known-good system file?
+- SSDEEP fuzzy hash comparison (if ssdeep provided): similarity to known malware
+- Flag: hash not found anywhere → unknown binary → elevate confidence in alert
 
-## 3. Confidence Gate Engine (/lib/agents/runtime/confidence-gates.ts)
-```typescript
-// Hard-coded gate values (configurable per org via DB in future):
-const CONFIDENCE_GATES = {
-  L2_AUTO_EXECUTE: 0.85,
-  L3_ESCALATE: 0.70,
-  DESTRUCTIVE_ACTION: 0.90,
-  HUMAN_APPROVAL_GATE: 0.95,
-} as const
+Build:
+async function enrichHash(hash: string, hashType: 'md5'|'sha1'|'sha256', orgId: string): Promise<HashEnrichment>
 
-// Build: shouldExecute(confidence, actionType, orgId) → boolean
-// Build: shouldEscalate(confidence, tier) → boolean
-// Build: requiresHumanApproval(actionType, assetCriticality) → boolean
-// Log every gate decision with reasoning
-```
+## 4. Email Header Enrichment Agent (/lib/agents/enrichment/email-enricher.ts)
+For alerts containing email data:
+- Parse raw email headers: Received chain, Message-ID, X-Originating-IP
+- SPF result extraction from Authentication-Results header
+- DKIM result extraction
+- DMARC result extraction
+- Sender domain WHOIS + age
+- Display name spoofing detection: display name contains "Security", "IT", "Admin" but domain is external
+- Look-alike sender: Levenshtein distance vs org's known sender domains
+- Reply-to vs From mismatch detection
+- Thread hijacking: In-Reply-To references + suspicious From
 
-## 4. Agent Execution Ledger (/lib/agents/runtime/ledger.ts)
-```typescript
-// Every spawn, every action → append-only log to Supabase
-// Build: logAgentSpawn(orgId, tier, alertId, agentId) → void
-// Build: logAgentAction(orgId, agentRunId, action, target, params, result) → void  
-// Build: logAgentComplete(orgId, agentRunId, findings, confidence) → void
-// Build: logAgentFail(orgId, agentRunId, error, state) → void
-// All logs write to agent_runs and agent_actions tables
-// Include timestamp microsecond precision
-```
+Build:
+async function enrichEmailHeaders(rawHeaders: string, orgId: string): Promise<EmailEnrichment>
 
-## 5. Dead Letter Queue (/lib/agents/runtime/dlq.ts)
-```typescript
-// Failed agent runs → stored in Supabase for replay
-// Build: pushToDLQ(orgId, agentRun, error, inputPayload) → void
-// Build: replayFromDLQ(orgId, dlqEntryId) → AgentHandoff
-// Build: listDLQEntries(orgId) → DLQEntry[]
-// DLQ entries expire after 7 days (auto-cleanup job)
-// Never silently drop failed runs — always push to DLQ
-```
+## 5. User Context Enrichment Agent (/lib/agents/enrichment/user-enricher.ts)
+Enrich user identity from alert:
+- Connector lookup: if org has AD/Okta connector, query user details
+- Fields to get: display_name, department, manager, role, account_age, last_login, mfa_status
+- Privileged status: is this account in admin groups? service account? PAM account?
+- Account risk score: based on recent alert count for this user (from Supabase, org-scoped)
+- Peer group deviation: avg alerts for users in same department vs this user's alert count
+- If no identity connector: return basic enrichment from alert data only
 
-## 6. Token Budget Manager (/lib/agents/runtime/token-budget.ts)
-```typescript
-// Per-investigation token budget
-// Default limits per plan: FREE=50K, PRO=200K, ENTERPRISE=1M tokens per investigation
-// Build: checkBudget(orgId, alertId, estimatedTokens) → boolean
-// Build: recordUsage(orgId, alertId, tokensUsed, model) → void
-// Build: getBudgetStatus(orgId, alertId) → {used, limit, remaining, pct}
-// Alert when org burns 10x daily normal usage
-// Log all usage to soc_metrics table
-```
+Build:
+async function enrichUser(username: string, orgId: string): Promise<UserEnrichment>
 
-## 7. Context Window Manager (/lib/agents/runtime/context-manager.ts)
-```typescript
-// Manage long investigations that exceed LLM context
-// Groq llama-3.3-70b: 128K context window
-// Trigger at 80% (102K tokens): summarize earlier findings, preserve key IOCs
-// Build: summarizeContext(findings: AgentFindings[]) → string (compressed summary)
-// Build: extractCriticalIOCs(context: string) → IOC[] (never lose these even when summarizing)
-// Build: buildPromptContext(handoff: AgentHandoff, maxTokens: number) → string
-// Use tiktoken or character estimate (1 token ≈ 4 chars) for token counting
-```
+## 6. Asset Context Enrichment Agent (/lib/agents/enrichment/asset-enricher.ts)
+Enrich asset/host from alert:
+- CMDB lookup (from assets table — create if not exists)
+- Asset criticality tier: 1=Crown Jewel, 2=Business Critical, 3=Standard, 4=Test/Dev
+- Asset owner: team, cost center, BU
+- Network zone: DMZ, internal, OT, cloud — auto-detect from IP range + org config
+- Data classification: PCI? HIPAA? PII? → from asset record
+- Production flag: is this a production system?
+- EOL flag: is this end-of-life software/hardware?
+- Shadow IT: if asset NOT in inventory → create record, set criticality=UNKNOWN, alert "Shadow IT detected"
+- Business hours context: 3am alert on finance-classified asset = higher risk
 
-## 8. LLM Fallback Chain (/lib/agents/runtime/llm-client.ts)
-```typescript
-// Full fallback: Groq → OpenAI → Anthropic → Ollama
-// ALL CLIENTS MUST USE LAZY INITIALIZATION — no client at module level
-// Circuit breaker: trip after 3 consecutive failures per provider, retry after 60s
-// Build: callLLM(prompt, systemPrompt, options) → LLMResponse
-// Build: getProviderHealth() → Record<string, boolean>
-// Low severity → route to Groq (fast/cheap)
-// High severity → route to best available model
-// Log provider used + tokens used + latency per call
-```
+Build:
+async function enrichAsset(hostname: string, ip: string, orgId: string): Promise<AssetEnrichment>
 
-## 9. Parallel Agent Executor (/lib/agents/runtime/executor.ts)
-```typescript
-// 50 alerts arrive → 50 L1 agents fire simultaneously
-// Build: executeParallel(alerts: Alert[], orgId: string) → Promise<AgentHandoff[]>
-// Max concurrent per org: configurable, default 20
-// Each execution: spawn → run → collect result → push to next tier or DLQ
-// Timeout per agent: 30s for L1, 120s for L2, 300s for L3
-// Partial results: if agent times out, save what was found, mark as TIMEOUT
-```
-
-## 10. Prompt Injection Firewall (/lib/agents/runtime/prompt-firewall.ts)
-```typescript
-// Sanitize ALL log data before it touches any LLM prompt
-// Strip: prompt injection attempts ("Ignore previous instructions", "You are now...")
-// Strip: special LLM control tokens
-// Encode: characters that break JSON parsing in prompts
-// Enforce: max input length per field (IP: 45 chars, hash: 64 chars, domain: 253 chars)
-// Validate: extracted IOC formats (IP regex, hash length, domain validity)
-// Log: any injection attempt detected → flag alert as suspicious
-// Build: sanitizeForLLM(input: string) → string
-// Build: validateIOC(value: string, type: IOC['type']) → boolean
-// Build: sanitizeHandoff(handoff: Partial<AgentHandoff>) → AgentHandoff
-```
-
-## 11. Agent Supervisor API Route (/app/api/agents/supervisor/route.ts)
-```typescript
-// GET /api/agents/supervisor — agent health status for all orgs (internal only)
-// POST /api/agents/supervisor/restart — restart stuck agent
-// GET /api/agents/supervisor/dlq — view DLQ entries for org
-// POST /api/agents/supervisor/replay — replay DLQ entry
-// All routes require service role key auth (not user auth)
-// Add rate limiting: max 100 req/min per IP
-```
-
-## 12. Graceful Degradation Handler (/lib/agents/runtime/degradation.ts)
-```typescript
-// All LLM providers down → rule-based triage only, queue for AI when restored
-// Rule-based triage: severity from Wazuh rule level, MITRE from static mapping table
-// Build: isLLMAvailable() → boolean
-// Build: triageWithRules(alert: Alert) → {severity, mitre_tags, disposition}
-// Build: queueForAIProcessing(alert: Alert, orgId: string) → void (Redis queue)
-// Alert ops team when all providers down via email/Slack webhook
-```
-
-## 13. Database Migrations (run in order):
-```sql
--- Migration: add Layer 0 tables
-
--- Agent execution checkpoint (for crash resume)
-CREATE TABLE IF NOT EXISTS agent_checkpoints (
+New migration needed:
+CREATE TABLE IF NOT EXISTS assets (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id UUID NOT NULL REFERENCES organizations(id),
-  agent_run_id UUID NOT NULL REFERENCES agent_runs(id),
-  checkpoint_data JSONB NOT NULL,
+  hostname TEXT,
+  ip_addresses TEXT[],
+  criticality INTEGER DEFAULT 3 CHECK (criticality BETWEEN 1 AND 4),
+  owner_team TEXT,
+  network_zone TEXT,
+  data_classification TEXT[],
+  is_production BOOLEAN DEFAULT false,
+  is_eol BOOLEAN DEFAULT false,
+  tags JSONB DEFAULT '{}',
+  last_seen TIMESTAMPTZ DEFAULT now(),
   created_at TIMESTAMPTZ DEFAULT now()
 );
-ALTER TABLE agent_checkpoints ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "org_isolation" ON agent_checkpoints USING (org_id = current_setting('app.current_org_id')::uuid);
+ALTER TABLE assets ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "org_isolation" ON assets USING (org_id = current_setting('app.current_org_id')::uuid);
 
--- Dead letter queue
-CREATE TABLE IF NOT EXISTS agent_dlq (
+## 7. Enrichment Cache Layer (/lib/agents/enrichment/cache.ts)
+- Cache all enrichment results in Supabase to avoid re-querying same IOC
+- IP cache TTL: 24 hours
+- Domain cache TTL: 6 hours  
+- Hash cache TTL: 7 days (malware doesn't un-malware)
+- User cache TTL: 1 hour
+- Asset cache TTL: 15 minutes
+
+New migration:
+CREATE TABLE IF NOT EXISTS enrichment_cache (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id UUID NOT NULL REFERENCES organizations(id),
-  agent_run_id UUID REFERENCES agent_runs(id),
-  tier TEXT NOT NULL,
-  error_message TEXT,
-  input_payload JSONB,
-  retry_count INTEGER DEFAULT 0,
+  ioc_type TEXT NOT NULL,
+  ioc_value TEXT NOT NULL,
+  enrichment_data JSONB NOT NULL,
+  source TEXT NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
   created_at TIMESTAMPTZ DEFAULT now(),
-  expires_at TIMESTAMPTZ DEFAULT now() + INTERVAL '7 days'
+  UNIQUE(org_id, ioc_type, ioc_value, source)
 );
-ALTER TABLE agent_dlq ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "org_isolation" ON agent_dlq USING (org_id = current_setting('app.current_org_id')::uuid);
+ALTER TABLE enrichment_cache ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "org_isolation" ON enrichment_cache USING (org_id = current_setting('app.current_org_id')::uuid);
 
--- Token usage tracking
-CREATE TABLE IF NOT EXISTS token_usage (
+## 8. Master Enrichment Orchestrator (/lib/agents/enrichment/enrichment-orchestrator.ts)
+- Receives raw alert from Wazuh webhook
+- Extracts all IOCs: IPs, domains, URLs, hashes, emails, usernames, hostnames
+- Fires all enrichment agents in parallel (Promise.allSettled)
+- Aggregates results into unified EnrichmentData object
+- Stores enrichment in alerts.enrichment column (JSONB)
+- Calculates enrichment-based severity boost (from gemini.md modifier table)
+- Passes enriched alert to L1 agent chain
+
+Build:
+async function orchestrateEnrichment(alert: Alert, orgId: string): Promise<EnrichedAlert>
+
+## 9. Severity Scoring Engine (/lib/agents/l1/severity-scorer.ts)
+Apply all modifiers from the architecture spec:
+Base severity from source (Wazuh rule level → 0-100) + these modifiers:
+- Asset criticality 1 (Crown Jewel): +40
+- Asset criticality 2 (Business Critical): +25
+- Asset criticality 3 (Standard): +10
+- Asset criticality 4 (Test): +0
+- Data classification (PCI/HIPAA/PII asset): +20
+- CISA KEV match: +15
+- EPSS score >0.5: +10
+- Active exploitation in wild (GreyNoise): +20
+- Threat intel IOC match: +25
+- Off-hours anomaly (alert time vs asset business hours): +10
+- Internet-facing asset: +15
+- Privileged account involved: +20
+- Active campaign match (from campaign_tracker table): +30
+- Repeated pattern (same signature 3x in 1hr from same source): +15
+
+Final score capped at 100 → map to severity label:
+- 90-100: CRITICAL
+- 70-89: HIGH
+- 40-69: MEDIUM
+- 10-39: LOW
+- 0-9: INFO
+
+## 10. Watchlist Matching Agent (/lib/agents/l1/watchlist-matcher.ts)
+- On every alert, check all IOCs against org's watchlist
+- Watchlist table: org_id, ioc_type, ioc_value, label, confidence, source
+- Fuzzy match for domains: Levenshtein distance ≤ 2 = flag
+- Exact match for IPs and hashes
+- Regex match for custom patterns
+- Watchlist match → instant severity MAX + skip normal queue → priority processing
+- Watchlist populated from: CTI feeds + customer-defined entries
+
+New migration:
+CREATE TABLE IF NOT EXISTS watchlists (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id UUID NOT NULL REFERENCES organizations(id),
-  alert_id UUID,
-  agent_run_id UUID,
-  model TEXT NOT NULL,
-  tokens_used INTEGER NOT NULL,
-  provider TEXT NOT NULL,
+  ioc_type TEXT NOT NULL,
+  ioc_value TEXT NOT NULL,
+  label TEXT NOT NULL,
+  confidence DECIMAL(3,2) DEFAULT 1.0,
+  source TEXT,
   created_at TIMESTAMPTZ DEFAULT now()
 );
-ALTER TABLE token_usage ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "org_isolation" ON token_usage USING (org_id = current_setting('app.current_org_id')::uuid);
+ALTER TABLE watchlists ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "org_isolation" ON watchlists USING (org_id = current_setting('app.current_org_id')::uuid);
 
--- LLM provider health tracking
-CREATE TABLE IF NOT EXISTS llm_provider_health (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  provider TEXT NOT NULL,
-  status TEXT NOT NULL, -- 'healthy' | 'degraded' | 'down'
-  last_check TIMESTAMPTZ DEFAULT now(),
-  failure_count INTEGER DEFAULT 0,
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
-```
+## 11. Alert Deduplication + Correlation Agent (/lib/agents/l1/correlator.ts)
+- SHA256 fingerprint every normalized alert
+- Within 5-minute window + same src_ip + same dst_ip + same rule → collapse to 1 alert
+- Brute force grouping: 5+ failed auth alerts on same host within 10min → create incident group
+- Rule-based incident creation: configurable patterns per org
+- Cluster naming: LLM generates human-readable incident name from cluster context
+
+## 12. Update Wazuh Webhook (/app/api/webhooks/wazuh/route.ts)
+- After ingesting Wazuh alert, immediately trigger enrichment pipeline
+- Pass enriched alert to L1 agent chain
+- Return 200 fast (don't await full chain) — process async
+- Alert ID returned immediately, processing happens in background
+
+## 13. UI: Enrichment Display (/app/dashboard/alerts/[id]/page.tsx)
+- Show all enrichment data on alert detail page
+- IP enrichment: geo map pin, reputation scores, ASN info
+- Domain enrichment: WHOIS, age, DGA score, VT detections
+- Hash enrichment: VT detection count, malware family if known
+- Asset info: criticality badge, network zone badge, data classification tags
+- User info: department, risk score, privileged badge if applicable
+- Severity with breakdown: base score + each modifier applied + final score
+- Design: glassmorphism cards, IBM Plex Mono for IOC values, Inter for labels
+- 4px border-radius buttons, #7c6af7 primary color, #00d4aa accent
 
 ## FINAL STEPS:
-1. Export all new types from /lib/agents/runtime/index.ts
-2. Update existing L1/L2/L3 agents to use new runtime (state machine, ledger, confidence gates)
-3. Run npm run build — fix ALL errors
-4. Run npm run build again — must be ZERO errors
-5. Create file LAYER0_COMPLETE.md documenting what was built
-6. DO NOT COMMIT until build passes completely
+1. Update existing L1 agent to use new enrichment orchestrator
+2. Ensure all new code is fully typed (no `any` without comment explaining why)
+3. Add all new env vars to .env.example
+4. Run npm run build — fix ALL errors
+5. Run npm run build again — ZERO errors required
+6. Create SPRINT1_COMPLETE.md documenting: what was built, what APIs are called, cache TTLs, known limitations
+7. DO NOT COMMIT until build is completely clean

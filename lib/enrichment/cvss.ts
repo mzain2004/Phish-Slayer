@@ -166,5 +166,6 @@ export async function enrichAlertWithCvss(alertId: string, orgId: string): Promi
   await supabase
     .from('alerts')
     .update(updateData)
-    .eq('id', alertId);
+    .eq('id', alertId)
+    .eq('organization_id', orgId);
 }

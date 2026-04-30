@@ -188,5 +188,5 @@ export async function enrichAlertIocs(alertId: string, orgId: string): Promise<v
   await supabase.from('alerts').update({
     threat_intel_enriched: true,
     enriched_at: new Date().toISOString()
-  }).eq('id', alertId);
+  }).eq('id', alertId).eq('org_id', orgId);
 }

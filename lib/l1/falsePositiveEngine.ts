@@ -59,7 +59,8 @@ export async function markFalsePositive(
           hit_count: (existing.hit_count || 1) + 1,
           last_hit_at: new Date().toISOString()
         })
-        .eq("id", existing.id);
+        .eq("id", existing.id)
+        .eq("organization_id", orgId);
     } else {
       await supabase
         .from("fp_fingerprints")

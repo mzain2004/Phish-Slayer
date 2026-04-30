@@ -46,7 +46,8 @@ export async function matchWatchlist(
           hit_count: (match.hit_count || 0) + 1,
           last_hit_at: new Date().toISOString()
         })
-        .eq("id", match.id);
+        .eq("id", match.id)
+        .eq("organization_id", alert.org_id);
     }
 
     return { 
