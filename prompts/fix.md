@@ -1,75 +1,71 @@
 @GEMINI.md @graph.md
 New session. You are a senior security engineer on PhishSlayer.
 Read GEMINI.md and graph.md first. State current sprint.
-AUDIT: Read supabase/migrations/20260429700000_osint_schema.sql FIRST. Do NOT recreate existing tables. ALTER only if missing columns.
-BUILD: npm run build must pass. Fix errors before commit.
+AUDIT: Check if threat_iocs or ioc_hits tables exist. If not, create. If yes, ALTER missing columns.
+BUILD: npm run build must pass.
 
-You are building Sprint 3: OSINT Brand Monitoring + GitHub Leak Scanner.
+You are building Sprint 4: Threat Intelligence Feed Ingestion Pipeline.
 
 USE SUPABASE CONNECTOR for migrations.
 
-PART 1 — TYPOSQUATTING PERMUTATION ENGINE
-/lib/osint/typosquat.ts
-Function: generatePermutations(domain: string): string[]
-Generate 10,000+ variations:
-- Homoglyph swaps (a→@, o→0, i→1, l→1)
-- TLD swaps (.com, .net, .org, .co, .io, .xyz)
-- Hyphen insertion (phish-slayer, phishsl-ayer)
-- Character omission (phishslayer, phihslayer)
-- Character duplication (phishslayyer)
-- Adjacent keyboard swaps (n→m, i→o)
-Return unique array. Deduplicate.
+PART 1 — IOC DATA MODEL
+Check/Create threat_iocs table:
+- id, ioc_type (ip|domain|url|hash_md5|hash_sha256|email|cve), ioc_value (UNIQUE with type)
+- threat_score (0-100), confidence (decimal), tags[], malware_families[]
+- sources[], first_seen, last_seen, expires_at, is_active
+- NO org_id — this is a GLOBAL threat intel table
 
-PART 2 — CT LOG MONITOR
-/lib/osint/ct-monitor.ts
-Function: checkNewCerts(orgDomain: string): Promise<CertFinding[]>
-Use certstream.io WebSocket or HTTP endpoint.
-Filter certificates where SAN/CN contains orgDomain or permutations.
-Return: { domain, issuer, not_before, not_after, matched_permutation }
+Check/Create ioc_hits table:
+- id, org_id (RLS), ioc_id (FK), alert_id (FK), hit_at
 
-PART 3 — DOMAIN REGISTRATION MONITOR
-/lib/osint/domain-monitor.ts
-Function: checkDomainRegistration(permutations: string[]): Promise<DomainFinding[]>
-Use WHOIS API (whoisjson.com or similar free tier).
-For each permutation: check if registered.
-If newly registered (<30 days) = HIGH severity finding.
+Check/Create cti_feeds table:
+- id, name, feed_type, endpoint_url, auth_config (JSONB), pull_interval, last_pulled_at, is_active
 
-PART 4 — GITHUB LEAK SCANNER
-/lib/osint/github-scanner.ts
-Function: scanGitHub(orgName: string, domains: string[]): Promise<LeakFinding[]>
-Use GitHub Code Search API (if token) or GitHub Dorking via REST.
-Search patterns:
-- "{orgName}" + "password"
-- "{domain}" + "AWS_ACCESS_KEY"
-- "{domain}" + "mongodb+srv"
-- "{domain}" + "api_key"
-- "{domain}" + "secret_key"
-- "{domain}" + "private_key"
-Extract: repo URL, file path, matched pattern, snippet (redact actual secrets).
-Severity: AWS key = CRITICAL, password = HIGH, generic key = MEDIUM.
+PART 2 — FEED CONNECTORS
+/lib/intel/feeds/abuse-ch.ts
+Pull MalwareBazaar, URLhaus, ThreatFox APIs. Free, no auth needed.
+Extract: hashes, urls, domains, malware families.
+Upsert to threat_iocs. If exists: boost confidence by 0.05, merge tags.
 
-PART 5 — WHOIS CHANGE MONITOR
-/lib/osint/whois-monitor.ts
-Function: checkWhoisChanges(domain: string, lastCheck: Date): Promise<WhoisChange[]>
-Compare current WHOIS vs stored previous WHOIS.
-Flag: registrar change, nameserver change, registrant org change.
-Store previous state in osint_findings extra JSONB.
+/lib/intel/feeds/cisa-kev.ts
+GET https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json
+Import each CVE as ioc_type='cve'. Set threat_score=95, confidence=0.99.
 
-PART 6 — OSINT SCHEDULER
-/app/api/cron/osint-brand/route.ts
-CRON_SECRET auth.
-Run all Sprint 3 agents for all orgs:
-1. Generate permutations for org domains (from brand_assets or organizations table)
-2. Check CT logs
-3. Check domain registrations
-4. Scan GitHub
-5. Store findings in osint_findings table (type: 'brand_impersonation', 'credential_leak', etc)
-6. Create platform alert for CRITICAL findings
-Schedule: every 6 hours.
+/lib/intel/feeds/nvd.ts
+GET https://services.nvd.nist.gov/rest/json/cves/2.0?pubStartDate={yesterday}
+Import CVEs. threat_score = CVSS * 10.
 
-PART 7 — API ROUTES
-GET /api/osint/brand/status — last scan time, findings count
-GET /api/osint/brand/findings — paginated findings list
-POST /api/osint/brand/scan — trigger manual scan (auth + org scoped)
+PART 3 — IOC PROCESSING
+/lib/intel/ioc-processor.ts
+function normalizeIOC(type, value): normalized string
+- IPs: strip leading zeros, lowercase
+- Domains: lowercase, strip trailing dot
+- Hashes: lowercase hex
+- Validate formats via regex. Discard invalid.
 
-FINAL: npm run build. git commit -m "feat(osint): Sprint 3 brand monitor + github scanner". git push.
+function deduplicateIOC(ioc): 'created' | 'updated'
+- Check if ioc_type + ioc_value exists
+- If yes: UPDATE confidence, sources, last_seen
+- If no: INSERT
+
+PART 4 — CONFIDENCE DECAY ENGINE
+/lib/intel/decay.ts
+Daily job: confidence *= 0.95 per run (weekly decay).
+If confidence < 0.20: is_active = false.
+NEVER decay CISA KEV entries (check tags for 'kev').
+
+PART 5 — IOC LOOKUP SERVICE
+/lib/intel/ioc-lookup.ts
+function lookupIOC(type, value): ThreatIOC | null
+- Query threat_iocs WHERE ioc_type=type AND ioc_value=value AND is_active=true
+- Cache result in memory for 5 minutes (Map<string, ThreatIOC>)
+
+Wire this into Sprint 1 enrichment:
+- Read lib/agents/enrichment/ip.ts (or wherever IP enrichment lives)
+- Add: const ioc = await lookupIOC('ip', ip); if(ioc) add to enrichment data
+
+PART 6 — CRON
+/app/api/cron/cti-feeds/route.ts
+CRON_SECRET auth. Pull all feeds. Run decay. Log results.
+
+FINAL: npm run build. git commit -m "feat(intel): Sprint 4 threat intel feed ingestion + IOC decay". git push.

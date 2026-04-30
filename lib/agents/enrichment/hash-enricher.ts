@@ -1,4 +1,5 @@
 import { getCachedEnrichment, setCachedEnrichment } from './cache';
+import { lookupIOC } from '@/lib/intel/ioc-lookup';
 
 export interface HashEnrichment {
   hash: string;
@@ -6,6 +7,7 @@ export interface HashEnrichment {
   virustotal?: any;
   malware_bazaar?: any;
   nsrl?: boolean;
+  threat_intel?: any;
 }
 
 async function fetchWithTimeout(url: string, options: any, timeoutMs = 5000): Promise<Response> {
@@ -61,7 +63,10 @@ export async function enrichHash(hash: string, hashType: 'md5'|'sha1'|'sha256', 
 
   const result: HashEnrichment = { hash, type: hashType };
 
+  const iocType = hashType === 'sha1' ? 'hash_sha1' : hashType === 'md5' ? 'hash_md5' : 'hash_sha256';
+
   const checks = [
+    lookupIOC(iocType, hash).then(d => result.threat_intel = d),
     getVirusTotal(hash).then(d => result.virustotal = d),
     getMalwareBazaar(hash).then(d => result.malware_bazaar = d)
   ];

@@ -1,4 +1,5 @@
 import { getCachedEnrichment, setCachedEnrichment } from './cache';
+import { lookupIOC } from '@/lib/intel/ioc-lookup';
 
 export interface IPEnrichment {
   ip: string;
@@ -9,6 +10,7 @@ export interface IPEnrichment {
   shodan?: any;
   greynoise?: any;
   asn?: any;
+  threat_intel?: any;
 }
 
 function isInternalIp(ip: string): boolean {
@@ -107,6 +109,7 @@ export async function enrichIP(ip: string, orgId: string): Promise<IPEnrichment>
   const result: IPEnrichment = { ip, is_internal: false };
 
   const checks = [
+    lookupIOC('ip', ip).then(d => result.threat_intel = d),
     getAbuseIPDB(ip).then(d => result.abuseipdb = d),
     getVirusTotal(ip).then(d => result.virustotal = d),
     getShodan(ip).then(d => result.shodan = d),

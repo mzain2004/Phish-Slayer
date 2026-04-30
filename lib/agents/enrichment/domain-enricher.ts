@@ -1,10 +1,12 @@
 import { getCachedEnrichment, setCachedEnrichment } from './cache';
+import { lookupIOC } from '@/lib/intel/ioc-lookup';
 
 export interface DomainEnrichment {
   domain: string;
   virustotal?: any;
   whois?: any;
   dga_score?: number;
+  threat_intel?: any;
 }
 
 export interface URLEnrichment {
@@ -12,6 +14,7 @@ export interface URLEnrichment {
   virustotal?: any;
   urlhaus?: any;
   phishtank?: any;
+  threat_intel?: any;
 }
 
 async function fetchWithTimeout(url: string, options: any, timeoutMs = 5000): Promise<Response> {
@@ -80,6 +83,7 @@ export async function enrichDomain(domain: string, orgId: string): Promise<Domai
   const result: DomainEnrichment = { domain };
 
   const checks = [
+    lookupIOC('domain', domain).then(d => result.threat_intel = d),
     getVirusTotal(domain, 'domains').then(d => result.virustotal = d),
     getWhois(domain).then(d => result.whois = d),
     Promise.resolve().then(() => { result.dga_score = calculateDgaScore(domain); })
@@ -98,6 +102,7 @@ export async function enrichURL(url: string, orgId: string): Promise<URLEnrichme
   const result: URLEnrichment = { url };
 
   const checks = [
+    lookupIOC('url', url).then(d => result.threat_intel = d),
     getVirusTotal(url, 'urls').then(d => result.virustotal = d),
     // urlhaus and phishtank APIs require auth/setup not standard in env, placeholder for now
   ];
