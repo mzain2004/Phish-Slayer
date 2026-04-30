@@ -6,6 +6,7 @@ import { enrichUser, UserEnrichment } from './user-enricher';
 import { enrichAsset, AssetEnrichment } from './asset-enricher';
 import { Alert } from '../runtime/types';
 import { createClient } from '@supabase/supabase-js';
+import { tagAlert } from '../../mitre/orchestrator';
 
 export interface EnrichmentData {
   ips: IPEnrichment[];
@@ -68,6 +69,9 @@ export async function orchestrateEnrichment(alert: Alert, orgId: string): Promis
   }
 
   await Promise.allSettled(tasks);
+
+  // Add MITRE Tagging to the alert
+  await tagAlert(alert, orgId);
 
   return {
     ...alert,

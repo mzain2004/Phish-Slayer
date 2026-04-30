@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { createClient } from "@/lib/supabase/server";
-import { calculateCoverage } from "@/lib/mitre/coverage-engine";
+import { getCoverageGaps } from "@/lib/mitre/coverage-engine";
 
 export const dynamic = "force-dynamic";
 
@@ -11,15 +10,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Retrieve org ID
-  const supabase = await createClient();
-  const orgId = process.env.SYSTEM_ORG_ID || "system"; // Simplified for implementation
+  const orgId = process.env.SYSTEM_ORG_ID || "system";
 
   try {
-    const report = await calculateCoverage(orgId);
-    return NextResponse.json(report);
+    const gaps = await getCoverageGaps(orgId);
+    return NextResponse.json(gaps);
   } catch (error) {
-    console.error("[MITRE Coverage API] Error:", error);
+    console.error("[MITRE Gaps API] Error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
