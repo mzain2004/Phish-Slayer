@@ -1,0 +1,120 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { supabaseAdmin } from '@/lib/supabase/admin';
+import { generatePermutations } from '@/lib/osint/typosquat';
+import { checkNewCerts } from '@/lib/osint/ct-monitor';
+import { checkDomainRegistration } from '@/lib/osint/domain-monitor';
+import { scanGitHub } from '@/lib/osint/github-scanner';
+import { checkWhoisChanges } from '@/lib/osint/whois-monitor';
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+export async function POST(req: NextRequest) {
+  // 1. Verify CRON_SECRET
+  const authHeader = req.headers.get('authorization');
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
+    const body = await req.json().catch(() => ({}));
+    const targetOrgId = body.organization_id;
+
+    // 2. Fetch all Organizations and their Brand Assets
+    let query = supabaseAdmin.from('organizations').select('id, name');
+    if (targetOrgId) {
+      query = query.eq('id', targetOrgId);
+    }
+    
+    const { data: orgs, error: orgError } = await query;
+
+    if (orgError) throw orgError;
+
+    for (const org of orgs) {
+      const { data: assets, error: assetError } = await supabaseAdmin
+        .from('brand_assets')
+        .select('*')
+        .eq('organization_id', org.id);
+
+      if (assetError) continue;
+
+      for (const asset of assets) {
+        const domain = asset.domain;
+        const brandName = asset.brand_name;
+
+        // A. Generate Permutations
+        const permutations = generatePermutations(domain);
+
+        // B. Check CT Logs
+        const certs = await checkNewCerts(domain, permutations);
+        for (const cert of certs) {
+           await supabaseAdmin.from('osint_findings').insert({
+             organization_id: org.id,
+             type: 'brand_impersonation',
+             severity: 'MEDIUM',
+             source: 'CT_LOG',
+             details: cert
+           });
+        }
+
+        // C. Check Domain Registration
+        const domains = await checkDomainRegistration(permutations);
+        for (const d of domains) {
+          if (d.is_registered) {
+            await supabaseAdmin.from('osint_findings').insert({
+              organization_id: org.id,
+              type: 'brand_impersonation',
+              severity: d.severity,
+              source: 'DOMAIN_REG',
+              details: d
+            });
+          }
+        }
+
+        // D. Scan GitHub
+        const leaks = await scanGitHub(brandName, [domain]);
+        for (const leak of leaks) {
+          await supabaseAdmin.from('osint_findings').insert({
+            organization_id: org.id,
+            type: 'credential_leak',
+            severity: leak.severity,
+            source: 'GITHUB',
+            details: leak
+          });
+        }
+
+        // E. Check WHOIS Changes
+        // Fetch last WHOIS result from findings for this domain
+        const { data: lastWhois } = await supabaseAdmin
+          .from('osint_findings')
+          .select('details')
+          .eq('organization_id', org.id)
+          .eq('source', 'WHOIS')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const whoisChanges = await checkWhoisChanges(domain, lastWhois?.details);
+        if (whoisChanges.length > 0) {
+          await supabaseAdmin.from('osint_findings').insert({
+            organization_id: org.id,
+            type: 'whois_change',
+            severity: 'HIGH',
+            source: 'WHOIS',
+            details: { domain, changes: whoisChanges }
+          });
+        }
+      }
+    }
+
+    return NextResponse.json({ success: true, message: 'OSINT brand scan completed' });
+  } catch (error: any) {
+    console.error('OSINT CRON Error:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+// Allow GET for testing if needed (optional, depends on security preference)
+export async function GET(req: NextRequest) {
+  return POST(req);
+}
