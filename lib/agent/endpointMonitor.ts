@@ -156,8 +156,7 @@ async function pollNetworkActivity(userId: string) {
     if (!seenConnections.has(connectionKey) || isBeaconing) {
       seenConnections.add(connectionKey);
 
-        `[EndpointMonitor] 🔍 ${isBeaconing ? "⚠️ BEACONING " : ""}Connection: ${processName} (PID: ${conn.pid}) -> ${conn.remote_address}:${conn.remote_port}${suspiciousProcess ? " [SUSPICIOUS PROCESS]" : ""}`
-      );
+      console.info(`[EndpointMonitor] 🔍 ${isBeaconing ? "⚠️ BEACONING " : ""}Connection: ${processName} (PID: ${conn.pid}) -> ${conn.remote_address}:${conn.remote_port}${suspiciousProcess ? " [SUSPICIOUS PROCESS]" : ""}`);
 
       anomalies.push({
         userId,
@@ -190,8 +189,7 @@ async function pollNetworkActivity(userId: string) {
         console.error(`[EndpointMonitor] Failed to flag IOCs: ${response.status} ${response.statusText}`);
       } else {
         const result = await response.json();
-          `[EndpointMonitor] 🛡️ Flagged ${anomalies.length} connections. Processed: ${(result as any).processed}, Critical/High: ${(result as any).flagged}`
-        );
+        console.info(`[EndpointMonitor] 🛡️ Flagged ${anomalies.length} connections. Processed: ${(result as any).processed}, Critical/High: ${(result as any).flagged}`);
       }
     } catch (apiError) {
       console.error("[EndpointMonitor] API Request Error:", apiError);
@@ -331,10 +329,7 @@ class FileIntegrityMonitor {
 
     // Detect changes after initial scan
     this.watcher.on('ready', () => {
-        `[FIM] Baseline established. Monitoring ${
-          this.baselineHashes.size
-        } files.`
-      );
+      console.info(`[FIM] Baseline established. Monitoring ${this.baselineHashes.size} files.`);
 
       // Now wire up change/add/unlink events
       this.watcher!.on('change', (filePath: string) => {
@@ -470,8 +465,7 @@ class ProcessMonitor {
     // Build initial baseline
     const initial = await psList();
     initial.forEach((p: any) => this.knownPids.add(p.pid));
-      `[ProcMon] Baseline: ${this.knownPids.size} processes tracked.`
-    );
+    console.info(`[ProcMon] Baseline: ${this.knownPids.size} processes tracked.`);
 
     // Poll every 5 seconds
     this.interval = setInterval(async () => {
@@ -565,10 +559,10 @@ class AgentWebSocket {
   connect(): void {
     if (this.isShuttingDown) return;
 
+    console.info(
       `[WSClient] Connecting to ${this.serverUrl} ` +
       `(attempt ${this.reconnectAttempts + 1})`
     );
-
     this.ws = new WebSocket(this.serverUrl, {
       perMessageDeflate: false,
       headers: {
