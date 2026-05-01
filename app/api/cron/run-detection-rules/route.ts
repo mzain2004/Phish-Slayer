@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { runDetectionRules } from "@/lib/detection/sigmaEngine";
+import { verifyCronAuth, unauthorizedResponse } from "@/lib/security/cronAuth";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
+  if (!verifyCronAuth(req)) {
+    return unauthorizedResponse();
+  }
+
   try {
     const supabase = await createClient();
 

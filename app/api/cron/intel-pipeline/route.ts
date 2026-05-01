@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { runIntelPipeline } from '@/lib/detection/intel-pipeline';
+import { verifyCronAuth, unauthorizedResponse } from '@/lib/security/cronAuth';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
-    const authHeader = req.headers.get('authorization');
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!verifyCronAuth(req)) {
+        return unauthorizedResponse();
     }
 
     try {
-        console.log('Starting Intel-Driven Detection Pipeline...');
+        console.info('Starting Intel-Driven Detection Pipeline...');
         
         const { data: orgs } = await supabaseAdmin.from('organizations').select('id');
         if (orgs) {

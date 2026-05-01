@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { calculateCoverage } from "@/lib/mitre/coverage-engine";
+import { verifyCronAuth, unauthorizedResponse } from "@/lib/security/cronAuth";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -14,9 +15,8 @@ function getAdminClient() {
 }
 
 export async function GET(request: NextRequest) {
-  const authHeader = request.headers.get("Authorization") || request.headers.get("x-cron-secret");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}` && authHeader !== process.env.CRON_SECRET) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!verifyCronAuth(request)) {
+    return unauthorizedResponse();
   }
 
   const supabase = getAdminClient();

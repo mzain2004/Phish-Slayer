@@ -1,22 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { executePlaybook } from '@/lib/playbooks/executor';
-import crypto from 'crypto';
+import { verifyCronAuth, unauthorizedResponse } from '@/lib/security/cronAuth';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-function safeCompare(a: string, b: string) {
-  if (a.length !== b.length) return false;
-  return crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
-}
-
 export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get('authorization');
-  const cronSecret = process.env.CRON_SECRET;
-
-  if (cronSecret && (!authHeader || !safeCompare(authHeader.replace('Bearer ', ''), cronSecret))) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!verifyCronAuth(req)) {
+    return unauthorizedResponse();
   }
 
   const supabase = await createClient();

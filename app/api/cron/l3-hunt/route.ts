@@ -8,6 +8,7 @@ import {
 import { getGeminiModel } from "@/lib/ai/gemini";
 import { generateAllHypotheses } from "@/lib/hunting/hypothesis-generator";
 import { executeHunt } from "@/lib/hunting/executor";
+import { verifyCronAuth, unauthorizedResponse } from "@/lib/security/cronAuth";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -69,13 +70,6 @@ const ReviewerResponseSchema = z.object({
   action_taken: z.string().optional(),
   error: z.string().optional(),
 });
-
-function isAuthorized(request: NextRequest): boolean {
-  return (
-    Boolean(process.env.CRON_SECRET) &&
-    request.headers.get("authorization") === `Bearer ${process.env.CRON_SECRET}`
-  );
-}
 
 function isInternalAgentAuthorized(request: NextRequest): boolean {
   const providedSecret =
@@ -885,11 +879,8 @@ async function runL3Pipeline(request: NextRequest, options: L3RunOptions) {
 }
 
 export async function GET(request: NextRequest) {
-  if (!isAuthorized(request)) {
-    return NextResponse.json(
-      { success: false, error: "Unauthorized" },
-      { status: 401 },
-    );
+  if (!verifyCronAuth(request)) {
+    return unauthorizedResponse();
   }
 
   const adminClient = getAdminClient();
@@ -931,11 +922,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  if (!isInternalAgentAuthorized(request) && !isAuthorized(request)) {
-    return NextResponse.json(
-      { success: false, error: "Unauthorized" },
-      { status: 401 },
-    );
+  if (!isInternalAgentAuthorized(request) && !verifyCronAuth(request)) {
+    return unauthorizedResponse();
   }
 
   let body: Record<string, unknown> = {};

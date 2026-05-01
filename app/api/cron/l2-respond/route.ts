@@ -6,6 +6,7 @@ import {
   buildL2ReasoningPrompt,
   saveReasoningChain,
 } from "@/lib/reasoning-chain";
+import { verifyCronAuth, unauthorizedResponse } from "@/lib/security/cronAuth";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -407,13 +408,6 @@ async function getDecision(escalation: EscalationRow): Promise<Decision> {
     });
     return fallbackDecision();
   }
-}
-
-function isCronAuthorized(request: NextRequest): boolean {
-  return (
-    Boolean(process.env.CRON_SECRET) &&
-    request.headers.get("authorization") === `Bearer ${process.env.CRON_SECRET}`
-  );
 }
 
 function isInternalAgentAuthorized(request: NextRequest): boolean {
@@ -1001,11 +995,8 @@ async function runL2Responder(request: NextRequest, options: L2RunOptions) {
 }
 
 export async function GET(request: NextRequest) {
-  if (!isCronAuthorized(request)) {
-    return NextResponse.json(
-      { success: false, error: "Unauthorized" },
-      { status: 401 },
-    );
+  if (!verifyCronAuth(request)) {
+    return unauthorizedResponse();
   }
 
   return runL2Responder(request, {
@@ -1015,11 +1006,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  if (!isInternalAgentAuthorized(request) && !isCronAuthorized(request)) {
-    return NextResponse.json(
-      { success: false, error: "Unauthorized" },
-      { status: 401 },
-    );
+  if (!isInternalAgentAuthorized(request) && !verifyCronAuth(request)) {
+    return unauthorizedResponse();
   }
 
   let body: Record<string, unknown> = {};

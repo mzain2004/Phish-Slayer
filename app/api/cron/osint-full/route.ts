@@ -5,14 +5,14 @@ import { checkCredentialLeaks } from '@/lib/osint/credential-monitor';
 import { checkEmailPosture } from '@/lib/osint/email-posture';
 import { mapInfrastructure } from '@/lib/osint/infra-footprint';
 import { trackVulnerabilities } from '@/lib/osint/vuln-intelligence';
+import { verifyCronAuth, unauthorizedResponse } from '@/lib/security/cronAuth';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
-    const authHeader = req.headers.get('authorization');
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!verifyCronAuth(req)) {
+        return unauthorizedResponse();
     }
 
     try {
@@ -49,7 +49,6 @@ export async function POST(req: NextRequest) {
 
             if (criticalFindings && criticalFindings.length > 0) {
                 for (const finding of criticalFindings) {
-                    // Simulation of alert creation
                     const { error: alertError } = await supabaseAdmin.from('alerts').insert({
                         organization_id: org.id,
                         title: `CRITICAL OSINT Finding: ${finding.type}`,

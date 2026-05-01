@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { scanEmailLeaks } from "@/lib/darkweb/leakScanner";
+import { verifyCronAuth, unauthorizedResponse } from "@/lib/security/cronAuth";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
+  if (!verifyCronAuth(req)) {
+    return unauthorizedResponse();
+  }
+
   try {
     const supabase = await createClient();
 
@@ -27,9 +32,6 @@ export async function GET(req: NextRequest) {
       if (memError) continue;
 
       // In a real scenario, we'd fetch actual emails from Clerk or a users table
-      // For now, we'll assume we can get emails from a hypothetical users table or clerk metadata
-      // Since I can't easily fetch all Clerk users here without a specific loop,
-      // I'll mock the email list or use a placeholder logic.
       const emails: string[] = []; // Populate with real emails in production
 
       if (emails.length > 0) {
@@ -37,7 +39,6 @@ export async function GET(req: NextRequest) {
         const results = await Promise.all(
           emails.map((email) => scanEmailLeaks(email)),
         );
-        // Save logic (similar to scan/route.ts)
         summary.push({ org: org.id, status: "scanned", count: emails.length });
       }
     }

@@ -6,15 +6,14 @@ import { checkDomainRegistration } from '@/lib/osint/domain-monitor';
 import { scanGitHub } from '@/lib/osint/github-scanner';
 import { checkWhoisChanges } from '@/lib/osint/whois-monitor';
 import { deliverWebhook } from '@/lib/webhooks/delivery';
+import { verifyCronAuth, unauthorizedResponse } from '@/lib/security/cronAuth';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
-  // 1. Verify CRON_SECRET
-  const authHeader = req.headers.get('authorization');
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!verifyCronAuth(req)) {
+    return unauthorizedResponse();
   }
 
   try {
@@ -97,7 +96,6 @@ export async function POST(req: NextRequest) {
         }
 
         // E. Check WHOIS Changes
-        // Fetch last WHOIS result from findings for this domain
         const { data: lastWhois } = await supabaseAdmin
           .from('osint_findings')
           .select('details')
@@ -127,7 +125,6 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// Allow GET for testing if needed (optional, depends on security preference)
 export async function GET(req: NextRequest) {
   return POST(req);
 }

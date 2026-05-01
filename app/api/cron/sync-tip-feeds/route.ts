@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { syncAllFeeds } from "@/lib/tip/feedManager";
 import { storeIOCs } from "@/lib/tip/iocStore";
+import { verifyCronAuth, unauthorizedResponse } from "@/lib/security/cronAuth";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
+  if (!verifyCronAuth(req)) {
+    return unauthorizedResponse();
+  }
+
   try {
     const iocs = await syncAllFeeds();
     await storeIOCs(iocs);
