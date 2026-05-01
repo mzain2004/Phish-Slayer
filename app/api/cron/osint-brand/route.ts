@@ -5,6 +5,7 @@ import { checkNewCerts } from '@/lib/osint/ct-monitor';
 import { checkDomainRegistration } from '@/lib/osint/domain-monitor';
 import { scanGitHub } from '@/lib/osint/github-scanner';
 import { checkWhoisChanges } from '@/lib/osint/whois-monitor';
+import { deliverWebhook } from '@/lib/webhooks/delivery';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -48,39 +49,51 @@ export async function POST(req: NextRequest) {
         // B. Check CT Logs
         const certs = await checkNewCerts(domain, permutations);
         for (const cert of certs) {
-           await supabaseAdmin.from('osint_findings').insert({
+           const finding = {
              organization_id: org.id,
              type: 'brand_impersonation',
              severity: 'MEDIUM',
              source: 'CT_LOG',
              details: cert
-           });
+           };
+           await supabaseAdmin.from('osint_findings').insert(finding);
+           if (finding.severity === 'HIGH') {
+             void deliverWebhook(org.id, 'osint.finding', finding);
+           }
         }
 
         // C. Check Domain Registration
         const domains = await checkDomainRegistration(permutations);
         for (const d of domains) {
           if (d.is_registered) {
-            await supabaseAdmin.from('osint_findings').insert({
+            const finding = {
               organization_id: org.id,
               type: 'brand_impersonation',
-              severity: d.severity,
+              severity: d.severity as 'LOW' | 'MEDIUM' | 'HIGH',
               source: 'DOMAIN_REG',
               details: d
-            });
+            };
+            await supabaseAdmin.from('osint_findings').insert(finding);
+            if (finding.severity === 'HIGH') {
+              void deliverWebhook(org.id, 'osint.finding', finding);
+            }
           }
         }
 
         // D. Scan GitHub
         const leaks = await scanGitHub(brandName, [domain]);
         for (const leak of leaks) {
-          await supabaseAdmin.from('osint_findings').insert({
+          const finding = {
             organization_id: org.id,
             type: 'credential_leak',
-            severity: leak.severity,
+            severity: leak.severity as 'LOW' | 'MEDIUM' | 'HIGH',
             source: 'GITHUB',
             details: leak
-          });
+          };
+          await supabaseAdmin.from('osint_findings').insert(finding);
+          if (finding.severity === 'HIGH') {
+            void deliverWebhook(org.id, 'osint.finding', finding);
+          }
         }
 
         // E. Check WHOIS Changes

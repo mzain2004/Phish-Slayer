@@ -3,6 +3,8 @@ import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
 import { createClerkSupabaseClient } from "@/lib/supabase/clerk-client";
 import { notifyExternalSystems } from "@/lib/connectors/index";
+import { apiSuccess, apiError, apiPaginated, API_CODES } from "@/lib/api/response";
+import { deliverWebhook } from "@/lib/webhooks/delivery";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -22,7 +24,7 @@ const createCaseSchema = z.object({
 
 export async function GET(req: Request) {
   const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!userId) return apiError(API_CODES.UNAUTHORIZED, "Unauthorized", 401);
 
   const { searchParams } = new URL(req.url);
   const orgId = searchParams.get('orgId');
@@ -30,31 +32,31 @@ export async function GET(req: Request) {
   const page = parseInt(searchParams.get('page') || '0');
   const limit = parseInt(searchParams.get('limit') || '20');
 
-  if (!orgId) return NextResponse.json({ error: "orgId is required" }, { status: 400 });
+  if (!orgId) return apiError(API_CODES.VALIDATION_ERROR, "orgId is required", 400);
 
   const supabase = await createClerkSupabaseClient();
   
   let query = supabase
     .from("cases")
-    .select("*")
+    .select("*", { count: 'exact' })
     .eq("organization_id", orgId);
 
   if (status) {
     query = query.eq("status", status);
   }
 
-  const { data, error } = await query
+  const { data, error, count } = await query
     .order("created_at", { ascending: false })
     .range(page * limit, (page + 1) * limit - 1);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return apiError(API_CODES.INTERNAL_ERROR, error.message, 500);
   
-  return NextResponse.json(data);
+  return apiPaginated(data || [], count || 0, page, limit);
 }
 
 export async function POST(req: Request) {
   const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!userId) return apiError(API_CODES.UNAUTHORIZED, "Unauthorized", 401);
 
   try {
     const body = await req.json();
@@ -71,7 +73,7 @@ export async function POST(req: Request) {
       .select()
       .single();
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return apiError(API_CODES.INTERNAL_ERROR, error.message, 500);
 
     // Initial timeline entry
     await supabase.from('case_timeline').insert({
@@ -84,8 +86,13 @@ export async function POST(req: Request) {
 
     void notifyExternalSystems(data.id, data.title, data.severity, `New case created: ${data.title}`, supabase);
 
-    return NextResponse.json(data, { status: 201 });
+    void deliverWebhook(validatedData.organization_id, 'case.created', data);
+
+    return apiSuccess(data);
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error instanceof z.ZodError) {
+      return apiError(API_CODES.VALIDATION_ERROR, "Validation failed", 400, error.issues);
+    }
+    return apiError(API_CODES.INTERNAL_ERROR, error.message, 500);
   }
 }

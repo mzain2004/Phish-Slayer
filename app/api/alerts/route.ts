@@ -1,13 +1,14 @@
 ﻿import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@/lib/supabase/server";
+import { apiSuccess, apiError, API_CODES } from "@/lib/api/response";
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function GET(req: Request) {
   const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!userId) return apiError(API_CODES.UNAUTHORIZED, "Unauthorized", 401);
 
   const supabase = await createClient();
 
@@ -19,7 +20,7 @@ export async function GET(req: Request) {
     .limit(1)
     .maybeSingle();
 
-  if (!membership) return NextResponse.json({ error: "No organization found" }, { status: 404 });
+  if (!membership) return apiError(API_CODES.NOT_FOUND, "No organization found", 404);
 
   const { data: alerts, error } = await supabase
     .from("alerts")
@@ -28,7 +29,7 @@ export async function GET(req: Request) {
     .order("queue_priority", { ascending: false })
     .order("created_at", { ascending: false });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return apiError(API_CODES.INTERNAL_ERROR, error.message, 500);
 
   // Add computed field: triage_age_seconds: seconds since created_at if not acknowledged
   const now = new Date();
@@ -39,5 +40,5 @@ export async function GET(req: Request) {
       : Math.floor((now.getTime() - new Date(alert.created_at).getTime()) / 1000)
   }));
 
-  return NextResponse.json(enhancedAlerts);
+  return apiSuccess(enhancedAlerts);
 }

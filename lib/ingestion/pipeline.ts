@@ -9,6 +9,7 @@ import { calculateSeverity } from "../agents/l1/severity-scorer";
 import { deduplicateAlert as deduplicateAlertEngine, fingerprintAlert } from "../agents/l1/correlator";
 import { matchWatchlist } from "../agents/l1/watchlist-matcher";
 import { checkQuota, incrementUsage } from "../quotas/enforcer";
+import { deliverWebhook } from "../webhooks/delivery";
 
 export class IngestionPipeline {
   private supabase: SupabaseClient;
@@ -143,7 +144,7 @@ export class IngestionPipeline {
     }
 
     // 4. Save to DB
-    await this.supabase.from('alerts').insert({
+    const alert = {
       id: udmEvent.id,
       org_id: udmEvent.org_id,
       source: udmEvent.data_source_type,
@@ -156,7 +157,12 @@ export class IngestionPipeline {
       cluster_id: clusterId || udmEvent.id,
       queue_priority: severityResult.score,
       created_at: new Date().toISOString()
-    });
+    };
+    await this.supabase.from('alerts').insert(alert);
+
+    if (alert.severity === 'CRITICAL') {
+      void deliverWebhook(udmEvent.org_id, 'alert.created', alert);
+    }
   }
 
   public async ingestEmail(): Promise<number> {

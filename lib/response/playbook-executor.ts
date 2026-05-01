@@ -2,6 +2,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 import { PlaybookStep, RunResult, ROLLBACK_MAPPING } from './playbook-types';
 import { dispatchStep } from './action-dispatcher';
 import { notify } from '@/lib/notifications/dispatcher';
+import { deliverWebhook } from '@/lib/webhooks/delivery';
 
 export async function executePlaybook(
     playbookId: string, 
@@ -53,6 +54,15 @@ export async function executePlaybook(
 
         const result = await dispatchStep(step, context);
         results.push({ step_id: step.id, ...result });
+
+        if (result.status === 'success' && ['block_ip', 'isolate_host', 'disable_account', 'quarantine_email', 'revoke_aws_key'].includes(step.type)) {
+            void deliverWebhook(orgId, 'containment.executed', { 
+                run_id: run.id, 
+                step_id: step.id, 
+                action: step.type, 
+                output: result.output 
+            });
+        }
 
         if (result.status === 'awaiting_approval') {
             await supabaseAdmin.from('playbook_runs').update({ status: 'AWAITING_APPROVAL', results }).eq('id', run.id);

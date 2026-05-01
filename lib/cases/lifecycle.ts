@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { validateClosure } from './checklist';
 import { notify } from '@/lib/notifications/dispatcher';
+import { deliverWebhook } from '@/lib/webhooks/delivery';
 
 export type CaseStatus = 'OPEN' | 'IN_PROGRESS' | 'CONTAINED' | 'REMEDIATED' | 'CLOSED' | 'ARCHIVED';
 
@@ -70,6 +71,10 @@ export async function advanceCaseStatus(caseId: string, orgId: string, newStatus
         case_id: caseId,
         message: `Case status changed to ${newStatus}: ${reason}`
     });
+
+    if (newStatus === 'CLOSED') {
+        void deliverWebhook(orgId, 'case.closed', { case_id: caseId, actor, reason });
+    }
 
     return { success: true, status: newStatus };
 }
