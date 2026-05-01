@@ -4,9 +4,10 @@ import { useEffect, useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { createClient } from "@/lib/supabase/client";
 import DashboardCard from "@/components/dashboard/DashboardCard";
-import { Loader2, ShieldAlert, CheckCircle, UserPlus, Ghost, ShieldOff, Activity } from "lucide-react";
+import { Loader2, ShieldAlert, CheckCircle, UserPlus, Ghost, ShieldOff, Activity, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import EmptyState from "@/components/ui/empty-state";
+import SkeletonLoader from "@/components/ui/skeleton-loader";
 
 type Alert = {
   id: string;
@@ -91,6 +92,8 @@ export default function AlertsPage() {
     setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
   };
 
+  if (loading) return <SkeletonLoader />;
+
   async function handleAcknowledge(id: string) {
     try {
       const res = await fetch(`/api/alerts/${id}/acknowledge`, { method: "POST" });
@@ -156,6 +159,7 @@ export default function AlertsPage() {
               disabled={isBulkProcessing}
               onClick={() => handleBulkAction('close')}
               className="text-[10px] font-bold hover:text-primary transition-colors uppercase disabled:opacity-50"
+              aria-label="Close selected alerts"
             >
               Close
             </button>
@@ -164,6 +168,7 @@ export default function AlertsPage() {
               disabled={isBulkProcessing}
               onClick={() => handleBulkAction('suppress')}
               className="text-[10px] font-bold hover:text-primary transition-colors uppercase disabled:opacity-50"
+              aria-label="Suppress selected alerts"
             >
               Suppress
             </button>
@@ -172,6 +177,7 @@ export default function AlertsPage() {
               disabled={isBulkProcessing}
               onClick={() => handleBulkAction('mark_fp')}
               className="text-[10px] font-bold hover:text-primary transition-colors uppercase disabled:opacity-50"
+              aria-label="Mark selected alerts as false positive"
             >
               Mark FP
             </button>
@@ -241,7 +247,8 @@ export default function AlertsPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold border uppercase ${getSeverityColor(alert.severity_level)}`}>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold border uppercase flex items-center gap-1 w-fit ${getSeverityColor(alert.severity_level)}`}>
+                        {alert.severity_level >= 13 && <AlertCircle className="w-3 h-3" aria-hidden="true" />}
                         Level {alert.severity_level}
                       </span>
                     </td>
@@ -271,6 +278,7 @@ export default function AlertsPage() {
                           <button 
                             onClick={() => handleAcknowledge(alert.id)}
                             className="bg-primary hover:bg-primary/90 text-white px-3 py-1 rounded text-xs font-bold"
+                            aria-label={`Acknowledge alert ${alert.title}`}
                           >
                             ACK
                           </button>
@@ -279,6 +287,7 @@ export default function AlertsPage() {
                           className="bg-white/5 border border-white/10 rounded px-2 py-1 text-xs outline-none focus:border-primary"
                           value={alert.assigned_to || ""}
                           onChange={(e) => handleAssign(alert.id, e.target.value)}
+                          aria-label={`Assign alert ${alert.title}`}
                         >
                           <option value="">Assign...</option>
                           {analysts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -286,6 +295,7 @@ export default function AlertsPage() {
                         <button 
                           onClick={() => handleMarkFP(alert.id)}
                           title="Mark as False Positive"
+                          aria-label="Mark as false positive"
                           className="p-1.5 rounded hover:bg-red-500/20 text-white/40 hover:text-red-400 transition-all"
                         >
                           <Ghost className="w-4 h-4" />
@@ -293,6 +303,7 @@ export default function AlertsPage() {
                         <a 
                           href={`/dashboard/entity360?type=ip&value=${alert.source_ip}`}
                           title="Investigate Entity 360"
+                          aria-label="Investigate entity"
                           className="p-1.5 rounded hover:bg-cyan-500/20 text-white/40 hover:text-cyan-400 transition-all"
                         >
                           <Activity className="w-4 h-4" />
@@ -309,6 +320,7 @@ export default function AlertsPage() {
                             }
                           }}
                           title="Block IP"
+                          aria-label="Block source IP"
                           className="p-1.5 rounded hover:bg-red-500/20 text-white/40 hover:text-red-500 transition-all"
                         >
                           <ShieldOff className="w-4 h-4" />

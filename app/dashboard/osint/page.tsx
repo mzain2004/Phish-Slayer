@@ -7,6 +7,7 @@ import DashboardCard from "@/components/dashboard/DashboardCard";
 import { Loader2, Search, Zap, History, Shield, AlertTriangle, FileText, ChevronDown, ChevronUp, Database, SearchIcon } from "lucide-react";
 import { toast } from "sonner";
 import EmptyState from "@/components/ui/empty-state";
+import SkeletonLoader from "@/components/ui/skeleton-loader";
 
 export default function OsintPage() {
   const { user } = useUser();
@@ -32,6 +33,8 @@ export default function OsintPage() {
     }
     loadOrg();
   }, [user]);
+
+  if (!orgId) return <SkeletonLoader />;
 
   async function fetchHistory(id: string) {
     const res = await fetch(`/api/osint/history?organizationId=${id}`);
@@ -108,23 +111,29 @@ export default function OsintPage() {
                   className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-primary"
                   value={type}
                   onChange={e => setType(e.target.value)}
+                  aria-label="Target type"
                 >
                   <option value="domain">Domain</option>
                   <option value="ip">IP Address</option>
                   <option value="email">Email</option>
                   <option value="hash">File Hash</option>
                 </select>
-                <input 
-                  className="flex-1 bg-white/5 border border-white/10 rounded-xl px-6 py-3 text-sm outline-none focus:border-primary placeholder:text-white/20"
-                  placeholder="Enter target value (e.g. example.com or 1.1.1.1)..."
-                  value={value}
-                  onChange={e => setValue(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && startInvestigation()}
-                />
+                <div className="flex-1 relative">
+                  <label htmlFor="target-value" className="sr-only">Target value</label>
+                  <input 
+                    id="target-value"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-6 py-3 text-sm outline-none focus:border-primary placeholder:text-white/20"
+                    placeholder="Enter target value (e.g. example.com or 1.1.1.1)..."
+                    value={value}
+                    onChange={e => setValue(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && startInvestigation()}
+                  />
+                </div>
                 <button 
                   onClick={startInvestigation}
                   disabled={status === 'running'}
                   className="bg-primary hover:bg-primary/90 text-white px-8 py-3 rounded-xl font-black flex items-center gap-2 transition-all disabled:opacity-50"
+                  aria-label="Start OSINT investigation"
                 >
                   {status === 'running' ? <Loader2 className="animate-spin w-5 h-5" /> : "INVESTIGATE"}
                 </button>

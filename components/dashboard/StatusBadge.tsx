@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { AlertCircle, AlertTriangle, CheckCircle2, ShieldEllipsis, Clock } from "lucide-react";
 
 type StatusTone = "critical" | "warning" | "healthy" | "escalated" | "pending";
 
@@ -48,14 +49,25 @@ export default function StatusBadge({
   const normalized = normalizeStatus(status);
   const displayLabel = label || status.replace(/_/g, " ");
 
+  const icons: Record<StatusTone, any> = {
+    critical: AlertCircle,
+    warning: AlertTriangle,
+    healthy: CheckCircle2,
+    escalated: ShieldEllipsis,
+    pending: Clock,
+  };
+
+  const Icon = icons[normalized];
+
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full border px-2.5 py-1 text-xs uppercase tracking-widest",
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-widest",
         statusStyles[normalized],
         className,
       )}
     >
+      <Icon className="h-3 w-3" aria-hidden="true" />
       {displayLabel}
     </span>
   );

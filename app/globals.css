@@ -17,7 +17,7 @@
     --secondary: 217 33% 17%;
     --secondary-foreground: 210 40% 98%;
     --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 65%;
+    --muted-foreground: 215 16% 70%;
     --accent: 217 33% 17%;
     --accent-foreground: 210 40% 98%;
     --destructive: 0 84% 60%;
@@ -50,6 +50,11 @@
   pre,
   .font-mono {
     font-family: "JetBrains Mono", "Fira Code", monospace;
+  }
+
+  *:focus-visible {
+    outline: 2px solid #7c6af7;
+    outline-offset: 2px;
   }
 }
 

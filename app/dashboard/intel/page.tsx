@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import DashboardCard from '@/components/dashboard/DashboardCard';
-import { Database, Zap, RefreshCw, AlertTriangle, Search, Filter, ChevronLeft, ChevronRight, Binary } from 'lucide-react';
+import { Database, Zap, RefreshCw, AlertTriangle, Search, Filter, ChevronLeft, ChevronRight, Binary, ShieldAlert } from 'lucide-react';
 import EmptyState from "@/components/ui/empty-state";
+import SkeletonLoader from "@/components/ui/skeleton-loader";
 
 const PAGE_SIZE = 25;
 
@@ -59,17 +60,7 @@ export default function ThreatIntelPage() {
   }, [page, typeFilter, severityFilter]);
 
   if (loading && page === 1) {
-    return (
-      <div className="flex flex-col gap-6 animate-pulse">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map(i => (
-            <div key={i} className="h-24 bg-white/5 rounded-xl border border-white/10" />
-          ))}
-        </div>
-        <div className="h-20 bg-white/5 rounded-xl border border-white/10" />
-        <div className="h-96 bg-white/5 rounded-xl border border-white/10" />
-      </div>
-    );
+    return <SkeletonLoader />;
   }
 
   return (
@@ -141,8 +132,10 @@ export default function ThreatIntelPage() {
       <DashboardCard className="p-4 flex flex-col md:flex-row gap-4 items-center justify-between">
         <div className="flex items-center gap-4 w-full md:w-auto">
           <div className="relative flex-1 md:w-64">
+            <label htmlFor="intel-search" className="sr-only">Search indicators</label>
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
             <input 
+              id="intel-search"
               type="text" 
               placeholder="Search indicators..." 
               className="w-full pl-10 pr-4 py-2 bg-white/5 border border-white/10 rounded-lg text-sm focus:outline-none focus:border-[#22d3ee]/50"
@@ -154,6 +147,7 @@ export default function ThreatIntelPage() {
               value={typeFilter}
               onChange={(e) => { setTypeFilter(e.target.value); setPage(1); }}
               className="bg-white/5 border border-white/10 rounded-lg text-sm px-3 py-2 outline-none"
+              aria-label="Filter by type"
             >
               <option value="all">All Types</option>
               <option value="ip">IP Address</option>
@@ -165,6 +159,7 @@ export default function ThreatIntelPage() {
               value={severityFilter}
               onChange={(e) => { setSeverityFilter(e.target.value); setPage(1); }}
               className="bg-white/5 border border-white/10 rounded-lg text-sm px-3 py-2 outline-none"
+              aria-label="Filter by severity"
             >
               <option value="all">All Severities</option>
               <option value="high">High</option>
@@ -182,6 +177,7 @@ export default function ThreatIntelPage() {
               onClick={() => setPage(p => Math.max(1, p - 1))}
               disabled={page === 1}
               className="p-2 border border-white/10 rounded-lg hover:bg-white/5 disabled:opacity-50"
+              aria-label="Previous page"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -189,6 +185,7 @@ export default function ThreatIntelPage() {
               onClick={() => setPage(p => p + 1)}
               disabled={page * PAGE_SIZE >= totalCount}
               className="p-2 border border-white/10 rounded-lg hover:bg-white/5 disabled:opacity-50"
+              aria-label="Next page"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
@@ -236,11 +233,12 @@ export default function ThreatIntelPage() {
                       {ioc.source}
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`badge ${
+                      <span className={`badge flex items-center gap-1 w-fit ${
                         ioc.severity?.toLowerCase() === 'high' ? 'badge-risk' :
                         ioc.severity?.toLowerCase() === 'medium' ? 'badge-medium' :
                         'badge-info'
                       }`}>
+                        {ioc.severity?.toLowerCase() === 'high' && <ShieldAlert className="w-3 h-3" aria-hidden="true" />}
                         {ioc.severity}
                       </span>
                     </td>

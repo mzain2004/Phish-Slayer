@@ -11,9 +11,11 @@ import {
   AlertCircle,
   Loader2,
   RefreshCw,
-  FolderOpen
+  FolderOpen,
+  AlertTriangle
 } from "lucide-react";
 import EmptyState from "@/components/ui/empty-state";
+import SkeletonLoader from "@/components/ui/skeleton-loader";
 
 interface Case {
   id: string;
@@ -53,15 +55,15 @@ export default function CasesDashboard() {
   const getSeverityStyles = (severity: string) => {
     switch (severity.toLowerCase()) {
       case "p1":
-        return { bg: "bg-[#ff4d4f]/10", text: "text-[#ff4d4f]", border: "border-[#ff4d4f]/30", label: "Critical" };
+        return { bg: "bg-[#ff4d4f]/10", text: "text-[#ff4d4f]", border: "border-[#ff4d4f]/30", label: "Critical", icon: AlertTriangle };
       case "p2":
-        return { bg: "bg-[#f5a623]/10", text: "text-[#f5a623]", border: "border-[#f5a623]/30", label: "High" };
+        return { bg: "bg-[#f5a623]/10", text: "text-[#f5a623]", border: "border-[#f5a623]/30", label: "High", icon: AlertTriangle };
       case "p3":
-        return { bg: "bg-yellow-400/10", text: "text-yellow-400", border: "border-yellow-400/30", label: "Medium" };
+        return { bg: "bg-yellow-400/10", text: "text-yellow-400", border: "border-yellow-400/30", label: "Medium", icon: ShieldAlert };
       case "p4":
-        return { bg: "bg-gray-400/10", text: "text-gray-400", border: "border-gray-400/30", label: "Low" };
+        return { bg: "bg-gray-400/10", text: "text-gray-400", border: "border-gray-400/30", label: "Low", icon: ShieldAlert };
       default:
-        return { bg: "bg-gray-500/10", text: "text-gray-500", border: "border-gray-500/30", label: severity };
+        return { bg: "bg-gray-500/10", text: "text-gray-500", border: "border-gray-500/30", label: severity, icon: ShieldAlert };
     }
   };
 
@@ -76,12 +78,7 @@ export default function CasesDashboard() {
   };
 
   if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        <p className="text-[#8B949E] text-sm font-medium animate-pulse">Synchronizing case vault...</p>
-      </div>
-    );
+    return <SkeletonLoader />;
   }
 
   if (error) {
@@ -107,18 +104,26 @@ export default function CasesDashboard() {
       {/* Filters & Actions */}
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between glass p-4">
         <div className="relative w-full md:w-96">
+          <label htmlFor="case-search" className="sr-only">Search cases, IPs, or alerts</label>
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8B949E]" />
           <input 
+            id="case-search"
             type="text" 
             placeholder="SEARCH CASES, IPS, OR ALERTS..."
             className="w-full bg-black/40 border border-white/10 rounded-lg py-2 pl-10 pr-4 text-xs font-mono text-white focus:border-primary/50 outline-none transition-all placeholder:text-[#8B949E]"
           />
         </div>
         <div className="flex items-center gap-2 w-full md:w-auto">
-          <button className="flex-1 md:flex-none px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all flex items-center justify-center gap-2">
+          <button 
+            aria-label="Filter cases"
+            className="flex-1 md:flex-none px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all flex items-center justify-center gap-2"
+          >
             <Filter className="w-3 h-3" /> Filter
           </button>
-          <button className="flex-1 md:flex-none px-4 py-2 bg-primary border border-primary/20 rounded-lg text-white text-[10px] font-black uppercase tracking-widest hover:bg-primary/90 transition-all shadow-lg shadow-primary/20">
+          <button 
+            aria-label="Create new case"
+            className="flex-1 md:flex-none px-4 py-2 bg-primary border border-primary/20 rounded-lg text-white text-[10px] font-black uppercase tracking-widest hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
+          >
             + New Case
           </button>
         </div>
@@ -161,7 +166,8 @@ export default function CasesDashboard() {
                         </div>
                       </td>
                       <td className="px-6 py-5">
-                        <span className={`px-2.5 py-1 rounded text-[10px] font-black uppercase tracking-wider border ${sev.bg} ${sev.text} ${sev.border}`}>
+                        <span className={`px-2.5 py-1 rounded text-[10px] font-black uppercase tracking-wider border flex items-center gap-1 w-fit ${sev.bg} ${sev.text} ${sev.border}`}>
+                          <sev.icon className="w-3 h-3" aria-hidden="true" />
                           {sev.label}
                         </span>
                       </td>
@@ -198,7 +204,10 @@ export default function CasesDashboard() {
                         </div>
                       </td>
                       <td className="px-6 py-5 text-right">
-                        <button className="p-2 hover:bg-white/10 rounded-full transition-all text-[#8B949E] hover:text-white">
+                        <button 
+                          aria-label={`View details for case ${item.title}`}
+                          className="p-2 hover:bg-white/10 rounded-full transition-all text-[#8B949E] hover:text-white"
+                        >
                           <ChevronRight className="w-5 h-5" />
                         </button>
                       </td>

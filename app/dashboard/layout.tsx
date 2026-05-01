@@ -90,6 +90,9 @@ export default function DashboardLayout({
       loadingFallback={loadingFallback}
       onUserChange={handleUserChange}
     >
+      <a href="#main" className="sr-only focus:not-sr-only fixed top-4 left-4 z-[100] bg-[#7c6af7] text-white px-4 py-2 rounded-lg font-bold">
+        Skip to main content
+      </a>
       <div
         className="dashboard-theme relative min-h-screen overflow-hidden text-white"
         style={{
@@ -142,7 +145,7 @@ export default function DashboardLayout({
             </div>
           </header>
 
-          <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+          <main id="main" className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
             <DashboardErrorBoundary>
               <div className="grid gap-6 p-6">{children}</div>
             </DashboardErrorBoundary>

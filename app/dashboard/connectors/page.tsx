@@ -84,6 +84,7 @@ export default function ConnectorsPage() {
             <button 
               onClick={() => setConfiguring(connector)}
               className="p-2 bg-white/5 border border-white/10 rounded-lg hover:bg-[#22d3ee]/10 hover:text-[#22d3ee] transition-all"
+              aria-label={`Configure ${connector.name}`}
             >
               <Settings className="w-4 h-4" />
             </button>
@@ -102,15 +103,20 @@ export default function ConnectorsPage() {
                 </div>
                 <h2 className="text-xl font-bold text-white">Configure {configuring.name}</h2>
               </div>
-              <button onClick={() => { setConfiguring(null); setApiKey(''); }} className="text-gray-500 hover:text-white">
+              <button 
+                onClick={() => { setConfiguring(null); setApiKey(''); }} 
+                className="text-gray-500 hover:text-white"
+                aria-label="Close configuration modal"
+              >
                 <XCircle className="w-6 h-6" />
               </button>
             </div>
 
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-2">
-                <label className="text-xs font-bold uppercase tracking-widest text-gray-400">API Key / Token</label>
+                <label htmlFor="api-key" className="text-xs font-bold uppercase tracking-widest text-gray-400">API Key / Token</label>
                 <input 
+                  id="api-key"
                   type="password" 
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
