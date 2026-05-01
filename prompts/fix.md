@@ -1,37 +1,43 @@
 @GEMINI.md @graph.md
-New session. Read files. State sprint. Check detection_rules table. BUILD MUST PASS.
+New session. Read files. State sprint. BUILD MUST PASS.
 USE SUPABASE CONNECTOR FOR ALL MIGRATIONS.
 
-Sprint 12: Detection Engineering + Sigma Lifecycle + AI Rule Generator.
+Sprint 13: SOC Performance Metrics + Org Risk Score.
 
-PART 1 — SIGMA LIFECYCLE
-Update detection_rules table (ALTER existing):
-Ensure columns: status('staging'|'testing'|'active'|'retired'), fp_count, tp_count, last_tested_at, sigma_yaml(TEXT).
+PART 1 — TIME METRICS CALCULATOR
+/lib/metrics/calculator.ts
+async function calculateMTTD(orgId: string, period: '24h'|'7d'|'30d'): Promise<number>
+Query alerts: AVG(extract(epoch from (created_at - timestamp_utc))). Return in seconds.
 
-PART 2 — AI SIGMA GENERATOR
-/lib/detection/sigma-generator.ts
-async function generateSigmaRule(huntFinding: string, logSample: string): Promise<string>
-Prompt Groq: "Write a Sigma YAML rule for this security finding. Output ONLY valid YAML."
-Validate YAML structure (must have title, id, status, description, logsource, detection, level).
-If invalid, retry once. If still invalid, return null.
+async function calculateMTTR(orgId: string, period): Promise<number>
+Query cases: AVG(extract(epoch from (completed_at - created_at))) WHERE status='CLOSED'.
 
-PART 3 — RULE TRANSLATOR
-/lib/detection/rule-translator.ts
-async function translateSigma(sigmaYaml: string, target: 'splunk'|'kql'|'esql'): Promise<string>
-Prompt Groq: "Convert this Sigma YAML to {target} query. Output ONLY the query string."
-Return string.
+async function calculateFPRate(orgId: string): Promise<number>
+Query detection_rules: SUM(fp_count) / NULLIF(SUM(fp_count + tp_count), 0).
 
-PART 4 — PERFORMANCE TRACKER
-/lib/detection/performance.ts
-async function updateRulePerformance(ruleId: string, isTruePositive: boolean, orgId: string)
-UPDATE detection_rules SET tp_count = tp_count + 1 (or fp_count).
-If fp_count > 10 AND (fp_count / (fp_count + tp_count)) > 0.8: auto-set status = 'retired', log reason.
+PART 2 — ORG RISK SCORE
+/lib/metrics/risk-score.ts
+async function calculateOrgRiskScore(orgId: string): Promise<number>
+Composite score (0-100, higher = worse risk):
+- Open CRITICAL alerts * 5
+- Open HIGH alerts * 3
+- Unpatched KEV CVEs * 10
+- MTTR > 24h ? +15 : 0
+- MITRE coverage < 30% ? +20 : 0
+- SLA breaches last 7d * 8
+Cap at 100. Store in organizations.org_risk_score (add column if missing). Update daily via cron.
+
+PART 3 — METRICS STORAGE
+Check/Create metrics_timeseries table:
+id, org_id(RLS), metric_name, metric_value, recorded_at.
+Insert metrics daily.
+
+PART 4 — CRON
+/app/api/cron/metrics/route.ts
+CRON_SECRET auth. Calculate all metrics for all orgs. Insert into timeseries. Update org risk score.
 
 PART 5 — ROUTES
-GET /api/detection/rules — list rules with FP/TP stats (auth+org).
-POST /api/detection/rules/generate — AI generate from text (auth+org).
-POST /api/detection/rules/validate — test YAML syntax (auth+org).
-POST /api/detection/rules/[id]/translate — translate to backend query (auth+org).
-POST /api/detection/rules/[id]/feedback — submit TP/FP (auth+org).
+GET /api/metrics/summary — MTTD, MTTR, FP Rate, Risk Score (auth+org).
+GET /api/metrics/trends?metric=mtrr&period=30d — timeseries data (auth+org).
 
-FINAL: npm run build. git commit -m "feat(detection): Sprint 12 Sigma lifecycle, AI generation, FP/TP tracking". git push.
+FINAL: npm run build. git commit -m "feat(metrics): Sprint 13 MTTD/MTTR calculation, org risk score composite". git push.
