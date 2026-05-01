@@ -25,7 +25,7 @@ export async function GET(req: Request) {
   const { data, error } = await supabase
     .from("knowledge_base")
     .select("*")
-    .eq("organization_id", organizationId)
+    .or(`organization_id.eq.${organizationId},organization_id.is.null`)
     .order("created_at", { ascending: false });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

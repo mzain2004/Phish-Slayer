@@ -1,12 +1,12 @@
-# Phish-Slayer v2
+# PhishSlayer v2
 
-Phish-Slayer v2 is an enterprise AI security platform for Blue Team operations focused on one core outcome: restoring identity continuity across fragmented telemetry.
+PhishSlayer v2 is an enterprise AI security platform for Blue Team operations focused on one core outcome: restoring identity continuity across fragmented telemetry.
 
 ## Executive Summary
 
 Most SOC stacks optimize for alert volume and alert speed. That approach still leaves analysts with disconnected evidence and slow incident resolution.
 
-Phish-Slayer v2 shifts the operating model from "more alerts" to "coherent incident lineage." Every high-signal incident must resolve into a strict session sequence:
+PhishSlayer v2 shifts the operating model from "more alerts" to "coherent incident lineage." Every high-signal incident must resolve into a strict session sequence:
 
 Who -> Device -> Auth Context -> Privilege -> Action -> Impact
 
@@ -36,20 +36,42 @@ If that chain is incomplete, the incident is incomplete.
 
 ## Documentation Index (Single Source of Truth)
 
-- [ARCHITECTURE_v2.md](ARCHITECTURE_v2.md): v2 engine internals, data flow, normalization, and infrastructure constraints.
-- [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md): unbreakable UI rules under the Motionsites protocol.
-- [ROADMAP.md](ROADMAP.md): execution plan for engineering delivery.
+- [ARCHITECTURE.md](docs/ARCHITECTURE.md): Platform internals, agent tiers, and the 12-layer SOC autonomy model.
+- [DEPLOYMENT.md](docs/DEPLOYMENT.md): Step-by-step Azure VM and Docker guide.
+- [API_QUICK_START.md](docs/API_QUICK_START.md): 3-minute guide for developers.
+
+## Quick Deploy (Azure VM)
+
+```bash
+ssh mzain2004@40.123.224.93
+cd ~/Phish-Slayer && git pull origin main
+docker-compose up -d --build
+```
+
+## API Documentation
+
+Full interactive Swagger UI is available at [phishslayer.tech/api-docs](https://phishslayer.tech/api-docs).  
+Developer portal: [phishslayer.tech/developer](https://phishslayer.tech/developer).
+
+## Sprint Status
+
+| Sprint | Goal | Status |
+|--------|------|--------|
+| 15 | Marketplace & API Keys | ✅ |
+| 16 | Webhooks & OpenAPI | ✅ |
+| 17 | Onboarding & UI Polish | ✅ |
+| 18 | Polar Billing & Gating | ✅ |
+| 19 | Vitest & Critical Path | ✅ |
+| 20 | DB Indexes & Performance | ✅ |
+| 21 | Security Hardening | ✅ |
+| 22 | Accessibility & UX | ✅ |
+| 23 | Knowledge Base & Portal | ✅ |
 
 ## Product Boundaries
-
-In scope for v2:
-
-- Identity stitching and sequence enforcement.
-- Interactive SPA investigation dashboard.
-- MTTR-focused workflows and reliability instrumentation.
-
-Out of scope for v2:
-
-- Feature work that increases alert volume without improving identity continuity.
-- Unbounded background scans that increase cloud/API cost without measurable MTTR reduction.
+...
 - Detached static pages that are not integrated into the investigation flow.
+
+## License + Contributing
+
+Proprietary License. All rights reserved. 
+Contributions must follow the **Agent Rules** defined in `GEMINI.md`.
