@@ -29,8 +29,9 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const orgId = searchParams.get('orgId');
   const status = searchParams.get('status');
-  const page = parseInt(searchParams.get('page') || '0');
-  const limit = parseInt(searchParams.get('limit') || '20');
+  const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
+  const limit = Math.min(200, Math.max(1, parseInt(searchParams.get('limit') || '50')));
+  const offset = (page - 1) * limit;
 
   if (!orgId) return apiError(API_CODES.VALIDATION_ERROR, "orgId is required", 400);
 
@@ -38,7 +39,7 @@ export async function GET(req: Request) {
   
   let query = supabase
     .from("cases")
-    .select("*", { count: 'exact' })
+    .select("id, organization_id, title, status, severity, alert_type, affected_asset, created_at, closed_at, sla_deadline", { count: 'exact' })
     .eq("organization_id", orgId);
 
   if (status) {
@@ -47,7 +48,7 @@ export async function GET(req: Request) {
 
   const { data, error, count } = await query
     .order("created_at", { ascending: false })
-    .range(page * limit, (page + 1) * limit - 1);
+    .range(offset, offset + limit - 1);
 
   if (error) return apiError(API_CODES.INTERNAL_ERROR, error.message, 500);
   
