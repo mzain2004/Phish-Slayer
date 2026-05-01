@@ -19,14 +19,25 @@ export async function POST(request: NextRequest) {
   try {
     const rawBody = await request.text();
     
-    // Process asynchronously to return 200 fast
     const supabase = await createClient();
     const pipeline = new IngestionPipeline(supabase);
     
-    pipeline.ingestEvent(rawBody, connectorId, orgId).catch(console.error);
-
-    return NextResponse.json({ success: true, message: "Accepted" }, { status: 200 });
+    try {
+      await pipeline.ingestEvent(rawBody, connectorId, orgId);
+      return NextResponse.json({ success: true, message: "Accepted" }, { status: 200 });
+    } catch (err: any) {
+      if (err.message.startsWith('quota_exceeded')) {
+        const [_, limit] = err.message.split(':');
+        return NextResponse.json({ 
+          error: 'quota_exceeded', 
+          metric: 'alerts_processed', 
+          limit: parseInt(limit) 
+        }, { status: 429 });
+      }
+      throw err;
+    }
   } catch (error) {
+    console.error("[ingest:webhook] Error:", error);
     return NextResponse.json({ error: "Server Error" }, { status: 500 });
   }
 }

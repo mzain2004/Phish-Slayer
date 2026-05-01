@@ -8,6 +8,7 @@ import { orchestrateEnrichment } from "../agents/enrichment/enrichment-orchestra
 import { calculateSeverity } from "../agents/l1/severity-scorer";
 import { deduplicateAlert as deduplicateAlertEngine, fingerprintAlert } from "../agents/l1/correlator";
 import { matchWatchlist } from "../agents/l1/watchlist-matcher";
+import { checkQuota, incrementUsage } from "../quotas/enforcer";
 
 export class IngestionPipeline {
   private supabase: SupabaseClient;
@@ -22,6 +23,12 @@ export class IngestionPipeline {
     orgId: string,
     format?: string
   ): Promise<UDMEvent> {
+    // 0. Quota Check
+    const quota = await checkQuota(orgId, 'alerts_per_day');
+    if (!quota.allowed) {
+      throw new Error(`quota_exceeded:${quota.limit}`);
+    }
+
     const rawStr = typeof raw === 'string' ? raw : raw.toString('utf-8');
     const autoFormat = format && format !== 'unknown' ? format : detectFormat(rawStr);
     
@@ -51,6 +58,9 @@ export class IngestionPipeline {
     if (insertError) {
       console.error("[pipeline] Failed to insert UDM event", insertError);
     }
+
+    // 5.1 Increment Usage
+    await incrementUsage(orgId, 'alerts_per_day');
 
     // 6. Update Connector Health
     await updateConnectorHealth(connectorId, orgId);

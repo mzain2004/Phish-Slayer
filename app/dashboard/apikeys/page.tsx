@@ -12,284 +12,267 @@ import {
   EyeOff,
   Terminal,
   Loader2,
+  Plus,
+  ShieldAlert,
 } from "lucide-react";
-import {
-  getUser,
-  generateApiKey,
-  revokeApiKey,
-} from "@/lib/supabase/auth-actions";
-import { useTier } from "@/hooks/useTier";
-import { UpgradeBanner } from "@/components/ui/UpgradeBanner";
-import PhishButton from "@/components/ui/PhishButton";
+import { useOrganization } from "@clerk/nextjs";
 import DashboardCard from "@/components/dashboard/DashboardCard";
+import StatusBadge from "@/components/dashboard/StatusBadge";
+import PhishButton from "@/components/ui/PhishButton";
+
+type ApiKey = {
+  id: string;
+  name: string;
+  key_prefix: string;
+  scopes: string[];
+  last_used_at: string | null;
+  expires_at: string | null;
+  is_active: boolean;
+  created_at: string;
+};
 
 export default function ApiKeysPage() {
-  const [apiKey, setApiKey] = useState<string | null>(null);
-  const [apiKeyLast4, setApiKeyLast4] = useState<string | null>(null);
-  const [showKey, setShowKey] = useState(false);
-  const [loaded, setLoaded] = useState(false);
-  const [isPending, startTransition] = useTransition();
-  const { limits, isSuperAdmin, loading: tierLoading } = useTier();
+  const { organization, isLoaded: orgLoaded } = useOrganization();
+  const orgId = organization?.id;
+  const [keys, setKeys] = useState<ApiKey[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [newKey, setNewKey] = useState<string | null>(null);
+  const [isGenerating, startTransition] = useTransition();
+  const [keyName, setKeyName] = useState("");
 
-  const fetchKey = async () => {
-    const user = await getUser();
-    setApiKey(null);
-    setApiKeyLast4(user?.apiKeyLast4 || null);
-    setLoaded(true);
-  };
-
-  useEffect(() => {
-    fetchKey();
-  }, []);
-
-  const handleCopy = () => {
-    if (apiKey) {
-      navigator.clipboard.writeText(apiKey);
-      toast.success("API Key copied to clipboard.");
+  const fetchKeys = async () => {
+    if (!orgId) return;
+    setLoading(true);
+    try {
+      const res = await fetch("/api/settings/api-keys");
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setKeys(data);
+      }
+    } catch (err) {
+      toast.error("Failed to load API keys");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleGenerate = () => {
-    startTransition(async () => {
-      const result = await generateApiKey();
-      if (result.error) toast.error(result.error);
-      else {
-        toast.success("New API key generated.");
-        setApiKey(result.key || null);
-        setApiKeyLast4(result.key ? result.key.slice(-4) : null);
-      }
-    });
-  };
+  useEffect(() => {
+    if (orgLoaded && orgId) {
+      fetchKeys();
+    }
+  }, [orgLoaded, orgId]);
 
-  const handleRevoke = () => {
-    if (
-      !confirm(
-        "Are you sure you want to revoke this API key? Integrations using it will break instantly.",
-      )
-    )
+  const handleGenerate = async () => {
+    if (!keyName.trim()) {
+      toast.error("Please provide a name for the key");
       return;
+    }
 
     startTransition(async () => {
-      const result = await revokeApiKey();
-      if (result.error) toast.error(result.error);
-      else {
-        toast.success("API key revoked.");
-        setApiKey(null);
-        setApiKeyLast4(null);
+      try {
+        const res = await fetch("/api/settings/api-keys", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: keyName, scopes: ["all"] }),
+        });
+        const data = await res.json();
+        if (data.key) {
+          setNewKey(data.key);
+          setKeyName("");
+          toast.success("API key generated successfully");
+          fetchKeys();
+        } else {
+          toast.error(data.error || "Failed to generate key");
+        }
+      } catch (err) {
+        toast.error("An error occurred");
       }
     });
   };
 
-  const cardHover = {
-    whileHover: {
-      scale: 1.02,
-      boxShadow: "0 8px 32px rgba(45,212,191,0.15)",
-    },
-    transition: { type: "spring" as const, stiffness: 300, damping: 20 },
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to revoke this key?")) return;
+
+    try {
+      const res = await fetch(`/api/settings/api-keys/${id}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        toast.success("Key revoked");
+        setKeys(keys.filter((k) => k.id !== id));
+      } else {
+        toast.error("Failed to revoke key");
+      }
+    } catch (err) {
+      toast.error("An error occurred");
+    }
   };
 
-  if (!loaded || tierLoading)
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success("Copied to clipboard");
+  };
+
+  if (!orgLoaded || (orgId && loading)) {
     return (
       <div className="flex justify-center py-20">
-        <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
+        <Loader2 className="w-8 h-8 animate-spin text-[#7c6af7]" />
       </div>
     );
+  }
 
-  if (!limits.canUsePublicAPI && !isSuperAdmin) {
+  if (!orgId) {
     return (
-      <div className="text-white font-sans min-h-screen pt-20">
-        <UpgradeBanner
-          feature="Public REST API Access"
-          requiredTier="SOC Pro"
-        />
+      <div className="text-center py-20 text-slate-400">
+        Please select an organization to manage API keys.
       </div>
     );
   }
 
   return (
-    <div className="max-w-5xl w-full flex flex-col font-sans">
-      <div className="mb-8">
-        <h1 className="dashboard-page-title text-white tracking-tight flex items-center gap-3">
-          <Key className="w-8 h-8 text-teal-600" />
+    <div className="max-w-6xl w-full flex flex-col space-y-6">
+      <div>
+        <h1 className="dashboard-page-title text-white flex items-center gap-3">
+          <Key className="w-8 h-8 text-[#7c6af7]" />
           API Keys
         </h1>
-        <p className="text-[#8B949E] mt-2 text-sm">
-          Manage your programmatic access to the Phish-Slayer REST endpoints.
+        <p className="text-slate-400 mt-2 text-sm">
+          Manage programmatic access to PhishSlayer for your organization.
         </p>
       </div>
 
-      <motion.div {...cardHover} className="mb-8 h-full">
-        <DashboardCard className="overflow-hidden bg-black p-0">
-          <div className="flex items-center justify-between border-b border-white/10 p-6">
-            <h3 className="text-lg font-semibold text-[#e6edf3]">
-              Production Key
-            </h3>
-            {!apiKeyLast4 && (
-              <PhishButton
-                onClick={handleGenerate}
-                disabled={isPending}
-                className="flex items-center gap-2 rounded-lg bg-[#2dd4bf] px-4 py-2 text-sm font-bold text-black transition-colors hover:bg-teal-400 disabled:opacity-50"
-              >
-                {isPending ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="w-4 h-4" />
-                )}
-                Generate Key
-              </PhishButton>
-            )}
-          </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
+          {newKey && (
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-4 rounded-xl bg-[#00d4aa]/10 border border-[#00d4aa]/30 space-y-3"
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-[#00d4aa] flex items-center gap-2">
+                  <ShieldAlert className="w-4 h-4" />
+                  New Key Generated
+                </h3>
+                <PhishButton 
+                  onClick={() => setNewKey(null)}
+                  className="text-xs text-slate-400 hover:text-white"
+                >
+                  Dismiss
+                </PhishButton>
+              </div>
+              <p className="text-xs text-slate-300">
+                Copy this key now. For security, it will not be shown again.
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={newKey}
+                  className="flex-1 bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-sm font-mono text-[#00d4aa]"
+                />
+                <PhishButton
+                  onClick={() => handleCopy(newKey)}
+                  className="bg-[#00d4aa] text-black px-3 rounded-lg hover:bg-[#00b38f]"
+                >
+                  <Copy className="w-4 h-4" />
+                </PhishButton>
+              </div>
+            </motion.div>
+          )}
 
-          <div className="p-6 md:p-8">
-            {apiKey ? (
-              <div className="space-y-6">
-                <div className="flex flex-col gap-2">
-                  <label className="text-sm font-bold text-[#e6edf3]">
-                    Your API Secret Key
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <div className="relative flex-1">
-                      <input
-                        type={showKey ? "text" : "password"}
-                        value={apiKey}
-                        readOnly
-                        className="w-full pl-4 pr-12 py-3 bg-black border border-[rgba(48,54,61,0.9)] rounded-lg text-teal-400 font-mono text-sm tracking-wider focus:outline-none focus:ring-2 focus:ring-teal-500"
-                      />
-                      <PhishButton
-                        onClick={() => setShowKey(!showKey)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8B949E] hover:text-slate-300"
-                        title={showKey ? "Hide key" : "Show key"}
-                      >
-                        {showKey ? (
-                          <EyeOff className="w-4 h-4" />
-                        ) : (
-                          <Eye className="w-4 h-4" />
+          <DashboardCard className="border-white/10 bg-[#0a0a0f]">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-semibold text-white">Active Keys</h2>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Key name (e.g. CI/CD)"
+                  value={keyName}
+                  onChange={(e) => setKeyName(e.target.value)}
+                  className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-[#7c6af7]"
+                />
+                <PhishButton
+                  onClick={handleGenerate}
+                  disabled={isGenerating || !keyName.trim()}
+                  className="bg-[#7c6af7] text-white px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-[#6b5ae6] disabled:opacity-50 flex items-center gap-2"
+                >
+                  {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                  Create Key
+                </PhishButton>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {keys.length === 0 ? (
+                <div className="text-center py-10 text-slate-500 text-sm italic">
+                  No active API keys found.
+                </div>
+              ) : (
+                keys.map((key) => (
+                  <div
+                    key={key.id}
+                    className="flex items-center justify-between p-4 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-white text-sm">{key.name}</span>
+                        <StatusBadge status={key.is_active ? "healthy" : "pending"} label={key.is_active ? "active" : "inactive"} />
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-slate-400">
+                        <code className="bg-black/30 px-1.5 py-0.5 rounded text-[#7c6af7]">{key.key_prefix}...</code>
+                        <span>Created {new Date(key.created_at).toLocaleDateString()}</span>
+                        {key.last_used_at && (
+                          <span>Last used {new Date(key.last_used_at).toLocaleDateString()}</span>
                         )}
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <PhishButton
+                        onClick={() => handleDelete(key.id)}
+                        className="p-2 text-slate-400 hover:text-red-400 transition-colors"
+                        title="Revoke Key"
+                      >
+                        <Trash2 className="w-4 h-4" />
                       </PhishButton>
                     </div>
-                    <PhishButton
-                      onClick={handleCopy}
-                      className="flex items-center justify-center rounded-lg px-4 py-3 font-semibold text-[#e6edf3] shadow-sm transition-colors liquid-glass hover:bg-[#1c2128]"
-                      title="Copy to clipboard"
-                    >
-                      <Copy className="w-4 h-4" />
-                    </PhishButton>
                   </div>
-                  <p className="text-xs text-amber-600 mt-2 bg-amber-50 px-3 py-2 rounded border border-amber-100 italic">
-                    Warning: Do not share this key or commit it to version
-                    control. It provides full access to your organization's
-                    data.
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-3 pt-4 border-t border-white/10">
-                  <PhishButton
-                    onClick={handleGenerate}
-                    disabled={isPending}
-                    className="flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-[#e6edf3] transition-colors liquid-glass hover:bg-[#1c2128] disabled:opacity-50"
-                  >
-                    {isPending ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <RefreshCw className="w-4 h-4" />
-                    )}
-                    Regenerate Key
-                  </PhishButton>
-                  <PhishButton
-                    onClick={handleRevoke}
-                    disabled={isPending}
-                    className="flex items-center justify-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-400 transition-colors hover:bg-red-500/20 disabled:opacity-50"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    Revoke Key
-                  </PhishButton>
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <Key className="w-12 h-12 text-[#8B949E] mx-auto mb-3" />
-                {apiKeyLast4 ? (
-                  <>
-                    <h4 className="text-lg font-bold text-[#e6edf3] mb-1">
-                      API Key Saved
-                    </h4>
-                    <p className="text-sm text-[#8B949E] mb-4 max-w-sm mx-auto">
-                      For security, keys are shown once. Regenerate to view a
-                      new key.
-                    </p>
-                    <div className="mb-5 text-sm text-teal-400 font-mono">
-                      ************{apiKeyLast4}
-                    </div>
-                    <PhishButton
-                      onClick={handleGenerate}
-                      disabled={isPending}
-                      className="inline-flex items-center gap-2 rounded-lg bg-[#2dd4bf] px-6 py-2.5 text-sm font-bold text-black transition-colors hover:bg-teal-400 disabled:opacity-50"
-                    >
-                      {isPending ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <RefreshCw className="w-4 h-4" />
-                      )}
-                      Regenerate API Key
-                    </PhishButton>
-                  </>
-                ) : (
-                  <>
-                    <h4 className="text-lg font-bold text-[#e6edf3] mb-1">
-                      No API Key Configured
-                    </h4>
-                    <p className="text-sm text-[#8B949E] mb-6 max-w-sm mx-auto">
-                      Generate an API key to integrate Phish-Slayer scanning
-                      natively into your CI/CD pipelines or SOAR playbook.
-                    </p>
-                    <PhishButton
-                      onClick={handleGenerate}
-                      disabled={isPending}
-                      className="inline-flex items-center gap-2 rounded-lg bg-[#2dd4bf] px-6 py-2.5 text-sm font-bold text-black transition-colors hover:bg-teal-400 disabled:opacity-50"
-                    >
-                      {isPending ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <RefreshCw className="w-4 h-4" />
-                      )}
-                      Generate API Key
-                    </PhishButton>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-        </DashboardCard>
-      </motion.div>
-
-      <motion.div {...cardHover} className="h-full">
-        <DashboardCard className="h-full text-slate-300 md:p-8">
-          <h3 className="mb-4 flex items-center gap-2 text-lg font-bold text-white">
-            <Terminal className="w-5 h-5 text-teal-400" /> Usage Examples
-          </h3>
-          <p className="mb-6 text-sm">
-            Use your API key as a Bearer token in the{" "}
-            <code className="rounded bg-white/10 px-1 py-0.5 text-white">
-              Authorization
-            </code>{" "}
-            header.
-          </p>
-
-          <div className="space-y-4">
-            <div>
-              <span className="mb-2 inline-block text-xs font-bold uppercase tracking-widest text-teal-400">
-                cURL Example
-              </span>
-              <code className="block whitespace-pre overflow-x-auto rounded-lg border border-[rgba(48,54,61,0.9)] bg-[#0f172a] p-4 font-mono text-sm text-emerald-300">
-                curl -X POST https://api.phish-slayer.com/v1/scans \<br />
-                &nbsp;&nbsp;-H "Authorization: Bearer YOUR_API_KEY" \<br />
-                &nbsp;&nbsp;-H "Content-Type: application/json" \<br />
-                &nbsp;&nbsp;-d '&#123;"target":"suspicious-url.com"&#125;'
-              </code>
+                ))
+              )}
             </div>
-          </div>
-        </DashboardCard>
-      </motion.div>
+          </DashboardCard>
+        </div>
+
+        <div className="space-y-6">
+          <DashboardCard className="border-white/10 bg-[#0a0a0f]">
+            <h3 className="text-sm font-bold text-white uppercase tracking-widest mb-4 flex items-center gap-2">
+              <Terminal className="w-4 h-4 text-[#7c6af7]" />
+              Quick Start
+            </h3>
+            <div className="space-y-4">
+              <p className="text-xs text-slate-400">
+                Use your API key in the <code className="text-[#7c6af7]">Authorization</code> header as a Bearer token.
+              </p>
+              <div className="bg-black/50 rounded-lg p-3 border border-white/5">
+                <p className="text-[10px] text-slate-500 font-mono mb-2">bash</p>
+                <pre className="text-[10px] text-emerald-400 overflow-x-auto">
+                  {`curl -H "Authorization: Bearer ps_..." \\
+  https://api.phishslayer.com/v1/alerts`}
+                </pre>
+              </div>
+            </div>
+          </DashboardCard>
+
+          <DashboardCard className="border-[#7c6af7]/20 bg-[#7c6af7]/5">
+            <h3 className="text-sm font-bold text-white mb-2">Security Note</h3>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              API keys provide full access to your organization's data. 
+              Never commit them to version control or share them in client-side code.
+              Revoke compromised keys immediately.
+            </p>
+          </DashboardCard>
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,181 +1,198 @@
 @GEMINI.md @graph.md
-New session. Read both files. Build MUST stay green.
+New session. Read both. Build MUST pass.
+Sprint 15: Integration Marketplace + Tenant Quotas + Feature Flags + API Keys.
+Sprint 14 complete.
 
-Sprint 14: Hunt Hypothesis Generator + Intel-Driven Detection Pipeline.
-Sprints 0-13 complete. Last commit: feat(metrics) Sprint 13.
-
-AUDIT FIRST:
-1. Read app/api/hunting/ — list all routes, what they do
-2. Read lib/agents/ or lib/soc/ — find existing hunt logic
-3. Read app/api/intel/ — find actor/campaign data
-4. DO NOT recreate existing logic. Extend it.
-
+AUDIT: Read lib/integrations/ if exists. Read organizations table columns.
+Check for api_keys, feature_flags, quota_usage tables in Supabase.
 USE SUPABASE CONNECTOR for all migrations.
 
-═══ PART 1 — HUNT HYPOTHESIS SCHEMA ═══
+═══ PART 1 — INTEGRATION REGISTRY ═══
 
-Check/Create hunt_hypotheses table (ALTER if exists):
-id, org_id(RLS), title, description,
-hypothesis_source TEXT -- 'threat_intel'|'anomaly'|'actor_ttp'|'manual'
-mitre_techniques TEXT[], -- techniques this hunt covers
-hunt_query TEXT, -- generated SPL/KQL/SQL query
-hunt_query_type TEXT, -- 'splunk'|'kql'|'elastic'|'sql'
-confidence DECIMAL(3,2), -- 0-1 how likely to find something
-priority TEXT DEFAULT 'MEDIUM', -- 'CRITICAL'|'HIGH'|'MEDIUM'|'LOW'
-status TEXT DEFAULT 'PENDING', -- 'PENDING'|'RUNNING'|'COMPLETED'|'NO_FINDINGS'
-result_summary TEXT, -- LLM-written summary of findings
-findings_count INTEGER DEFAULT 0,
-executed_at TIMESTAMPTZ,
-created_at TIMESTAMPTZ DEFAULT now()
+/lib/integrations/registry.ts
+Define 30 integrations as TypeScript const array:
 
-RLS: org_id = current_setting('app.current_org_id')::uuid
+interface Integration {
+  id: string
+  name: string
+  vendor: string
+  category: 'edr'|'siem'|'firewall'|'identity'|'email'|'cloud'|'vulnerability'|'ticketing'|'threat_intel'|'network'|'syslog'
+  description: string
+  required_env_vars: string[]
+  required_plan: 'free'|'pro'|'enterprise'
+  capabilities: string[]
+  status: 'ga'|'beta'|'coming_soon'
+  is_bidirectional: boolean
+}
 
-═══ PART 2 — HYPOTHESIS GENERATOR ═══
+Integrations to define:
+EDR: crowdstrike, sentinelone, carbon_black, defender_edr
+SIEM: splunk, qradar, sentinel, elastic_siem, logrhythm
+Firewall: palo_alto, fortinet, cisco_asa, aws_sg, azure_nsg
+Identity: active_directory, azure_ad, okta, cyberark
+Email: o365, google_workspace
+Cloud: aws_guardduty, azure_defender, gcp_scc
+Vulnerability: nessus, qualys, rapid7
+Ticketing: jira, servicenow, pagerduty, opsgenie
+Threat Intel: misp, opencti, threatconnect
+Network: darktrace, extrahop, zeek
+Syslog: wazuh (ga), generic_syslog (ga)
 
-/lib/hunting/hypothesis-generator.ts
+Export: getAllIntegrations(), getByCategory(), getIntegration(id)
 
-4 generation sources — implement all:
+═══ PART 2 — CONNECTION TESTER ═══
 
-SOURCE 1 — Threat Intel Driven:
-async function generateFromThreatIntel(orgId: string): Promise<HuntHypothesis[]>
-1. Query threat_iocs WHERE is_active=true AND threat_score > 70
-   ORDER BY threat_score DESC LIMIT 20
-2. Query threat_actors table — get actors with match_confidence > 0.5
-3. For each high-threat IOC or actor:
-   LLM prompt (Groq):
-   "Given this threat: {ioc/actor details + TTPs}
-    Generate a hunt hypothesis for a security analyst.
-    Return JSON: {title, description, mitre_techniques[], hunt_query_sql}"
-   Parse response. Validate MITRE IDs against attack-data.ts
-4. Insert to hunt_hypotheses with source='threat_intel'
+/lib/integrations/connection-tester.ts
 
-SOURCE 2 — MITRE Gap Driven:
-async function generateFromCoverageGaps(orgId: string): Promise<HuntHypothesis[]>
-1. Call getCoverageGaps(orgId) from lib/mitre/coverage-engine.ts
-2. For top 5 uncovered high-priority techniques:
-   LLM prompt: "Technique {T1xxx} has zero detection coverage.
-    Generate a hunt hypothesis to find evidence of this technique
-    in security logs. Return JSON: {title, description, hunt_query_sql}"
-3. Insert with source='actor_ttp'
+async function testConnection(
+  integrationId: string,
+  config: Record<string, any>
+): Promise<{success: boolean, message: string}>
 
-SOURCE 3 — Anomaly Driven:
-async function generateFromAnomalies(orgId: string): Promise<HuntHypothesis[]>
-1. Query alerts WHERE severity='CRITICAL' AND created_at > now()-interval'24h'
-   AND mitre_tags IS NOT NULL AND mitre_tags != '{}'
-2. For each: extract mitre_tags, group by technique
-3. Technique appearing in 3+ alerts in 24h = hunt trigger
-4. Generate hypothesis targeting that technique cluster
-5. Insert with source='anomaly', high priority
+Implement for:
+wazuh: GET {url}/security/user/authenticate → expect 200
+splunk: GET {url}/services/server/info → expect 200
+jira: GET {url}/rest/api/3/myself with Basic auth → expect 200
+pagerduty: GET https://api.pagerduty.com/users → expect 200
+slack: POST https://slack.com/api/auth.test → expect ok:true
+o365: validate token format only (can't test without full OAuth)
+default: return {success: true, message: 'Manual verification required'}
 
-SOURCE 4 — Schedule Based:
-async function generateWeeklyHunts(orgId: string): Promise<HuntHypothesis[]>
-Top 10 most common techniques across all SOC incidents historically:
-T1566, T1078, T1059, T1003, T1486, T1047, T1021, T1053, T1071, T1027
-Each week: generate fresh hunt query for each via LLM
-Insert with source='manual', priority='MEDIUM'
+Never throw. Always return object.
 
-Master function:
-async function generateAllHypotheses(orgId: string): Promise<void>
-Run all 4 sources. Deduplicate by title similarity (skip if title exists
-with same org_id in last 7 days). Insert new only.
+═══ PART 3 — QUOTA SYSTEM ═══
 
-═══ PART 3 — HUNT EXECUTOR ═══
+USE SUPABASE CONNECTOR:
 
-/lib/hunting/executor.ts
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS
+  plan TEXT DEFAULT 'free';
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS
+  plan_limits JSONB DEFAULT '{
+    "alerts_per_day":100,
+    "agents_concurrent":5,
+    "retention_days":30,
+    "connectors_max":3,
+    "users_max":3,
+    "llm_tokens_per_day":50000,
+    "osint_scans_per_day":10
+  }';
 
-async function executeHunt(
-  hypothesisId: string,
-  orgId: string
-): Promise<HuntResult>
+CREATE TABLE IF NOT EXISTS quota_usage (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id UUID NOT NULL REFERENCES organizations(id),
+  metric TEXT NOT NULL,
+  count INTEGER DEFAULT 0,
+  period_start TIMESTAMPTZ NOT NULL,
+  period_end TIMESTAMPTZ NOT NULL,
+  UNIQUE(org_id, metric, period_start)
+);
+ALTER TABLE quota_usage ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "org_isolation" ON quota_usage
+  USING (org_id = current_setting('app.current_org_id')::uuid);
 
-1. Fetch hypothesis from DB
-2. Set status = 'RUNNING'
-3. Translate hunt_query to platform's query format:
-   If hunt_query_type = 'sql':
-     Execute against Supabase (udm_events + alerts tables)
-     Query must have WHERE org_id = orgId (ALWAYS)
-     Add LIMIT 100
-     Wrap in try/catch — bad LLM-generated SQL must not crash
-   If no results: set status='NO_FINDINGS', return
-4. If results found:
-   LLM prompt: "These are security log entries from a threat hunt.
-    Analyze for indicators of: {hypothesis.mitre_techniques}
-    Summarize findings in 3 sentences. Are these suspicious? Why?"
-   Store LLM summary in result_summary
-5. If LLM says suspicious (parse: contains "suspicious"|"malicious"|"threat"):
-   Create alert: {
-     rule_name: "Hunt Finding: " + hypothesis.title,
-     severity: hypothesis.priority,
-     description: result_summary,
-     mitre_tags: hypothesis.mitre_techniques
-   }
-6. Set status='COMPLETED', findings_count, executed_at
-7. Return result
+/lib/quotas/enforcer.ts
 
-═══ PART 4 — INTEL-DRIVEN DETECTION PIPELINE ═══
+async function checkQuota(orgId: string, metric: string, increment = 1):
+Promise<{allowed: boolean, remaining: number, limit: number}>
+  Get plan_limits from org. Get today's usage from quota_usage.
+  Return allowed if usage + increment <= limit.
 
-/lib/detection/intel-pipeline.ts
+async function incrementUsage(orgId: string, metric: string, amount = 1): Promise<void>
+  UPSERT quota_usage: ON CONFLICT DO UPDATE SET count = count + amount
 
-Closes the loop: threat intel → detection rule → deployed to L1.
+Plan limits:
+free:       100 alerts/day, 5 agents, 30d retention, 3 connectors
+pro:        10000 alerts/day, 20 agents, 90d retention, 10 connectors
+enterprise: unlimited alerts, 100 agents, 365d retention, unlimited connectors
 
-async function generateDetectionFromIOC(
-  ioc: ThreatIOC,
-  orgId: string
-): Promise<DetectionRule | null>
+Wire checkQuota into:
+lib/ingestion/pipeline.ts → before processing: checkQuota('alerts_processed')
+If not allowed: return 429 with {error:'quota_exceeded',metric,limit}
 
-1. Only process: threat_score > 80, ioc_type IN ('domain','hash_sha256','ip')
-2. Check: does a detection rule for this IOC value already exist?
-   Query detection_rules WHERE sigma_yaml ILIKE '%{ioc.ioc_value}%'
-   If exists: skip
-3. Generate Sigma rule via LLM (reuse lib/detection/sigma-generator.ts):
-   Prompt: "Write a Sigma rule to detect this IOC: {ioc_type}: {ioc_value}
-    Context: {ioc.tags}, malware: {ioc.malware_families}
-    Output ONLY valid Sigma YAML"
-4. Validate YAML (title, detection, logsource fields present)
-5. Insert to detection_rules:
-   name: "TI: {ioc_value} ({ioc.malware_families[0]})"
-   status: 'staging' -- not active yet, needs review
-   threat_score: ioc.threat_score
-   source: 'threat_intel_auto'
-6. Return rule
+═══ PART 4 — FEATURE FLAGS ═══
 
-async function runIntelPipeline(orgId: string): Promise<void>
-1. Fetch top 10 new IOCs (last 24h, threat_score > 80, no rule yet)
-2. For each: generateDetectionFromIOC
-3. Log: X new detection rules generated from threat intel
-4. Notify via notification engine: "X new TI-based detection rules ready for review"
+USE SUPABASE CONNECTOR:
 
-═══ PART 5 — CRON + ROUTES ═══
+CREATE TABLE IF NOT EXISTS feature_flags (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id UUID REFERENCES organizations(id),
+  flag_name TEXT NOT NULL,
+  is_enabled BOOLEAN DEFAULT false,
+  plan_required TEXT,
+  UNIQUE(org_id, flag_name)
+);
+ALTER TABLE feature_flags ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "org_isolation" ON feature_flags
+  USING (org_id IS NULL OR
+         org_id = current_setting('app.current_org_id')::uuid);
 
-/app/api/cron/l3-hunt/route.ts (UPDATE existing):
-CRON_SECRET auth.
-1. Get all orgs
-2. For each: generateAllHypotheses(orgId)
-3. Execute top 3 PENDING hypotheses per org (priority order)
-4. Log results
+/lib/features/flags.ts
+const flagCache = new Map<string, {value: boolean, ts: number}>()
 
-/app/api/cron/intel-pipeline/route.ts (NEW):
-CRON_SECRET auth.
-Run runIntelPipeline for all orgs.
+async function isEnabled(flag: string, orgId: string): Promise<boolean>
+  Cache key: flag+orgId, TTL 5 minutes
+  Check org override first, then platform default (org_id IS NULL)
+  Check plan_required: does org.plan meet requirement?
 
-Add to cron-runner.sh + CRON_SETUP.md:
-intel-pipeline: 0 */3 * * * (every 3 hours)
+Seed these flags via Supabase connector (INSERT if not exists):
+osint_brand_monitor: pro required
+osint_dark_web: enterprise required
+malware_sandbox: pro required
+threat_actor_profiles: pro required
+compliance_module: pro required
+playbook_builder: pro required
 
-ROUTES (check existing first, UPDATE or CREATE):
-POST /api/hunting/generate — trigger hypothesis generation (auth+org)
-GET /api/hunting/hypotheses — list with status + priority (auth+org)
-POST /api/hunting/hypotheses/[id]/execute — run a hunt (auth+org)
-GET /api/hunting/history — completed hunts with findings (auth+org)
-POST /api/detection/rules/generate — already exists, verify wired
+═══ PART 5 — API KEYS ═══
+
+USE SUPABASE CONNECTOR:
+
+CREATE TABLE IF NOT EXISTS api_keys (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id UUID NOT NULL REFERENCES organizations(id),
+  name TEXT NOT NULL,
+  key_hash TEXT NOT NULL,
+  key_prefix TEXT NOT NULL,
+  scopes TEXT[] NOT NULL,
+  last_used_at TIMESTAMPTZ,
+  expires_at TIMESTAMPTZ,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE api_keys ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "org_isolation" ON api_keys
+  USING (org_id = current_setting('app.current_org_id')::uuid);
+
+/lib/api-keys/manager.ts
+
+async function generateAPIKey(orgId, name, scopes, expiresAt?):
+Promise<{key: string, prefix: string, id: string}>
+  Generate: crypto.randomBytes(32).toString('base64url')
+  Prefix: 'ps_' + first 8 chars
+  Hash: bcrypt(fullKey, 10)
+  Store hash+prefix, return full key ONCE
+
+async function verifyAPIKey(rawKey: string, requiredScope: string):
+Promise<{orgId: string, keyId: string} | null>
+  Extract prefix (first 11 chars)
+  Find api_keys WHERE key_prefix = prefix AND is_active = true
+  bcrypt.compare(rawKey, key_hash)
+  Check scope + expiry
+  Update last_used_at
+
+═══ PART 6 — ROUTES ═══
+
+GET /api/integrations/marketplace — list all 30, mark connected ones (auth)
+POST /api/integrations/[id]/test — test connection (auth+org)
+GET /api/settings/usage — quota usage vs limits (auth+org)
+GET /api/settings/api-keys — list keys (auth+org, show prefix only)
+POST /api/settings/api-keys — generate new key (auth+org)
+DELETE /api/settings/api-keys/[id] — revoke (auth+org)
+
+Check dashboard pages exist for these — stub if missing:
+/app/dashboard/integrations/page.tsx → list marketplace
+/app/dashboard/apikeys/page.tsx → already exists per build, verify
 
 ═══ FINAL ═══
-npm run build — must pass, zero errors.
-git add -A
-git commit -m "feat(hunting): Sprint 14 hunt hypothesis generator, intel-driven detection pipeline"
+npm run build. Zero errors.
+git commit -m "feat(platform): Sprint 15 integration marketplace, quotas, feature flags, API keys"
 git push origin main
-
-Report:
-1. New files created
-2. Existing files updated
-3. Build result
-4. Any routes that already existed and were updated vs created fresh
