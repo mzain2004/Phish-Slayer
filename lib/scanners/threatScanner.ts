@@ -63,7 +63,6 @@ export async function scanTarget(indicator: string): Promise<CtiFinding> {
 
   // Handle 404 — Not found in VT database, so submit and wait
   if (res.status === 404 && !isIp) {
-    console.log(`[VT] URL not found in database, submitting for analysis: ${indicator}`);
     const submitController = new AbortController();
     const submitTimeoutId = setTimeout(() => submitController.abort(), 15000);
     let submitRes: Response;

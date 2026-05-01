@@ -1,7 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export async function trackVulnerabilities(orgId: string) {
-    console.log(`Tracking vulnerabilities for Org ${orgId}...`);
     
     try {
         // 1. Fetch Organization Assets (Software names)

@@ -26,7 +26,7 @@ export async function connectMongo(): Promise<typeof mongoose | null> {
       maxPoolSize: 10,
     });
     await global.__mongoConnection;
-    console.log('[MongoDB] Connected to Atlas cluster');
+    console.info('[MongoDB] Connected to Atlas cluster');
     return mongoose;
   } catch (error) {
     console.error('[MongoDB] Connection failed:', error);

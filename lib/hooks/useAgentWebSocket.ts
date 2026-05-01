@@ -73,7 +73,6 @@ export function useAgentWebSocket() {
             }
           } else if (data.type === "command_result") {
             // Optional: emit event or toast notification for command results
-            console.log("Command result:", data);
           }
         } catch (err) {
           console.error("Failed to parse WebSocket message:", err);

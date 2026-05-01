@@ -45,5 +45,4 @@ export async function enforceRetentionPolicy(orgId: string): Promise<void> {
   const eventIds = oldEvents.map(e => e.id);
   await supabase.from('udm_events').delete().in('id', eventIds).eq('org_id', orgId);
   
-  console.log(`[Retention] Successfully archived and purged ${eventIds.length} events for org ${orgId}`);
 }

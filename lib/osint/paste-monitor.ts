@@ -2,7 +2,6 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 import crypto from 'crypto';
 
 export async function monitorPasteSites(orgId: string, keywords: string[]) {
-    console.log(`Monitoring paste sites for Org ${orgId}...`);
     
     // In a real scenario, we would use dedicated scrapers or APIs like Pastebin Scraping API.
     // For this implementation, we simulate the scraping process.

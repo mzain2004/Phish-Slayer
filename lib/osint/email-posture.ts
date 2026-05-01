@@ -2,7 +2,6 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 import dns from 'dns/promises';
 
 export async function checkEmailPosture(orgId: string, domain: string) {
-    console.log(`Checking email posture for ${domain} (Org ${orgId})...`);
     
     let score = 100;
     const result: any = { domain, organization_id: orgId };

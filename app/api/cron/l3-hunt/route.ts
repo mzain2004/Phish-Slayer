@@ -905,7 +905,6 @@ export async function GET(request: NextRequest) {
           
           for (const hyp of sorted.slice(0, 3)) {
              await executeHunt(hyp.id, orgId);
-             console.log(`[L3 Cron] Executed hunt hypothesis ${hyp.id} for org ${orgId}`);
           }
         }
       } catch (e) {

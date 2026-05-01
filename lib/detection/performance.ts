@@ -1,7 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export async function updateRulePerformance(ruleId: string, isTruePositive: boolean, orgId: string) {
-    console.log(`[RulePerformance] Updating rule ${ruleId} performance (TP: ${isTruePositive})`);
 
     try {
         // 1. Fetch current stats
@@ -23,7 +22,6 @@ export async function updateRulePerformance(ruleId: string, isTruePositive: bool
         const totalHits = updates.tp_count + updates.fp_count;
         if (updates.fp_count > 10 && (updates.fp_count / totalHits) > 0.8) {
             updates.status = 'retired';
-            console.log(`[RulePerformance] Rule ${ruleId} auto-retired due to high FP rate.`);
         }
 
         await supabaseAdmin

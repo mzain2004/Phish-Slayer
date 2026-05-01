@@ -1,7 +1,6 @@
 import { deduplicateIOC } from '../ioc-processor';
 
 export async function pullCISAKEV() {
-    console.log('Pulling CISA KEV feed...');
     try {
         const response = await fetch('https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json');
         const data = await response.json();

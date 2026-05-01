@@ -7,7 +7,6 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
  * NEVER decay CISA KEV entries (tag: 'kev').
  */
 export async function runConfidenceDecay() {
-    console.log('Starting IOC confidence decay job...');
 
     // 1. Decay active IOCs that are not KEV
     const { data, error } = await supabaseAdmin.rpc('decay_ioc_confidence');
@@ -18,7 +17,6 @@ export async function runConfidenceDecay() {
         return manualDecay();
     }
 
-    console.log('Confidence decay completed.');
 }
 
 async function manualDecay() {

@@ -10,7 +10,6 @@ export interface HuntResult {
 }
 
 export async function executeHunt(hypothesisId: string, orgId: string): Promise<HuntResult> {
-    console.log(`[HuntExecutor] Executing hunt ${hypothesisId} for Org ${orgId}`);
 
     // 1. Fetch hypothesis
     const { data: hypothesis, error: fetchError } = await supabaseAdmin
@@ -86,7 +85,6 @@ export async function executeHunt(hypothesisId: string, orgId: string): Promise<
             created_at: new Date().toISOString()
         });
         alertCreated = true;
-        console.log(`[HuntExecutor] Alert created for hypothesis ${hypothesisId}`);
     }
 
     // 6. Complete

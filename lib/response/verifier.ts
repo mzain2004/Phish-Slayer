@@ -1,7 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export async function verifyAction(actionId: string, orgId: string, actionType: string, target: string): Promise<boolean> {
-    console.log(`[Verifier] Verifying ${actionType} for target ${target}`);
 
     let status: 'PASSED' | 'FAILED' | 'UNKNOWN' = 'UNKNOWN';
     let details: any = {};

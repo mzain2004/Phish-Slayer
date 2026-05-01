@@ -1,7 +1,6 @@
 import axios from 'axios';
 
 export async function testConnection(integrationId: string, config: Record<string, any>): Promise<{ success: boolean, message: string }> {
-    console.log(`[ConnectionTester] Testing connection for ${integrationId}`);
 
     try {
         switch (integrationId) {

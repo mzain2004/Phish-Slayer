@@ -6,7 +6,6 @@ import { sendTeamsMessage } from './channels/teams';
 import { getCurrentOnCall } from './on-call';
 
 export async function notify(orgId: string, event: { severity: string, event_type: string, alert_id?: string, case_id?: string, message: string }) {
-    console.log(`[NotificationDispatcher] Processing event for Org ${orgId}: ${event.event_type} (${event.severity})`);
 
     try {
         // 1. Fetch active rules
@@ -39,7 +38,6 @@ export async function notify(orgId: string, event: { severity: string, event_typ
                     .maybeSingle();
 
                 if (recentLog) {
-                    console.log(`[NotificationDispatcher] Rule ${rule.id} is in cooldown for alert ${event.alert_id}`);
                     continue;
                 }
             }
@@ -94,7 +92,6 @@ export async function notify(orgId: string, event: { severity: string, event_typ
                 for (const rot of rotations) {
                     const member = await getCurrentOnCall(orgId, rot.id);
                     if (member) {
-                        console.log(`[NotificationDispatcher] Alerting on-call member: ${member.email}`);
                         // In a real system, we'd have a direct "Member Notifier" here
                     }
                 }

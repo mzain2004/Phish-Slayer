@@ -1,7 +1,6 @@
 import { deduplicateIOC } from '../ioc-processor';
 
 export async function pullNVD() {
-    console.log('Pulling NVD CVE feed...');
     try {
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);

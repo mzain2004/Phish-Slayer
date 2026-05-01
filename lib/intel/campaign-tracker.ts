@@ -2,7 +2,6 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 import { matchActor } from './actor-matcher';
 
 export async function checkCampaignLink(orgId: string, alert: any): Promise<void> {
-    console.log(`[CampaignTracker] Checking campaign links for alert ${alert.id}`);
 
     try {
         // 1. Extract IOCs from alert payload/enrichment
@@ -53,7 +52,6 @@ export async function checkCampaignLink(orgId: string, alert: any): Promise<void
                 last_seen: new Date().toISOString()
             }).eq('id', matchedCampaign.id);
 
-            console.log(`[CampaignTracker] Linked alert ${alert.id} to campaign ${matchedCampaign.id}`);
         } else {
             // 4. Try actor attribution for new campaign
             const techniques = alert.mitre_techniques?.map((t: any) => t.id) || [];
@@ -75,7 +73,6 @@ export async function checkCampaignLink(orgId: string, alert: any): Promise<void
                     tlp: 'AMBER'
                 });
                 
-                console.log(`[CampaignTracker] Created new campaign for actor ${actor.id}`);
             }
         }
 

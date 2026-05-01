@@ -25,7 +25,6 @@ export async function POST(request: Request) {
     }
 
     const { type, data } = event;
-    console.log(`[PolarWebhook] Received event: ${type}`);
 
     if (type === 'order.created' || type === 'subscription.active' || type === 'subscription.created') {
       const orgId = data.metadata?.orgId;
@@ -41,7 +40,6 @@ export async function POST(request: Request) {
           .update({ plan })
           .eq('id', orgId);
         
-        console.log(`[PolarWebhook] Updated org ${orgId} to plan ${plan}`);
       }
     }
 
@@ -53,7 +51,6 @@ export async function POST(request: Request) {
           .update({ plan: 'free' })
           .eq('id', orgId);
         
-        console.log(`[PolarWebhook] Reset org ${orgId} to free plan`);
       }
     }
 
@@ -71,7 +68,6 @@ export async function POST(request: Request) {
           .update({ plan })
           .eq('id', orgId);
         
-        console.log(`[PolarWebhook] Updated org ${orgId} to plan ${plan} via update`);
       }
     }
 

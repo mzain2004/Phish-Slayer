@@ -12,7 +12,6 @@ export function shouldExecute(confidence: number, actionType: string, orgId: str
     : CONFIDENCE_GATES.L2_AUTO_EXECUTE;
     
   const decision = confidence >= gate;
-  console.log(`[ConfidenceGate] org=${orgId} action=${actionType} conf=${confidence} gate=${gate} execute=${decision}`);
   return decision;
 }
 
@@ -24,7 +23,6 @@ export function shouldEscalate(confidence: number, tier: 'L1' | 'L2' | 'L3'): bo
   
   // For generic escalation checks:
   const decision = confidence >= gate;
-  console.log(`[ConfidenceGate] tier=${tier} conf=${confidence} gate=${gate} escalate=${decision}`);
   return decision;
 }
 
@@ -40,6 +38,5 @@ export function requiresHumanApproval(actionType: string, assetCriticality: 1 | 
     decision = true;
   }
   
-  console.log(`[ConfidenceGate] action=${actionType} criticality=${assetCriticality} requiresHuman=${decision}`);
   return decision;
 }

@@ -5,7 +5,6 @@ import { notify } from '@/lib/notifications/dispatcher';
  * Checks for regulatory deadlines and alerts if near or breached.
  */
 export async function checkDeadlines(orgId: string) {
-    console.log(`[DeadlineAgent] Checking deadlines for Org ${orgId}`);
 
     try {
         const { data: deadlines, error } = await supabaseAdmin

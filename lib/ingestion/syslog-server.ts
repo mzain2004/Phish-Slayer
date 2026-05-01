@@ -29,7 +29,7 @@ udpServer.on('error', (err) => {
 udpServer.on('message', (msg) => {
   handleMessage(msg);
 });
-udpServer.bind(514, () => console.log('Syslog UDP listening on port 514'));
+udpServer.bind(514, () => console.info('Syslog UDP listening on port 514'));
 
 // TCP Server
 const tcpServer = net.createServer((socket) => {
@@ -39,4 +39,4 @@ const tcpServer = net.createServer((socket) => {
     messages.forEach(m => handleMessage(Buffer.from(m)));
   });
 });
-tcpServer.listen(601, () => console.log('Syslog TCP listening on port 601'));
+tcpServer.listen(601, () => console.info('Syslog TCP listening on port 601'));

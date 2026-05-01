@@ -1,7 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export async function checkCredentialLeaks(orgId: string, domain: string) {
-    console.log(`Checking credential leaks for ${domain} (Org ${orgId})...`);
     
     const hibpKey = process.env.HIBP_API_KEY;
     if (!hibpKey) {

@@ -31,7 +31,6 @@ export function triageWithRules(alert: Alert): { severity: string, mitre_tags: s
 
 export async function queueForAIProcessing(alert: Alert, orgId: string): Promise<void> {
   // In a real system, push to a Redis queue like bullmq
-  console.log(`[Degradation] Queuing alert ${alert.id} for org ${orgId} for later AI processing`);
   
   // Here we just log that we would queue it.
 }

@@ -3,7 +3,6 @@ import axios from 'axios';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export async function deliverWebhook(orgId: string, eventType: string, payload: any): Promise<void> {
-  console.log(`[WebhookDelivery] Starting delivery for ${eventType} in org ${orgId}`);
 
   // 1. Query active webhook_endpoints
   const { data: endpoints, error } = await supabaseAdmin

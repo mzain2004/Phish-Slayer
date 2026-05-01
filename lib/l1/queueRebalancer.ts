@@ -27,7 +27,6 @@ export async function rebalanceQueue(supabase: SupabaseClient, orgId: string) {
       .in("id", alertIds)
       .eq("org_id", orgId);
 
-    console.log(`[rebalancer] De-prioritized ${alertIds.length} stale alerts for org ${orgId}`);
   } catch (err) {
     console.error("[rebalancer] Error:", err);
   }

@@ -1,7 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export async function mapInfrastructure(orgId: string, orgName: string) {
-    console.log(`Mapping infrastructure for ${orgName} (Org ${orgId})...`);
     
     const shodanKey = process.env.SHODAN_API_KEY;
     if (!shodanKey) {

@@ -177,7 +177,6 @@ export async function generateWeeklyHunts(orgId: string): Promise<HuntHypothesis
 }
 
 export async function generateAllHypotheses(orgId: string): Promise<void> {
-    console.log(`[HypothesisGenerator] Generating all hypotheses for Org ${orgId}...`);
 
     const allHypotheses = await Promise.all([
         generateFromThreatIntel(orgId),
@@ -214,6 +213,5 @@ export async function generateAllHypotheses(orgId: string): Promise<void> {
     if (newEntries.length > 0) {
         const { error } = await supabaseAdmin.from('hunt_hypotheses').insert(newEntries);
         if (error) console.error('[HypothesisGenerator] Insert error:', error);
-        else console.log(`[HypothesisGenerator] Inserted ${newEntries.length} new hypotheses.`);
     }
 }

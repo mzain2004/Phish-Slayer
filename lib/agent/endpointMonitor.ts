@@ -10,11 +10,11 @@ import dotenv from 'dotenv';
 import path from 'path';
 
 const envPath = path.resolve(process.cwd(), '.env.local');
-console.log('[Agent] Loading env from:', envPath);
+console.info('[Agent] Loading env from:', envPath);
 dotenv.config({ path: envPath });
 
-console.log('[Agent] AGENT_SECRET found:', !!process.env.AGENT_SECRET);
-console.log('[Agent] NEXT_PUBLIC_SITE_URL found:', !!process.env.NEXT_PUBLIC_SITE_URL);
+console.info('[Agent] AGENT_SECRET found:', !!process.env.AGENT_SECRET);
+console.info('[Agent] NEXT_PUBLIC_SITE_URL found:', !!process.env.NEXT_PUBLIC_SITE_URL);
 
 const execAsync = promisify(exec);
 
@@ -156,7 +156,6 @@ async function pollNetworkActivity(userId: string) {
     if (!seenConnections.has(connectionKey) || isBeaconing) {
       seenConnections.add(connectionKey);
 
-      console.log(
         `[EndpointMonitor] 🔍 ${isBeaconing ? "⚠️ BEACONING " : ""}Connection: ${processName} (PID: ${conn.pid}) -> ${conn.remote_address}:${conn.remote_port}${suspiciousProcess ? " [SUSPICIOUS PROCESS]" : ""}`
       );
 
@@ -191,7 +190,6 @@ async function pollNetworkActivity(userId: string) {
         console.error(`[EndpointMonitor] Failed to flag IOCs: ${response.status} ${response.statusText}`);
       } else {
         const result = await response.json();
-        console.log(
           `[EndpointMonitor] 🛡️ Flagged ${anomalies.length} connections. Processed: ${(result as any).processed}, Critical/High: ${(result as any).flagged}`
         );
       }
@@ -205,9 +203,9 @@ async function pollNetworkActivity(userId: string) {
  * Starts the endpoint monitoring loop.
  */
 export async function startMonitoring(userId: string) {
-  console.log(`[EndpointMonitor] 🚀 Starting endpoint anomaly detection for user: ${userId}`);
-  console.log(`[EndpointMonitor] Platform: ${os.platform()} | Polling Interval: ${POLL_INTERVAL_MS}ms`);
-  console.log(`[EndpointMonitor] API Endpoint: ${API_ENDPOINT || "NOT SET"}`);
+  console.info(`[EndpointMonitor] 🚀 Starting endpoint anomaly detection for user: ${userId}`);
+  console.info(`[EndpointMonitor] Platform: ${os.platform()} | Polling Interval: ${POLL_INTERVAL_MS}ms`);
+  console.info(`[EndpointMonitor] API Endpoint: ${API_ENDPOINT || "NOT SET"}`);
 
   await pollNetworkActivity(userId);
 
@@ -314,8 +312,8 @@ class FileIntegrityMonitor {
   start(onEvent: (event: FIMEvent) => void): void {
     const paths = this.getWatchPaths();
     
-    console.log('[FIM] Starting file integrity monitor...');
-    console.log('[FIM] Watching paths:', paths);
+    console.info('[FIM] Starting file integrity monitor...');
+    console.info('[FIM] Watching paths:', paths);
 
     this.watcher = chokidar.watch(paths, {
       persistent: true,
@@ -333,7 +331,6 @@ class FileIntegrityMonitor {
 
     // Detect changes after initial scan
     this.watcher.on('ready', () => {
-      console.log(
         `[FIM] Baseline established. Monitoring ${
           this.baselineHashes.size
         } files.`
@@ -358,7 +355,7 @@ class FileIntegrityMonitor {
             reason,
           };
           this.baselineHashes.set(filePath, newHash);
-          console.log('[FIM] Change detected:', event);
+          console.info('[FIM] Change detected:', event);
           onEvent(event);
         }
       });
@@ -377,7 +374,7 @@ class FileIntegrityMonitor {
             suspicious: true,
             reason,
           };
-          console.log('[FIM] Suspicious file added:', event);
+          console.info('[FIM] Suspicious file added:', event);
           onEvent(event);
         }
       });
@@ -401,7 +398,7 @@ class FileIntegrityMonitor {
 
   stop(): void {
     this.watcher?.close();
-    console.log('[FIM] Stopped.');
+    console.info('[FIM] Stopped.');
   }
 }
 
@@ -469,12 +466,10 @@ class ProcessMonitor {
   }
 
   async start(onEvent: (event: ProcessEvent) => void): Promise<void> {
-    console.log('[ProcMon] Starting process monitor...');
 
     // Build initial baseline
     const initial = await psList();
     initial.forEach((p: any) => this.knownPids.add(p.pid));
-    console.log(
       `[ProcMon] Baseline: ${this.knownPids.size} processes tracked.`
     );
 
@@ -525,7 +520,6 @@ class ProcessMonitor {
   stop(): void {
     if (this.interval) {
       clearInterval(this.interval);
-      console.log('[ProcMon] Stopped.');
     }
   }
 }
@@ -571,7 +565,6 @@ class AgentWebSocket {
   connect(): void {
     if (this.isShuttingDown) return;
 
-    console.log(
       `[WSClient] Connecting to ${this.serverUrl} ` +
       `(attempt ${this.reconnectAttempts + 1})`
     );
@@ -588,11 +581,11 @@ class AgentWebSocket {
     });
 
     this.ws.on('upgrade', (response) => {
-      console.log('[WSClient] Upgrade headers:', JSON.stringify(response.headers));
+      console.info('[WSClient] Upgrade headers:', JSON.stringify(response.headers));
     });
 
     this.ws.on('open', () => {
-      console.log('[WSClient] Connected to Phish-Slayer cloud.');
+      console.info('[WSClient] Connected to Phish-Slayer cloud.');
 
       this.reconnectAttempts = 0;
       setTimeout(() => {
@@ -605,7 +598,7 @@ class AgentWebSocket {
             version: '1.0.0',
             timestamp: new Date().toISOString()
           }));
-          console.log('[WSClient] Registration message sent');
+          console.info('[WSClient] Registration message sent');
           this.startPing();
         }
       }, 100);
@@ -614,7 +607,7 @@ class AgentWebSocket {
     this.ws.on('message', (data: WebSocket.Data) => {
       try {
         const cmd: AgentCommand = JSON.parse(data.toString());
-        console.log('[WSClient] Command received:', cmd);
+        console.info('[WSClient] Command received:', cmd);
         this.onCommand(cmd);
       } catch (err) {
         console.error('[WSClient] Failed to parse command:', err);
@@ -653,7 +646,7 @@ class AgentWebSocket {
       return;
     }
     const delay = Math.min(10000 * Math.pow(1.5, this.reconnectAttempts), 60000); // capped exponential backoff
-    console.log(`[WSClient] Reconnecting in ${delay}ms...`);
+    console.info(`[WSClient] Reconnecting in ${delay}ms...`);
     this.reconnectAttempts++;
     setTimeout(() => this.connect(), delay);
   }
@@ -766,7 +759,6 @@ class CommandExecutor {
           ? `mkdir "${quarantineDir}" 2>nul & move "${filePath}" "${quarantineDir}"`
           : `mkdir -p "${quarantineDir}" && mv "${filePath}" "${quarantineDir}"`
       );
-      console.log(`[Executor] Quarantined: ${filePath}`);
       return { success: true, output: `Moved to ${quarantineDir}` };
     } catch (err: any) {
       return { success: false, output: err.message };
@@ -796,7 +788,7 @@ async function main() {
     agentId,
     userId,
     async (cmd) => {
-      console.log('[Agent] Executing command:', cmd.command);
+      console.info('[Agent] Executing command:', cmd.command);
       let result;
 
       switch (cmd.command) {
@@ -879,13 +871,13 @@ async function main() {
   // Keep existing network monitor running
   startMonitoring('standalone-agent'); 
 
-  console.log('[Agent] Phish-Slayer EDR Agent running.');
-  console.log('[Agent] Monitoring: Network + Files + Processes');
-  console.log('[Agent] WebSocket: Connected to', url);
+  console.info('[Agent] Phish-Slayer EDR Agent running.');
+  console.info('[Agent] Monitoring: Network + Files + Processes');
+  console.info('[Agent] WebSocket: Connected to', url);
 
   // Graceful shutdown
   process.on('SIGINT', () => {
-    console.log('[Agent] Shutting down...');
+    console.info('[Agent] Shutting down...');
     wsClient.disconnect();
     fim.stop();
     procMon.stop();

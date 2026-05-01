@@ -17,7 +17,6 @@ const MITRE_TO_NIST_ISO: Record<string, { nist: string[], iso: string[] }> = {
 };
 
 export async function getCompliancePosture(orgId: string): Promise<FrameworkScore> {
-    console.log(`[FrameworkMapper] Calculating posture for Org ${orgId}`);
 
     try {
         // 1. Fetch MITRE Coverage

@@ -16,7 +16,6 @@ export interface AuditData {
  * Logs an immutable audit entry with cryptographic hash-chaining.
  */
 export async function logAudit(orgId: string, data: AuditData) {
-    console.log(`[AuditLogger] Logging action: ${data.action} for Org ${orgId}`);
 
     try {
         // 1. Get the latest entry's hash for this organization

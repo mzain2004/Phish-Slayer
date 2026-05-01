@@ -10,7 +10,6 @@ export async function executePlaybook(
     context: any, 
     simulation: boolean = false
 ): Promise<RunResult> {
-    console.log(`[PlaybookExecutor] Executing playbook ${playbookId} for Org ${orgId} (Sim: ${simulation})`);
 
     // 1. Initialize Run
     const { data: run, error: runError } = await supabaseAdmin
@@ -100,7 +99,7 @@ export async function executePlaybook(
 }
 
 async function executeRollback(runId: string, orgId: string, failedIndex: number, results: any[], context: any) {
-    console.log(`[PlaybookExecutor] Rolling back run ${runId} from step ${failedIndex}`);
+    console.error(`[PlaybookExecutor] Rolling back run ${runId} from step ${failedIndex}`);
     
     // Fetch original steps
     const { data: runData } = await supabaseAdmin.from('playbook_runs').select('playbook_id').eq('id', runId).single();
@@ -113,7 +112,6 @@ async function executeRollback(runId: string, orgId: string, failedIndex: number
         const rollbackType = ROLLBACK_MAPPING[step.type];
 
         if (rollbackType && results[i].status === 'success') {
-            console.log(`[PlaybookExecutor] Executing rollback: ${rollbackType}`);
             await dispatchStep({ ...step, type: rollbackType }, context);
         }
     }

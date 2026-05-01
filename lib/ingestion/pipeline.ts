@@ -68,7 +68,7 @@ export class IngestionPipeline {
 
     // 7. If Duplicate, skip agent processing
     if (qResult.is_duplicate) {
-      console.log(`[pipeline] Duplicate event detected. Skipping agent pipeline.`);
+      console.info(`[pipeline] Duplicate event detected. Skipping agent pipeline.`);
       return event;
     }
 
@@ -129,7 +129,7 @@ export class IngestionPipeline {
     const { isDuplicate, clusterId } = await deduplicateAlertEngine(enrichedAlert, udmEvent.org_id);
     
     if (isDuplicate) {
-      console.log(`[pipeline] Alert ${udmEvent.id} deduplicated into cluster ${clusterId}`);
+      console.info(`[pipeline] Alert ${udmEvent.id} deduplicated into cluster ${clusterId}`);
       return;
     }
 

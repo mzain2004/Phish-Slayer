@@ -4,7 +4,6 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
  * Calculates a composite risk score (0-100) for an organization.
  */
 export async function calculateOrgRiskScore(orgId: string): Promise<number> {
-    console.log(`[RiskScore] Calculating risk score for Org ${orgId}`);
     
     let riskScore = 0;
 

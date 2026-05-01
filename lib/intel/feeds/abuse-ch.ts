@@ -1,7 +1,6 @@
 import { deduplicateIOC } from '../ioc-processor';
 
 export async function pullAbuseCH() {
-    console.log('Pulling abuse.ch feeds...');
     
     // 1. URLhaus (Recent URLs)
     try {

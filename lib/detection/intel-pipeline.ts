@@ -13,7 +13,6 @@ export interface ThreatIOC {
 }
 
 export async function generateDetectionFromIOC(ioc: ThreatIOC, orgId: string): Promise<any | null> {
-    console.log(`[IntelPipeline] Processing IOC for detection generation: ${ioc.ioc_value}`);
 
     // 1. Only process specific types with high threat score
     if (ioc.threat_score < 80 || !['domain', 'hash_sha256', 'ip'].includes(ioc.ioc_type)) {
@@ -29,7 +28,6 @@ export async function generateDetectionFromIOC(ioc: ThreatIOC, orgId: string): P
         .limit(1);
 
     if (existingRules && existingRules.length > 0) {
-        console.log(`[IntelPipeline] Rule already exists for ${ioc.ioc_value}`);
         return null;
     }
 
@@ -74,7 +72,6 @@ export async function generateDetectionFromIOC(ioc: ThreatIOC, orgId: string): P
 }
 
 export async function runIntelPipeline(orgId: string): Promise<void> {
-    console.log(`[IntelPipeline] Running pipeline for Org ${orgId}`);
 
     try {
         // 1. Fetch top 10 new IOCs (last 24h, threat_score > 80)
@@ -99,7 +96,6 @@ export async function runIntelPipeline(orgId: string): Promise<void> {
 
         // 3 & 4. Log and Notify
         if (generatedCount > 0) {
-            console.log(`[IntelPipeline] ${generatedCount} new detection rules generated from threat intel.`);
             void notify(orgId, {
                 severity: 'info',
                 event_type: 'new_detection_rules',
