@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import {
+  Globe,
   Key,
   Loader2,
   Lock,
@@ -14,12 +15,16 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import PhishButton from "@/components/ui/PhishButton";
+import { REGIONS, RegionKey } from "@/lib/config/regions";
+import StatusBadge from "@/components/dashboard/StatusBadge";
 
 type Props = {
   userId: string;
   userEmail: string;
   initialFullName: string;
   initialAvatarUrl: string | null;
+  orgName: string | null;
+  orgRegion: string;
 };
 
 export default function SettingsClient({
@@ -27,8 +32,11 @@ export default function SettingsClient({
   userEmail,
   initialFullName,
   initialAvatarUrl,
+  orgName,
+  orgRegion,
 }: Props) {
   const supabase = createClient();
+  const currentRegion = REGIONS[orgRegion as RegionKey] || REGIONS['uae-north'];
   const [profileName, setProfileName] = useState(initialFullName);
   const [avatarUrl, setAvatarUrl] = useState(initialAvatarUrl);
   const [newPassword, setNewPassword] = useState("");
@@ -457,6 +465,27 @@ export default function SettingsClient({
           </div>
         ) : null}
       </motion.section>
+
+      {orgName && (
+        <motion.section {...hoverProps} className="glass p-6">
+          <div className="mb-4 flex items-center gap-2 text-lg font-semibold">
+            <Globe className="h-5 w-5 text-primary" /> Data Residency
+          </div>
+          <div className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-2xl">
+            <div className="flex items-center gap-4">
+              <span className="text-3xl">{currentRegion.flag}</span>
+              <div>
+                <p className="font-bold text-white">{currentRegion.name}</p>
+                <p className="text-xs text-white/50">Jurisdiction: {currentRegion.data_residency.join(', ')}</p>
+              </div>
+            </div>
+            <StatusBadge status="healthy" label="Primary" />
+          </div>
+          <p className="mt-4 text-sm text-white/40 italic text-center">
+            PhishSlayer is expanding. US East and EU West regions are coming soon for enterprise customers.
+          </p>
+        </motion.section>
+      )}
     </div>
   );
 }

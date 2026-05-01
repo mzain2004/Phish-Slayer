@@ -4,18 +4,25 @@ import { createClient } from "@/lib/supabase/server";
 import SettingsClient from "./SettingsClient";
 
 export default async function PlatformSettingsPage() {
-  const { userId } = await auth();
+  const { userId, orgId } = await auth();
 
   if (!userId) {
     redirect("/");
   }
 
   const supabase = await createClient();
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("full_name, avatar_url, email")
-    .eq("id", userId)
-    .maybeSingle();
+  const [{ data: profile }, { data: org }] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("full_name, avatar_url, email")
+      .eq("id", userId)
+      .maybeSingle(),
+    orgId ? supabase
+      .from("organizations")
+      .select("name, data_region")
+      .eq("id", orgId)
+      .single() : Promise.resolve({ data: null })
+  ]);
 
   return (
     <SettingsClient
@@ -23,6 +30,8 @@ export default async function PlatformSettingsPage() {
       userEmail={(profile?.email as string | null) ?? ""}
       initialFullName={(profile?.full_name as string | null) ?? ""}
       initialAvatarUrl={(profile?.avatar_url as string | null) ?? null}
+      orgName={org?.name ?? null}
+      orgRegion={org?.data_region ?? "uae-north"}
     />
   );
 }
