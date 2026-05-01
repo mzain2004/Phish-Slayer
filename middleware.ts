@@ -1,6 +1,26 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
+// ── Rate Limiting Storage ──────────────────────────────────────────
+const rateLimitMap = new Map<string, { count: number; lastReset: number }>();
+
+function isRateLimited(ip: string, limit: number, pathType: string) {
+  const now = Date.now();
+  const key = `${ip}:${pathType}`;
+  const record = rateLimitMap.get(key) || { count: 0, lastReset: now };
+
+  if (now - record.lastReset > 60000) {
+    record.count = 1;
+    record.lastReset = now;
+    rateLimitMap.set(key, record);
+    return false;
+  }
+
+  record.count++;
+  rateLimitMap.set(key, record);
+  return record.count > limit;
+}
+
 const isProtectedRoute = createRouteMatcher(["/dashboard(.*)", "/api/(.*)"]);
 const isPublicRoute = createRouteMatcher([
   '/', 
@@ -17,6 +37,20 @@ const isPublicRoute = createRouteMatcher([
 const isAuthRoute = createRouteMatcher(['/sign-in(.*)', '/sign-up(.*)']);
 
 export default clerkMiddleware(async (auth, request) => {
+  const ip = request.headers.get("x-forwarded-for") || "127.0.0.1";
+  const { pathname } = request.nextUrl;
+
+  // 1. Rate Limiting
+  if (pathname.startsWith("/api/")) {
+    if (isRateLimited(ip, 100, "api")) {
+      return NextResponse.json({ error: "rate_limited" }, { status: 429 });
+    }
+  } else if (pathname.startsWith("/auth/")) {
+    if (isRateLimited(ip, 5, "auth")) {
+      return NextResponse.json({ error: "rate_limited" }, { status: 429 });
+    }
+  }
+
   const { userId } = await auth();
 
   if (userId && isAuthRoute(request)) {
@@ -30,9 +64,17 @@ export default clerkMiddleware(async (auth, request) => {
   }
 
   // ── Organization resolution moved to per-request session context only. Do not passthrough headers.
-  const { nextUrl } = request;
   // No x-resolved headers added here; routes should resolve from session/auth context only.
-  return NextResponse.next();
+  
+  // 2. Security Headers
+  const response = NextResponse.next();
+  response.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  response.headers.set("X-Frame-Options", "DENY");
+  response.headers.set("X-XSS-Protection", "1; mode=block");
+  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+
+  return response;
 });
 
 export const config = {

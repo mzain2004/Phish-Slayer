@@ -1,43 +1,76 @@
 @GEMINI.md @graph.md
-New session. Read files. State sprint. BUILD MUST PASS.
-USE SUPABASE CONNECTOR FOR ALL MIGRATIONS.
 
-Sprint 13: SOC Performance Metrics + Org Risk Score.
+Emergency hardening. Two fixes. No new features. Keep build green.
 
-PART 1 — TIME METRICS CALCULATOR
-/lib/metrics/calculator.ts
-async function calculateMTTD(orgId: string, period: '24h'|'7d'|'30d'): Promise<number>
-Query alerts: AVG(extract(epoch from (created_at - timestamp_utc))). Return in seconds.
+═══ FIX 1 — SECURITY HEADERS + RATE LIMITING ═══
 
-async function calculateMTTR(orgId: string, period): Promise<number>
-Query cases: AVG(extract(epoch from (completed_at - created_at))) WHERE status='CLOSED'.
+Read middleware.ts fully first. DO NOT touch auth logic.
+ADD ONLY at the top of the middleware, before auth checks:
 
-async function calculateFPRate(orgId: string): Promise<number>
-Query detection_rules: SUM(fp_count) / NULLIF(SUM(fp_count + tp_count), 0).
+Rate limiting: use in-memory Map (no Redis needed).
+Max 100 req/min per IP for /api/* routes.
+Max 5 req/min for /auth/* routes.
+If exceeded: return NextResponse.json({error:'rate_limited'},{status:429})
 
-PART 2 — ORG RISK SCORE
-/lib/metrics/risk-score.ts
-async function calculateOrgRiskScore(orgId: string): Promise<number>
-Composite score (0-100, higher = worse risk):
-- Open CRITICAL alerts * 5
-- Open HIGH alerts * 3
-- Unpatched KEV CVEs * 10
-- MTTR > 24h ? +15 : 0
-- MITRE coverage < 30% ? +20 : 0
-- SLA breaches last 7d * 8
-Cap at 100. Store in organizations.org_risk_score (add column if missing). Update daily via cron.
+Security headers: add to every response:
+- Strict-Transport-Security: max-age=31536000; includeSubDomains
+- X-Content-Type-Options: nosniff
+- X-Frame-Options: DENY
+- X-XSS-Protection: 1; mode=block
+- Referrer-Policy: strict-origin-when-cross-origin
 
-PART 3 — METRICS STORAGE
-Check/Create metrics_timeseries table:
-id, org_id(RLS), metric_name, metric_value, recorded_at.
-Insert metrics daily.
+Pattern: intercept response, clone with headers added, return.
+Do NOT break existing Clerk auth logic. Read the file first.
 
-PART 4 — CRON
-/app/api/cron/metrics/route.ts
-CRON_SECRET auth. Calculate all metrics for all orgs. Insert into timeseries. Update org risk score.
+═══ FIX 2 — AZURE CRON SETUP ═══
 
-PART 5 — ROUTES
-GET /api/metrics/summary — MTTD, MTTR, FP Rate, Risk Score (auth+org).
-GET /api/metrics/trends?metric=mtrr&period=30d — timeseries data (auth+org).
+Platform runs on Azure VM (Docker), NOT Vercel.
+vercel.json crons are useless here.
 
-FINAL: npm run build. git commit -m "feat(metrics): Sprint 13 MTTD/MTTR calculation, org risk score composite". git push.
+Create: /scripts/cron-runner.sh
+A bash script that uses system cron (crontab) to hit each
+cron route via curl with the CRON_SECRET header.
+
+Read ALL files in app/api/cron/ — list every route path.
+For each route, add a crontab entry:
+
+Format:
+*/5 * * * *  curl -s -X POST https://phishslayer.tech/api/cron/l1-triage \
+  -H "Authorization: Bearer $CRON_SECRET" > /dev/null 2>&1
+
+Schedules:
+- l1-triage: */5 * * * *
+- enrich-alerts: */10 * * * *
+- cti-feeds: 0 */6 * * *
+- osint-brand: 0 */4 * * *
+- osint-full: 0 2 * * *
+- vuln-scan: 0 3 * * *
+- metrics: 0 4 * * *
+- org-risk-update: 0 5 * * *
+- sla-checker: */15 * * * *
+- mitre-tag-alerts: */30 * * * *
+- mitre-coverage: 0 6 * * *
+- uba-baseline-update: 0 1 * * *
+- beaconing-scan: 0 */2 * * *
+- darkweb-scan: 0 0 * * *
+- l2-respond: */10 * * * *
+- l3-hunt: 0 * * * *
+- run-detection-rules: */15 * * * *
+- sync-connectors: 0 */12 * * *
+- sync-tip-feeds: 0 */6 * * *
+- auto-playbooks: */10 * * * *
+
+Also create: /docs/CRON_SETUP.md
+Instructions to install crontab on Azure VM.
+
+═══ FINAL ═══
+
+npm run build — must pass.
+git add -A
+git commit -m "fix(security): rate limiting, security headers, azure cron setup"
+git push origin main
+
+Report:
+1. What you added to middleware.ts
+2. List of all cron routes in cron-runner.sh
+3. Build result
