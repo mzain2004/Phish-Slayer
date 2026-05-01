@@ -1,61 +1,51 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { polar } from "@/lib/polar-client";
+import { polar } from "@/lib/billing/polar";
+import { auth } from "@clerk/nextjs/server";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 const CheckoutSchema = z.object({
-  productId: z.string().min(1),
-  userId: z.string().min(1),
-  email: z.string().email(),
+  plan: z.enum(["pro", "enterprise"]),
 });
 
-import { auth } from '@clerk/nextjs/server';
-
 export async function POST(request: Request) {
-  const { userId: authUserId } = await auth();
-  if (!authUserId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { orgId } = await auth();
+  if (!orgId) {
+    return NextResponse.json({ error: "Unauthorized: No organization selected" }, { status: 401 });
   }
 
   if (!process.env.POLAR_ACCESS_TOKEN) {
-    return NextResponse.json({ error: "Service unavailable" }, { status: 503 });
+    return NextResponse.json({ error: "Billing service unavailable" }, { status: 503 });
   }
 
   try {
-    const payload = CheckoutSchema.safeParse(await request.json());
-    if (!payload.success) {
-      return NextResponse.json(
-        { error: "Invalid payload", details: payload.error.flatten() },
-        { status: 400 },
-      );
+    const body = await request.json();
+    const result = CheckoutSchema.safeParse(body);
+    
+    if (!result.success) {
+      return NextResponse.json({ error: "Invalid plan selected" }, { status: 400 });
     }
 
-    const allowedProducts = [
-      process.env.POLAR_FREE_PRODUCT_ID,
-      process.env.POLAR_SOC_PRO_MONTHLY_ID,
-      process.env.POLAR_SOC_PRO_ANNUAL_ID,
-      process.env.POLAR_CC_MONTHLY_ID,
-      process.env.POLAR_CC_ANNUAL_ID,
-    ].filter(Boolean) as string[];
+    const { plan } = result.data;
+    const productId = plan === 'pro' 
+      ? process.env.POLAR_PRO_PRODUCT_ID 
+      : process.env.POLAR_ENTERPRISE_PRODUCT_ID;
 
-    if (
-      allowedProducts.length > 0 &&
-      !allowedProducts.includes(payload.data.productId)
-    ) {
-      return NextResponse.json({ error: "Invalid product" }, { status: 400 });
+    if (!productId) {
+      return NextResponse.json({ error: "Product ID not configured" }, { status: 500 });
     }
 
     const checkout = await polar.checkouts.create({
-      products: [payload.data.productId],
-      customerEmail: payload.data.email,
-      externalCustomerId: payload.data.userId,
-      metadata: { userId: payload.data.userId },
+      products: [productId],
+      successUrl: 'https://phishslayer.tech/dashboard?upgraded=true',
+      metadata: { orgId }
     });
 
     return NextResponse.json({ checkoutUrl: checkout.url });
   } catch (error) {
+    console.error("[Checkout] Error:", error);
     return NextResponse.json(
       {
         error:

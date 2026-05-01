@@ -1,118 +1,88 @@
 @GEMINI.md @graph.md
 New session. Read both. Build MUST pass.
-Sprint 17: Onboarding Wizard + Empty States + Dashboard Polish.
-Sprint 16 complete.
+Sprint 18: Polar Billing Integration + Plan Gating.
+Sprint 17 complete.
 
-AUDIT: Read app/dashboard/ directory listing.
-Check which dashboard pages are stubs vs real content.
-THIS IS FRONTEND ONLY. No new API routes. No migrations.
+NOTE: Payment provider is POLAR (polar.sh) NOT Stripe.
+Zain's account is pending UBL bank verification on Polar.
 
-═══ PART 1 — ONBOARDING WIZARD ═══
+AUDIT: Read app/api/billing/ routes. Read app/dashboard/billing/page.tsx.
+Check organizations.plan column exists (Sprint 15 added it).
 
-/app/dashboard/onboarding/page.tsx
+═══ PART 1 — POLAR SETUP ═══
 
-5-step wizard. Use React useState for step tracking.
-Store progress in localStorage key 'ps_onboarding_step'.
+npm install @polar-sh/sdk
 
-Step 1 — Org Details:
-  Form: org name, industry (dropdown), team size
-  POST to /api/organizations to update name
+/lib/billing/polar.ts
+import { Polar } from '@polar-sh/sdk'
+export const polar = new Polar({ accessToken: process.env.POLAR_ACCESS_TOKEN })
 
-Step 2 — Connect First Source:
-  3 big cards: Wazuh (recommended), Generic Webhook, Manual Upload
-  Wazuh: show command to configure Wazuh to send to phishslayer.tech/api/webhooks/wazuh
-  Click "Done" → mark step complete
+Add to .env.example (NEVER .env.production — append only):
+POLAR_ACCESS_TOKEN=
+POLAR_ORGANIZATION_ID=
+POLAR_PRO_PRODUCT_ID=
+POLAR_ENTERPRISE_PRODUCT_ID=
+POLAR_WEBHOOK_SECRET=
 
-Step 3 — Set Brand Domains:
-  Input: add domain names (company.com)
-  POST to /api/organizations with brand_domains array
-  Explain: used for OSINT brand monitoring
+═══ PART 2 — CHECKOUT ═══
 
-Step 4 — Configure Notifications:
-  Slack webhook URL input
-  Email input
-  POST to /api/notifications/rules
-  Skip button available
+/app/api/billing/checkout/route.ts (UPDATE existing — read first):
+Auth + org scope.
+POST body: {plan: 'pro'|'enterprise'}
+Use Polar SDK to create checkout:
+  polar.checkouts.create({
+    products: [process.env[plan === 'pro' ? 'POLAR_PRO_PRODUCT_ID' : 'POLAR_ENTERPRISE_PRODUCT_ID']],
+    successUrl: 'https://phishslayer.tech/dashboard?upgraded=true',
+    metadata: { orgId }
+  })
+Return {checkoutUrl: checkout.url}
 
-Step 5 — Complete:
-  Show: "Platform is ready" with confetti animation (CSS only)
-  POST to /api/organizations: {setup_complete: true}
-  Button: "Go to Dashboard" → /dashboard
+═══ PART 3 — POLAR WEBHOOK ═══
 
-Styling: design system colors, glass cards, 4px radius buttons.
-Progress bar at top: 5 steps, purple fill.
+/app/api/billing/webhook/route.ts (UPDATE — read first):
+This must be PUBLIC (no Clerk auth). Verify Polar signature.
+Handle events:
+  order.created / subscription.active:
+    Get orgId from metadata
+    UPDATE organizations SET plan = 'pro' (or enterprise)
+  subscription.canceled / subscription.revoked:
+    SET plan = 'free'
+  subscription.updated:
+    Check new product ID → update plan accordingly
 
-/app/dashboard/layout.tsx (READ FIRST, modify carefully):
-Add check: if org.setup_complete === false AND not on /onboarding:
-  redirect('/dashboard/onboarding')
-Must not break existing layout.
+Polar webhook verification:
+  import { validateEvent } from '@polar-sh/sdk/webhooks'
+  validateEvent(rawBody, headers, process.env.POLAR_WEBHOOK_SECRET)
+  If invalid: return 400
 
-═══ PART 2 — EMPTY STATE COMPONENT ═══
+═══ PART 4 — PLAN GATING ═══
 
-/components/ui/empty-state.tsx
+/lib/billing/plan-gate.ts (UPDATE or CREATE):
+const PLAN_RANK = {free: 0, pro: 1, enterprise: 2}
 
-interface EmptyStateProps {
-  icon: string  // emoji or lucide icon name
-  title: string
-  description: string
-  actionLabel?: string
-  actionHref?: string
-  actionOnClick?: () => void
-}
+async function requirePlan(orgId: string, required: 'pro'|'enterprise'): Promise<boolean>
+  Get org.plan from DB
+  Return PLAN_RANK[org.plan] >= PLAN_RANK[required]
 
-Styling: centered, icon large (48px), title #e2e8f0, 
-description #64748b, button primary purple 4px radius.
+Wire plan gating (read each file first, add 3 lines):
+app/api/osint/brand/scan/route.ts → requirePlan('pro')
+app/api/playbooks/[id]/execute/route.ts → requirePlan('pro')
+app/api/malware/analyze/route.ts → requirePlan('pro')
+If plan check fails: return apiError('UPGRADE_REQUIRED','Plan upgrade required',403,{required_plan})
 
-═══ PART 3 — APPLY EMPTY STATES ═══
+═══ PART 5 — BILLING UI ═══
 
-Read each file first. Add EmptyState inside {data.length === 0 && <EmptyState .../>}
-Do NOT rewrite the page. Surgical addition only.
-
-/app/dashboard/alerts/page.tsx
-  "No alerts yet" / "Connect a data source to start receiving alerts." / actionLabel="Connect Source" actionHref="/dashboard/connectors"
-
-/app/dashboard/cases/page.tsx
-  "No open cases" / "Alerts escalated by L2 agents appear here as cases."
-
-/app/dashboard/osint/page.tsx
-  "No OSINT findings" / "Configure brand monitoring to scan for threats." / actionLabel="Configure" actionHref="/dashboard/settings"
-
-/app/dashboard/intel/page.tsx
-  "No threat intel" / "CTI feeds will populate actor profiles and IOCs automatically."
-
-/app/dashboard/hunting/page.tsx
-  "No hunt hypotheses" / "L3 agent generates hunt hypotheses from threat intel." / actionLabel="Generate Now" (POST /api/hunting/generate)
-
-/app/dashboard/sigma/page.tsx
-  "No detection rules" / "Sigma rules are generated automatically from hunt findings."
-
-/app/dashboard/metrics/page.tsx
-  "Collecting metrics" / "MTTD, MTTR, and risk scores populate after 24 hours of activity."
-
-═══ PART 4 — MISSION CONTROL UI PRINCIPLES ═══
-
-Read /app/dashboard/page.tsx (main dashboard).
-Apply these 5 enhancements WITHOUT full rewrite:
-
-1. Agent activity badge: find where agents are shown.
-   Add small badge on each action: "L1 Agent" | "L2 Agent" | "L3 Agent"
-   Colors: L1=#7c6af7, L2=#00d4aa, L3=#f59e0b
-
-2. Confidence display: find where alerts/findings render confidence.
-   If confidence >= 0.90: text-green-400
-   If confidence >= 0.70: text-yellow-400  
-   If confidence < 0.70: text-red-400
-
-3. Blind spot warning: at top of dashboard, check connector health.
-   GET /api/orchestrator/stats → if any connector silent > 30min:
-   Show red banner: "⚠ BLIND SPOT: {connector_name} not reporting"
-
-4. Risk score prominence: ensure org risk score (0-100) is visible
-   Large number top-left, color: <30 green, 30-70 amber, >70 red
-
-5. Active agent count: show "X agents running" live indicator
+/app/dashboard/billing/page.tsx (UPDATE existing — read first):
+Show current plan badge: FREE|PRO|ENTERPRISE
+Usage stats from /api/settings/usage (Sprint 15)
+Upgrade buttons:
+  "Upgrade to Pro" → POST /api/billing/checkout {plan:'pro'} → redirect to checkoutUrl
+  "Upgrade to Enterprise" → same with enterprise
+If already pro: show "Upgrade to Enterprise" only
+If enterprise: show "You're on the best plan 🚀"
+Show Polar customer portal link if on paid plan.
 
 ═══ FINAL ═══
 npm run build. Zero errors.
-git commit -m "feat(ui): Sprint 17 onboarding wizard, empty states, mission control enhancements"
+git commit -m "feat(billing): Sprint 18 Polar billing, plan gating, checkout flow"
 git push origin main

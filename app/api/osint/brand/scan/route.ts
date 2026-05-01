@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
+import { requirePlan } from '@/lib/billing/plan-gate';
+import { apiError } from '@/lib/api/response';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -7,6 +9,10 @@ export const runtime = 'nodejs';
 export async function POST(req: NextRequest) {
   const { orgId } = await auth();
   if (!orgId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  if (!(await requirePlan(orgId, 'pro'))) {
+    return apiError('UPGRADE_REQUIRED', 'Plan upgrade required', 403, { required_plan: 'pro' });
+  }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
