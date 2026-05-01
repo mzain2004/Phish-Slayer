@@ -1,47 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { executeHunt } from '@/lib/hunting/huntQuery';
-import { createClient } from '@/lib/supabase/server';
+import { auth } from '@clerk/nextjs/server';
+import { executeHunt } from '@/lib/hunting/executor';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-import { auth } from '@clerk/nextjs/server';
-
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { userId, orgId } = await auth();
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const { userId, orgId } = await auth();
+    if (!userId || !orgId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  try {
     const { id } = await params;
-    const supabase = await createClient();
-    
-    // 1. Get hypothesis
-    const { data: hypo, error: fetchError } = await supabase
-      .from('hunt_hypotheses')
-      .select('*')
-      .eq('id', id)
-      .single();
-    
-    if (fetchError || !hypo) return NextResponse.json({ error: 'Hypothesis not found' }, { status: 404 });
 
-    // 2. Determine hunt type from huntQuery (simplified)
-    // In a real app, huntQuery would be parsed or use a better structure
-    // For now we'll mock the execution logic
-    const results = await executeHunt({
-      type: 'behavior',
-      value: hypo.title, // Placeholder
-      organizationId: hypo.organization_id
-    });
-
-    // 3. Update findings_count
-    await supabase
-      .from('hunt_hypotheses')
-      .update({ findings_count: results.length, status: 'completed' })
-      .eq('id', id);
-
-    return NextResponse.json({ success: true, findings: results.length, data: results });
-  } catch (error) {
-    console.error('Hunt execution error:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
-  }
+    try {
+        const result = await executeHunt(id, orgId);
+        return NextResponse.json(result);
+    } catch (error: any) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+    }
 }

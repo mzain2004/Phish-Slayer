@@ -1,27 +1,27 @@
-import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
-import { createClient } from "@/lib/supabase/server";
-import { HuntEngine } from "@/lib/soc/hunting/engine";
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+import { auth } from '@clerk/nextjs/server';
 
-export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
-export async function GET(req: Request) {
-  const { userId } = await auth();
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const { searchParams } = new URL(req.url);
-  const organization_id = searchParams.get("organization_id") || "default";
+export async function GET(req: NextRequest) {
+  const { userId, orgId } = await auth();
+  if (!userId || !orgId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
     const supabase = await createClient();
-    const engine = new HuntEngine(supabase);
-    const history = await engine.getHuntHistory(organization_id);
+    // Fetch completed hunts with findings
+    const { data, error } = await supabase
+      .from('hunt_hypotheses')
+      .select('*')
+      .eq('organization_id', orgId)
+      .in('status', ['COMPLETED', 'NO_FINDINGS'])
+      .order('executed_at', { ascending: false });
 
-    return NextResponse.json(history);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(data);
   } catch (error) {
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

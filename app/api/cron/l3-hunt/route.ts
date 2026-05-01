@@ -6,6 +6,8 @@ import {
   saveReasoningChain,
 } from "@/lib/reasoning-chain";
 import { getGeminiModel } from "@/lib/ai/gemini";
+import { generateAllHypotheses } from "@/lib/hunting/hypothesis-generator";
+import { executeHunt } from "@/lib/hunting/executor";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -888,6 +890,37 @@ export async function GET(request: NextRequest) {
       { success: false, error: "Unauthorized" },
       { status: 401 },
     );
+  }
+
+  const adminClient = getAdminClient();
+  const { data: orgs } = await adminClient.from('organizations').select('id');
+  if (orgs) {
+    for (const org of orgs) {
+      const orgId = org.id;
+      try {
+        await generateAllHypotheses(orgId);
+        
+        // Priority ordering mapping: CRITICAL > HIGH > MEDIUM > LOW
+        // For simplicity we fetch all pending and sort in memory since it's a string enum
+        const { data: pending } = await adminClient
+          .from('hunt_hypotheses')
+          .select('id, priority')
+          .eq('organization_id', orgId)
+          .eq('status', 'PENDING');
+          
+        if (pending && pending.length > 0) {
+          const priorityWeights: Record<string, number> = { 'CRITICAL': 4, 'HIGH': 3, 'MEDIUM': 2, 'LOW': 1 };
+          const sorted = pending.sort((a, b) => (priorityWeights[b.priority || 'MEDIUM'] || 0) - (priorityWeights[a.priority || 'MEDIUM'] || 0));
+          
+          for (const hyp of sorted.slice(0, 3)) {
+             await executeHunt(hyp.id, orgId);
+             console.log(`[L3 Cron] Executed hunt hypothesis ${hyp.id} for org ${orgId}`);
+          }
+        }
+      } catch (e) {
+        console.error(`[L3 Cron] Error generating/executing hypotheses for org ${orgId}:`, e);
+      }
+    }
   }
 
   return runL3Pipeline(request, {

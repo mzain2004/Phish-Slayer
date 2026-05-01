@@ -34,6 +34,7 @@ Run `crontab -e` and append the following lines. Replace `/path/to/phishslayer` 
 0 */12 * * * /path/to/phishslayer/scripts/cron-runner.sh sync_connectors
 0 */6 * * *  /path/to/phishslayer/scripts/cron-runner.sh sync_tip_feeds
 */10 * * * * /path/to/phishslayer/scripts/cron-runner.sh auto_playbooks
+0 */3 * * *  /path/to/phishslayer/scripts/cron-runner.sh intel_pipeline
 ```
 
 ## 3. Verify

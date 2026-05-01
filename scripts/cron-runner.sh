@@ -113,6 +113,11 @@ function auto_playbooks() {
     curl -s -X POST "$BASE_URL/api/cron/auto-playbooks" -H "Authorization: Bearer $CRON_SECRET" > /dev/null 2>&1
 }
 
+# 0 */3 * * *
+function intel_pipeline() {
+    curl -s -X POST "$BASE_URL/api/cron/intel-pipeline" -H "Authorization: Bearer $CRON_SECRET" > /dev/null 2>&1
+}
+
 # Execute function based on argument
 if [ ! -z "$1" ]; then
     "$1"
