@@ -10,16 +10,29 @@ function getGroq(): Groq {
   return groqClient;
 }
 
+function sanitizeForLLM(input: string): string {
+  return input
+    .replace(/ignore\s+previous\s+instructions?/gi, '[REDACTED]')
+    .replace(/system\s*:/gi, '[REDACTED]')
+    .replace(/<\|.*?\|>/g, '[REDACTED]')
+    .replace(/\[INST\]|\[\/INST\]/g, '[REDACTED]')
+    .slice(0, 2000)  // max 2000 chars into any LLM prompt
+}
+
 export async function llmTagger(alert: any): Promise<string[]> {
   try {
     // Generate a mini catalog for the LLM to pick from
     const catalogStr = techniques.map(t => `${t.id}: ${t.name}`).join("\n");
 
+    const alertName = sanitizeForLLM(alert.rule_name || alert.title || 'Unknown');
+    const category = sanitizeForLLM(alert.event_category || 'Unknown');
+    const details = sanitizeForLLM(JSON.stringify(alert.payload || alert.raw_log || {}));
+
     const prompt = `You are a MITRE ATT&CK expert. Map the following alert to the most appropriate technique IDs.
     
-    Alert Name: ${alert.rule_name || alert.title || 'Unknown'}
-    Category: ${alert.event_category || 'Unknown'}
-    Details: ${JSON.stringify(alert.payload || alert.raw_log || {})}
+    Alert Name: ${alertName}
+    Category: ${category}
+    Details: ${details}
 
     Allowed Techniques Catalog:
     ${catalogStr}

@@ -1185,15 +1185,6 @@ async function queueAlert(
   return insertResult.data?.id ?? null;
 }
 
-// Payload size guard: max 1MB
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: '1mb',
-    },
-  },
-};
-
 import { auth } from '@clerk/nextjs/server';
 
 export async function POST(request: NextRequest) {

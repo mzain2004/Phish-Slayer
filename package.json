@@ -11,6 +11,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "test:perf": "node scripts/load-test.js",
     "fetch-mitre": "ts-node scripts/fetch-mitre.ts"
   },
   "dependencies": {
@@ -49,7 +50,7 @@
     "mailparser": "^3.9.8",
     "mongoose": "^9.5.0",
     "motion": "^12.38.0",
-    "next": "^15.5.14",
+    "next": "^16.2.4",
     "node-cron": "^3.0.3",
     "node-imap": "^0.9.6",
     "nodemailer": "^8.0.5",
