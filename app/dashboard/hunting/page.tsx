@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import DashboardCard from '@/components/dashboard/DashboardCard';
-import { Target, Activity, AlertCircle, ShieldAlert, Loader2 } from 'lucide-react';
+import { Target, Activity, AlertCircle, ShieldAlert, Loader2, Crosshair } from 'lucide-react';
+import EmptyState from "@/components/ui/empty-state";
 
 export default function ThreatHuntingPage() {
   const [loading, setLoading] = useState(true);
@@ -109,8 +110,14 @@ export default function ThreatHuntingPage() {
             <tbody className="divide-y divide-white/5">
               {missions.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
-                    No hunt missions found. Start a new mission to begin.
+                  <td colSpan={6} className="px-6 py-4 text-center">
+                    <EmptyState 
+                        icon={Crosshair}
+                        title="No hunt hypotheses"
+                        description="L3 agent generates hunt hypotheses from threat intel."
+                        actionLabel="Generate Now"
+                        actionOnClick={() => fetch('/api/hunting/generate', { method: 'POST' })}
+                    />
                   </td>
                 </tr>
               ) : (

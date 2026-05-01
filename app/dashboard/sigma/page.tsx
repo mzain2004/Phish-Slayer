@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import DashboardCard from '@/components/dashboard/DashboardCard';
-import { Shield, CheckCircle2, Clock, Terminal, Rocket, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Shield, CheckCircle2, Clock, Terminal, Rocket, Loader2, ChevronDown, ChevronUp, Code2 } from 'lucide-react';
+import EmptyState from "@/components/ui/empty-state";
 
 export default function SigmaRulesPage() {
   const [loading, setLoading] = useState(true);
@@ -115,8 +116,12 @@ export default function SigmaRulesPage() {
             <tbody className="divide-y divide-white/5">
               {rules.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
-                    No sigma rules generated yet.
+                  <td colSpan={5} className="px-6 py-4 text-center">
+                    <EmptyState 
+                        icon={Code2}
+                        title="No detection rules"
+                        description="Sigma rules are generated automatically from hunt findings."
+                    />
                   </td>
                 </tr>
               ) : (

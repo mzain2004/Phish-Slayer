@@ -1,34 +1,53 @@
-﻿import { type LucideIcon, Shield } from "lucide-react";
+import React from 'react';
+import Link from 'next/link';
+import { LucideIcon, HelpCircle } from 'lucide-react';
+import PhishButton from './PhishButton';
 
 interface EmptyStateProps {
-  icon?: LucideIcon;
+  icon?: LucideIcon | string;
   title: string;
   description: string;
-  action?: { label: string; href: string };
+  actionLabel?: string;
+  actionHref?: string;
+  actionOnClick?: () => void;
 }
 
-export function EmptyState({
-  icon: Icon = Shield,
+export default function EmptyState({
+  icon: Icon = HelpCircle,
   title,
   description,
-  action,
+  actionLabel,
+  actionHref,
+  actionOnClick,
 }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center py-16 text-center">
-      <div className="w-14 h-14 rounded-2xl bg-slate-800 flex items-center justify-center mb-4">
-        <Icon className="w-6 h-6 text-[#8B949E]" />
+    <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
+      <div className="mb-6 h-16 w-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-[#7c6af7]">
+        {typeof Icon === 'string' ? (
+          <span className="text-5xl">{Icon}</span>
+        ) : (
+          <Icon className="h-10 w-10" />
+        )}
       </div>
-      <h3 className="text-base font-bold text-slate-300 mb-1">{title}</h3>
-      <p className="text-sm text-[#8B949E] max-w-sm mb-4">{description}</p>
-      {action && (
-        <a
-          href={action.href}
-          className="px-4 py-2 bg-teal-600 text-white text-sm font-bold rounded-lg hover:bg-teal-700 transition-colors"
-        >
-          {action.label}
-        </a>
+      <h3 className="text-xl font-bold text-[#e2e8f0] mb-2">{title}</h3>
+      <p className="text-[#64748b] max-w-sm mb-8">{description}</p>
+      
+      {(actionLabel && (actionHref || actionOnClick)) && (
+        actionHref ? (
+          <Link href={actionHref}>
+            <PhishButton className="bg-[#7c6af7] text-white px-8 py-2 font-bold rounded-[4px]">
+              {actionLabel}
+            </PhishButton>
+          </Link>
+        ) : (
+          <PhishButton 
+            onClick={actionOnClick}
+            className="bg-[#7c6af7] text-white px-8 py-2 font-bold rounded-[4px]"
+          >
+            {actionLabel}
+          </PhishButton>
+        )
       )}
     </div>
   );
 }
-

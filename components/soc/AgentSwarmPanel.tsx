@@ -543,7 +543,16 @@ export default function AgentSwarmPanel() {
                 className="rounded-xl glass p-4 flex flex-col gap-3"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-white font-semibold">{agent!.name}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-white font-semibold">{agent!.name}</p>
+                    <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-wider ${
+                        index === 0 ? 'bg-[#7c6af7]/20 text-[#7c6af7]' :
+                        index === 1 ? 'bg-[#00d4aa]/20 text-[#00d4aa]' :
+                        'bg-[#f59e0b]/20 text-[#f59e0b]'
+                    }`}>
+                        L{index + 1}
+                    </span>
+                  </div>
                   <span
                     className={`w-2.5 h-2.5 rounded-full ${statusColor(agent!.status)}`}
                   />
@@ -635,9 +644,12 @@ export default function AgentSwarmPanel() {
                     className="rounded-lg glass px-3 py-2 text-xs text-white/80"
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="font-semibold text-white">
-                        {item.decision}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-white">
+                            {item.decision}
+                        </span>
+                        <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-[#00d4aa]/20 text-[#00d4aa]">L2 AGENT</span>
+                      </div>
                       <span className="text-white/60">
                         {new Date(item.createdAt).toLocaleString()}
                       </span>
@@ -645,7 +657,11 @@ export default function AgentSwarmPanel() {
                     <p className="mt-1 text-white/70">
                       Action: {item.actionTaken}
                     </p>
-                    <p className="text-white/70">
+                    <p className={`${
+                        item.confidence && item.confidence >= 0.90 ? 'text-green-400' :
+                        item.confidence && item.confidence >= 0.70 ? 'text-yellow-400' :
+                        'text-red-400'
+                    }`}>
                       Confidence:{" "}
                       {typeof item.confidence === "number"
                         ? item.confidence.toFixed(2)

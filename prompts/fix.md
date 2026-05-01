@@ -1,135 +1,118 @@
 @GEMINI.md @graph.md
 New session. Read both. Build MUST pass.
-Sprint 16: API Documentation + Webhook Delivery System + OpenAPI.
-Sprint 15 complete.
+Sprint 17: Onboarding Wizard + Empty States + Dashboard Polish.
+Sprint 16 complete.
 
-AUDIT: Check lib/webhooks/ if exists. Check app/api-docs/ page.
-USE SUPABASE CONNECTOR for migrations.
+AUDIT: Read app/dashboard/ directory listing.
+Check which dashboard pages are stubs vs real content.
+THIS IS FRONTEND ONLY. No new API routes. No migrations.
 
-═══ PART 1 — STANDARD RESPONSE FORMAT ═══
+═══ PART 1 — ONBOARDING WIZARD ═══
 
-/lib/api/response.ts
+/app/dashboard/onboarding/page.tsx
 
-function apiSuccess<T>(data: T, meta?: object): NextResponse
-  Returns {data, meta:{timestamp:now, ...meta}} status 200
+5-step wizard. Use React useState for step tracking.
+Store progress in localStorage key 'ps_onboarding_step'.
 
-function apiError(code: string, message: string, status: number, details?: any): NextResponse
-  Returns {error:{code, message, details}, meta:{timestamp}} status N
+Step 1 — Org Details:
+  Form: org name, industry (dropdown), team size
+  POST to /api/organizations to update name
 
-Standard codes: UNAUTHORIZED(401), FORBIDDEN(403), NOT_FOUND(404),
-VALIDATION_ERROR(400), QUOTA_EXCEEDED(429), INTERNAL_ERROR(500)
+Step 2 — Connect First Source:
+  3 big cards: Wazuh (recommended), Generic Webhook, Manual Upload
+  Wazuh: show command to configure Wazuh to send to phishslayer.tech/api/webhooks/wazuh
+  Click "Done" → mark step complete
 
-function apiPaginated<T>(items: T[], total: number, page: number, limit: number): NextResponse
-  Returns {data:items, pagination:{total,page,limit,pages,has_next}}
+Step 3 — Set Brand Domains:
+  Input: add domain names (company.com)
+  POST to /api/organizations with brand_domains array
+  Explain: used for OSINT brand monitoring
 
-Retrofit these 5 routes to use helpers (read each first):
-app/api/alerts/route.ts
-app/api/cases/route.ts
-app/api/osint/brand/findings/route.ts
-app/api/hunting/hypotheses/route.ts
-app/api/health/route.ts
+Step 4 — Configure Notifications:
+  Slack webhook URL input
+  Email input
+  POST to /api/notifications/rules
+  Skip button available
 
-═══ PART 2 — WEBHOOK SYSTEM ═══
+Step 5 — Complete:
+  Show: "Platform is ready" with confetti animation (CSS only)
+  POST to /api/organizations: {setup_complete: true}
+  Button: "Go to Dashboard" → /dashboard
 
-USE SUPABASE CONNECTOR:
+Styling: design system colors, glass cards, 4px radius buttons.
+Progress bar at top: 5 steps, purple fill.
 
-CREATE TABLE IF NOT EXISTS webhook_endpoints (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  org_id UUID NOT NULL REFERENCES organizations(id),
-  name TEXT NOT NULL,
-  url TEXT NOT NULL,
-  secret TEXT NOT NULL,
-  event_types TEXT[] NOT NULL,
-  is_active BOOLEAN DEFAULT true,
-  failure_count INTEGER DEFAULT 0,
-  last_delivery_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-ALTER TABLE webhook_endpoints ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "org_isolation" ON webhook_endpoints
-  USING (org_id = current_setting('app.current_org_id')::uuid);
+/app/dashboard/layout.tsx (READ FIRST, modify carefully):
+Add check: if org.setup_complete === false AND not on /onboarding:
+  redirect('/dashboard/onboarding')
+Must not break existing layout.
 
-CREATE TABLE IF NOT EXISTS webhook_deliveries (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  org_id UUID NOT NULL REFERENCES organizations(id),
-  endpoint_id UUID NOT NULL REFERENCES webhook_endpoints(id),
-  event_type TEXT NOT NULL,
-  payload JSONB NOT NULL,
-  response_status INTEGER,
-  duration_ms INTEGER,
-  attempt_count INTEGER DEFAULT 1,
-  status TEXT DEFAULT 'pending',
-  next_retry_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-ALTER TABLE webhook_deliveries ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "org_isolation" ON webhook_deliveries
-  USING (org_id = current_setting('app.current_org_id')::uuid);
+═══ PART 2 — EMPTY STATE COMPONENT ═══
 
-/lib/webhooks/delivery.ts
+/components/ui/empty-state.tsx
 
-async function deliverWebhook(orgId: string, eventType: string, payload: any): Promise<void>
-  1. Query active webhook_endpoints WHERE org_id AND event_types @> ARRAY[eventType]
-  2. For each endpoint:
-     Sign: crypto.createHmac('sha256', secret).update(JSON.stringify(payload)).digest('hex')
-     POST to endpoint.url with headers:
-       X-PhishSlayer-Signature: sha256={hmac}
-       X-PhishSlayer-Event: {eventType}
-     Timeout: 10 seconds
-     Log to webhook_deliveries
-  3. On failure: exponential backoff
-     Attempt 2: +5min, Attempt 3: +30min, Attempt 4: +2hr, then give up
-  4. If failure_count > 5: mark endpoint inactive, notify org
+interface EmptyStateProps {
+  icon: string  // emoji or lucide icon name
+  title: string
+  description: string
+  actionLabel?: string
+  actionHref?: string
+  actionOnClick?: () => void
+}
 
-Wire deliverWebhook into:
-lib/cases/lifecycle.ts → case.created, case.closed
-lib/response/playbook-executor.ts → containment.executed
-app/api/osint/brand/scan → osint.finding (if CRITICAL)
-app/api/alerts route → alert.created (if severity CRITICAL)
-Read each file first. Add 2 lines only (import + call). Don't rewrite.
+Styling: centered, icon large (48px), title #e2e8f0, 
+description #64748b, button primary purple 4px radius.
 
-═══ PART 3 — OPENAPI SPEC ═══
+═══ PART 3 — APPLY EMPTY STATES ═══
 
-/lib/api/openapi.ts
+Read each file first. Add EmptyState inside {data.length === 0 && <EmptyState .../>}
+Do NOT rewrite the page. Surgical addition only.
 
-Build OpenAPI 3.1 JSON spec:
-openapi: '3.1.0'
-info: {title: 'PhishSlayer API', version: '1.0.0', description: 'Autonomous SOC Platform'}
-servers: [{url: 'https://phishslayer.tech/api'}]
-security: [{ApiKeyAuth: []}]
-components.securitySchemes.ApiKeyAuth: {type: apiKey, in: header, name: X-API-Key}
+/app/dashboard/alerts/page.tsx
+  "No alerts yet" / "Connect a data source to start receiving alerts." / actionLabel="Connect Source" actionHref="/dashboard/connectors"
 
-Document these route groups (read actual route files for accurate schemas):
-/health: GET → {status: string}
-/alerts: GET (list), params: page,limit,severity
-/alerts/{id}: GET
-/cases: GET (list), POST
-/cases/{id}: GET, PATCH
-/osint/brand/findings: GET
-/hunting/hypotheses: GET, POST
-/playbooks: GET, POST
-/playbooks/{id}/execute: POST
-/metrics/summary: GET
-/ingest/webhook: POST (public with API key)
+/app/dashboard/cases/page.tsx
+  "No open cases" / "Alerts escalated by L2 agents appear here as cases."
 
-Export spec as static JSON object.
-Route: GET /api/openapi.json → return NextResponse.json(spec) NO AUTH
+/app/dashboard/osint/page.tsx
+  "No OSINT findings" / "Configure brand monitoring to scan for threats." / actionLabel="Configure" actionHref="/dashboard/settings"
 
-Swagger UI at /app/api-docs/page.tsx (already exists per build):
-Read existing file. If empty/stub, add:
-  Iframe or script loading swagger-ui-react
-  Point to /api/openapi.json
-  Dark theme: background #0a0a0f
+/app/dashboard/intel/page.tsx
+  "No threat intel" / "CTI feeds will populate actor profiles and IOCs automatically."
 
-═══ PART 4 — WEBHOOK MANAGEMENT ROUTES ═══
+/app/dashboard/hunting/page.tsx
+  "No hunt hypotheses" / "L3 agent generates hunt hypotheses from threat intel." / actionLabel="Generate Now" (POST /api/hunting/generate)
 
-POST /api/settings/webhooks — create endpoint (auth+org)
-GET /api/settings/webhooks — list endpoints (auth+org)
-DELETE /api/settings/webhooks/[id] — remove (auth+org)
-GET /api/settings/webhooks/deliveries — delivery log (auth+org)
-POST /api/settings/webhooks/[id]/test — send test payload (auth+org)
+/app/dashboard/sigma/page.tsx
+  "No detection rules" / "Sigma rules are generated automatically from hunt findings."
+
+/app/dashboard/metrics/page.tsx
+  "Collecting metrics" / "MTTD, MTTR, and risk scores populate after 24 hours of activity."
+
+═══ PART 4 — MISSION CONTROL UI PRINCIPLES ═══
+
+Read /app/dashboard/page.tsx (main dashboard).
+Apply these 5 enhancements WITHOUT full rewrite:
+
+1. Agent activity badge: find where agents are shown.
+   Add small badge on each action: "L1 Agent" | "L2 Agent" | "L3 Agent"
+   Colors: L1=#7c6af7, L2=#00d4aa, L3=#f59e0b
+
+2. Confidence display: find where alerts/findings render confidence.
+   If confidence >= 0.90: text-green-400
+   If confidence >= 0.70: text-yellow-400  
+   If confidence < 0.70: text-red-400
+
+3. Blind spot warning: at top of dashboard, check connector health.
+   GET /api/orchestrator/stats → if any connector silent > 30min:
+   Show red banner: "⚠ BLIND SPOT: {connector_name} not reporting"
+
+4. Risk score prominence: ensure org risk score (0-100) is visible
+   Large number top-left, color: <30 green, 30-70 amber, >70 red
+
+5. Active agent count: show "X agents running" live indicator
 
 ═══ FINAL ═══
 npm run build. Zero errors.
-git commit -m "feat(api): Sprint 16 webhooks, OpenAPI spec, standard response format"
+git commit -m "feat(ui): Sprint 17 onboarding wizard, empty states, mission control enhancements"
 git push origin main

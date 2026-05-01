@@ -8,7 +8,7 @@ import {
   getDashboardTitle,
 } from "@/components/dashboard/dashboard-nav";
 import { DashboardErrorBoundary } from "./components/ErrorBoundary";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import SessionGuard from "@/components/auth/SessionGuard";
 import { useUser } from "@clerk/nextjs";
 
@@ -34,21 +34,42 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { user: clerkUser } = useUser();
+  const { user: clerkUser, isLoaded: userLoaded } = useUser();
+  const router = useRouter();
   const [profile, setProfile] = useState<ProfileState>({
     name: "Authenticated User",
     email: "user@phishslayer.tech",
     avatarUrl: "",
   });
 
-  // Sync profile from Clerk user data
+  // Sync profile and check onboarding status
   useEffect(() => {
-    if (!clerkUser) return;
+    if (!userLoaded || !clerkUser) return;
+    
     const email = clerkUser.emailAddresses?.[0]?.emailAddress || "user@phishslayer.tech";
     const name = clerkUser.fullName || clerkUser.firstName || email;
     const avatarUrl = clerkUser.imageUrl || "";
     setProfile({ name, email, avatarUrl });
-  }, [clerkUser]);
+
+    // Check organization setup status
+    const checkSetup = async () => {
+        try {
+            const res = await fetch("/api/organizations");
+            const orgs = await res.json();
+            const currentOrg = orgs.find((o: any) => o.id === clerkUser.publicMetadata.organizationId);
+            
+            if (currentOrg && currentOrg.setup_complete === false && pathname !== '/dashboard/onboarding') {
+                router.push('/dashboard/onboarding');
+            }
+        } catch (err) {
+            console.error("Failed to check org setup", err);
+        }
+    };
+    
+    if (clerkUser.publicMetadata.organizationId) {
+        checkSetup();
+    }
+  }, [clerkUser, userLoaded, pathname, router]);
 
   const handleUserChange = useCallback((_userId: string | null) => {
     // Profile is now managed via useUser() above; no action needed here

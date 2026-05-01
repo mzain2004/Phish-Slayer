@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import DashboardCard from '@/components/dashboard/DashboardCard';
-import { Database, Zap, RefreshCw, AlertTriangle, Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Database, Zap, RefreshCw, AlertTriangle, Search, Filter, ChevronLeft, ChevronRight, Binary } from 'lucide-react';
+import EmptyState from "@/components/ui/empty-state";
 
 const PAGE_SIZE = 25;
 
@@ -212,8 +213,12 @@ export default function ThreatIntelPage() {
             <tbody className="divide-y divide-white/5">
               {iocs.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
-                    No indicators found matching filters.
+                  <td colSpan={6} className="px-6 py-4 text-center">
+                    <EmptyState 
+                        icon={Binary}
+                        title="No threat intel"
+                        description="CTI feeds will populate actor profiles and IOCs automatically."
+                    />
                   </td>
                 </tr>
               ) : (

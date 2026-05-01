@@ -10,8 +10,10 @@ import {
   ChevronRight, 
   AlertCircle,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  FolderOpen
 } from "lucide-react";
+import EmptyState from "@/components/ui/empty-state";
 
 interface Case {
   id: string;
@@ -139,12 +141,12 @@ export default function CasesDashboard() {
             <tbody className="divide-y divide-white/10">
               {cases.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center">
-                    <div className="flex flex-col items-center gap-2 opacity-40">
-                      <ShieldAlert className="w-12 h-12 text-white mb-2" />
-                      <p className="text-white text-sm font-black uppercase tracking-widest">Vault Empty</p>
-                      <p className="text-[#8B949E] text-xs">No active cases detected in this sector.</p>
-                    </div>
+                  <td colSpan={6} className="px-6 py-4 text-center">
+                    <EmptyState 
+                        icon={FolderOpen}
+                        title="No open cases"
+                        description="Alerts escalated by L2 agents appear here as cases."
+                    />
                   </td>
                 </tr>
               ) : (

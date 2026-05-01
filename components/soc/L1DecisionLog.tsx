@@ -80,15 +80,18 @@ export default function L1DecisionLog() {
             return (
               <div key={row.id} className="glass p-3">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <span
-                    className={`text-[10px] uppercase tracking-[0.14em] font-semibold rounded-full px-2 py-1 border ${
-                      escalated
-                        ? "text-danger border-danger/30 bg-danger/20"
-                        : "text-accent border-accent/30 bg-accent/15"
-                    }`}
-                  >
-                    {escalated ? "ESCALATED" : "CLOSED"}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span
+                        className={`text-[10px] uppercase tracking-[0.14em] font-semibold rounded-full px-2 py-1 border ${
+                        escalated
+                            ? "text-danger border-danger/30 bg-danger/20"
+                            : "text-accent border-accent/30 bg-accent/15"
+                        }`}
+                    >
+                        {escalated ? "ESCALATED" : "CLOSED"}
+                    </span>
+                    <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-[#7c6af7]/20 text-[#7c6af7]">L1 AGENT</span>
+                  </div>
                   <span className="text-xs text-white/50">
                     {timeAgo(row.created_at)}
                   </span>
@@ -98,7 +101,13 @@ export default function L1DecisionLog() {
                   {row.reasoning_text || "No reasoning captured."}
                 </p>
                 <p className="text-xs text-white/60 mt-1">
-                  {confidence} • action: {actionTaken}
+                  <span className={`${
+                    row.confidence_score && row.confidence_score >= 0.90 ? 'text-green-400' :
+                    row.confidence_score && row.confidence_score >= 0.70 ? 'text-yellow-400' :
+                    'text-red-400'
+                  }`}>
+                    {confidence}
+                  </span> • action: {actionTaken}
                 </p>
               </div>
             );

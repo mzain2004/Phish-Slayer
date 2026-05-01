@@ -4,8 +4,9 @@ import { useEffect, useState, useCallback } from "react";
 import { useUser } from "@clerk/nextjs";
 import { createClient } from "@/lib/supabase/client";
 import DashboardCard from "@/components/dashboard/DashboardCard";
-import { Loader2, Search, Zap, History, Shield, AlertTriangle, FileText, ChevronDown, ChevronUp, Database } from "lucide-react";
+import { Loader2, Search, Zap, History, Shield, AlertTriangle, FileText, ChevronDown, ChevronUp, Database, SearchIcon } from "lucide-react";
 import { toast } from "sonner";
+import EmptyState from "@/components/ui/empty-state";
 
 export default function OsintPage() {
   const { user } = useUser();
@@ -214,7 +215,15 @@ export default function OsintPage() {
               History
            </div>
            <div className="flex flex-col gap-3">
-              {history.map((h) => (
+              {history.length === 0 ? (
+                <EmptyState 
+                    icon={SearchIcon}
+                    title="No OSINT findings"
+                    description="Configure brand monitoring to scan for threats."
+                    actionLabel="Configure"
+                    actionHref="/dashboard/settings"
+                />
+              ) : history.map((h) => (
                 <div 
                   key={h.id} 
                   onClick={async () => {

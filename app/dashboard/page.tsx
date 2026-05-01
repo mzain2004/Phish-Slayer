@@ -14,7 +14,7 @@ import L1DecisionLog from "@/components/soc/L1DecisionLog";
 import NetworkTelemetryChart from "@/components/dashboard/NetworkTelemetryChart";
 import DashboardCard from "@/components/dashboard/DashboardCard";
 import StatusBadge from "@/components/dashboard/StatusBadge";
-import { ShieldCheck } from "lucide-react";
+import { ShieldCheck, AlertCircle, Cpu } from "lucide-react";
 
 type ScanRow = {
   target: string | null;
@@ -49,6 +49,18 @@ export default async function DashboardOverviewPage() {
     return <></>;
   }
 
+  // Fetch connector health for blind spot warning
+  const { data: connectors } = await supabase
+    .from('connector_health')
+    .select('connector_name, last_seen')
+    .eq('org_id', orgId);
+
+  const silentConnector = connectors?.find(c => {
+    const lastSeen = new Date(c.last_seen).getTime();
+    const thirtyMinsAgo = Date.now() - 30 * 60 * 1000;
+    return lastSeen < thirtyMinsAgo;
+  });
+
   const [{ data: scans }, { data: incidents }, { count: intelCount }, { data: orgData }] =
     await Promise.all([
       supabase
@@ -79,20 +91,19 @@ export default async function DashboardOverviewPage() {
   const activeIncidents = incidentRows.filter(
     (incident) => !(incident.status || "").toLowerCase().includes("resolved"),
   ).length;
-  const resolvedIncidents = incidentRows.filter((incident) =>
-    (incident.status || "").toLowerCase().includes("resolved"),
-  ).length;
 
-  const averageRiskScore =
-    totalScans > 0
-      ? Math.round(
-          scanRows.reduce((sum, scan) => sum + (scan.risk_score ?? 0), 0) /
-            totalScans,
-        )
-      : 0;
+  const riskScore = orgData?.risk_score || 0;
+  const riskColor = riskScore > 70 ? 'text-red-500' : riskScore > 30 ? 'text-amber-400' : 'text-emerald-400';
 
   return (
     <div className="flex flex-col gap-6 text-white">
+      {silentConnector && (
+        <div className="bg-red-500/10 border border-red-500/30 p-3 rounded-xl flex items-center gap-3 text-red-500 animate-pulse">
+            <AlertCircle className="w-5 h-5" />
+            <span className="text-sm font-bold tracking-tight">⚠ BLIND SPOT: {silentConnector.connector_name} not reporting</span>
+        </div>
+      )}
+
       <DashboardCard className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between p-6">
         <div className="flex items-center gap-4">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/20 border border-primary/30">
@@ -102,23 +113,31 @@ export default async function DashboardOverviewPage() {
             <h1 className="text-xl font-bold tracking-tight">
               {orgData?.name || "Command Center"}
             </h1>
-            <p className="text-xs text-white/50 uppercase tracking-widest font-black">
-              Autopilot Mode: <span className="text-emerald-400">ACTIVE</span>
-            </p>
+            <div className="flex items-center gap-3 mt-1">
+                <p className="text-[10px] text-white/50 uppercase tracking-widest font-black">
+                Autopilot Mode: <span className="text-emerald-400">ACTIVE</span>
+                </p>
+                <div className="h-1 w-1 rounded-full bg-white/20" />
+                <p className="text-[10px] text-white/50 uppercase tracking-widest font-black flex items-center gap-1">
+                   <Cpu className="w-3 h-3 text-primary" /> 3 Agents Running
+                </p>
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-6">
-           <div className="flex flex-col items-end">
-              <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Global Risk Posture</span>
-              <div className="flex items-center gap-2">
-                 <span className={`text-xl font-black ${orgData?.risk_level === 'CRITICAL' ? 'text-red-500' : orgData?.risk_level === 'HIGH' ? 'text-orange-500' : 'text-emerald-400'}`}>
-                    {orgData?.risk_level || 'LOW'}
-                 </span>
-                 <div className="h-6 w-px bg-white/10" />
-                 <span className="text-xl font-black text-white">{orgData?.risk_score || 0}%</span>
-              </div>
+        <div className="flex items-center gap-8">
+           <div className="flex items-center gap-4">
+               <div className={`text-5xl font-black ${riskColor}`}>
+                  {riskScore}
+               </div>
+               <div className="flex flex-col">
+                  <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Global Risk</span>
+                  <span className={`text-xs font-black uppercase ${riskColor}`}>
+                     {orgData?.risk_level || 'LOW'} SECTOR
+                  </span>
+               </div>
            </div>
+           <div className="h-10 w-px bg-white/10 hidden md:block" />
            <SOCTierBadge tier={1} />
         </div>
       </DashboardCard>

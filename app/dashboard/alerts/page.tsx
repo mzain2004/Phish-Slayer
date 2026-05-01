@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import DashboardCard from "@/components/dashboard/DashboardCard";
 import { Loader2, ShieldAlert, CheckCircle, UserPlus, Ghost, ShieldOff, Activity } from "lucide-react";
 import { toast } from "sonner";
+import EmptyState from "@/components/ui/empty-state";
 
 type Alert = {
   id: string;
@@ -182,7 +183,13 @@ export default function AlertsPage() {
         {loading ? (
           <div className="p-20 flex justify-center"><Loader2 className="animate-spin text-primary" /></div>
         ) : alerts.length === 0 ? (
-          <div className="p-20 text-center text-white/40">No alerts found.</div>
+          <EmptyState 
+            icon={ShieldAlert}
+            title="No alerts yet"
+            description="Connect a data source to start receiving alerts."
+            actionLabel="Connect Source"
+            actionHref="/dashboard/connectors"
+          />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left">
