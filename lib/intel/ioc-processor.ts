@@ -8,10 +8,13 @@ export function normalizeIOC(type: IOCType, value: string): string | null {
 
     switch (type) {
         case 'ip':
-            // Basic IP normalization (lowercase, trim)
-            // IPv6 can have different representations but we'll stick to simple lowercase for now
+            // Basic IP normalization (lowercase, trim, strip leading zeros)
             normalized = normalized.toLowerCase();
-            if (!/^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(normalized) && !normalized.includes(':')) return null;
+            if (/^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(normalized)) {
+                normalized = normalized.split('.').map(part => parseInt(part, 10).toString()).join('.');
+            } else if (!normalized.includes(':')) {
+                return null;
+            }
             break;
         case 'domain':
             normalized = normalized.toLowerCase();

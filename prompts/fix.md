@@ -1,88 +1,71 @@
 @GEMINI.md @graph.md
 New session. Read both. Build MUST pass.
-Sprint 18: Polar Billing Integration + Plan Gating.
-Sprint 17 complete.
+Sprint 19: Testing Infrastructure + Critical Path Tests.
+Sprint 18 complete.
 
-NOTE: Payment provider is POLAR (polar.sh) NOT Stripe.
-Zain's account is pending UBL bank verification on Polar.
+═══ PART 1 — SETUP ═══
 
-AUDIT: Read app/api/billing/ routes. Read app/dashboard/billing/page.tsx.
-Check organizations.plan column exists (Sprint 15 added it).
+npm install -D vitest @testing-library/react @testing-library/jest-dom jsdom
 
-═══ PART 1 — POLAR SETUP ═══
+/vitest.config.ts
+import { defineConfig } from 'vitest/config'
+export default defineConfig({
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: ['./lib/__tests__/setup.ts'],
+  }
+})
 
-npm install @polar-sh/sdk
+/lib/__tests__/setup.ts
+import '@testing-library/jest-dom'
 
-/lib/billing/polar.ts
-import { Polar } from '@polar-sh/sdk'
-export const polar = new Polar({ accessToken: process.env.POLAR_ACCESS_TOKEN })
+package.json: add scripts:
+"test": "vitest run",
+"test:watch": "vitest",
+"test:coverage": "vitest run --coverage"
 
-Add to .env.example (NEVER .env.production — append only):
-POLAR_ACCESS_TOKEN=
-POLAR_ORGANIZATION_ID=
-POLAR_PRO_PRODUCT_ID=
-POLAR_ENTERPRISE_PRODUCT_ID=
-POLAR_WEBHOOK_SECRET=
+═══ PART 2 — UNIT TESTS ═══
 
-═══ PART 2 — CHECKOUT ═══
+/lib/__tests__/enrichment.test.ts
+Test rule-based MITRE tagger:
+  {rule_name: 'Brute Force'} → contains 'T1110'
+  {rule_name: 'PowerShell'} → contains 'T1059'
+  {rule_name: 'xyz_unknown_thing'} → empty array
 
-/app/api/billing/checkout/route.ts (UPDATE existing — read first):
-Auth + org scope.
-POST body: {plan: 'pro'|'enterprise'}
-Use Polar SDK to create checkout:
-  polar.checkouts.create({
-    products: [process.env[plan === 'pro' ? 'POLAR_PRO_PRODUCT_ID' : 'POLAR_ENTERPRISE_PRODUCT_ID']],
-    successUrl: 'https://phishslayer.tech/dashboard?upgraded=true',
-    metadata: { orgId }
-  })
-Return {checkoutUrl: checkout.url}
+/lib/__tests__/ioc-processor.test.ts
+Test normalizeIOC:
+  {type:'ip', value:'192.168.001.001'} → '192.168.1.1'
+  {type:'hash_sha256', value:'ABC123...(64chars)'} → lowercase
+  {type:'domain', value:'EVIL.COM.'} → 'evil.com'
 
-═══ PART 3 — POLAR WEBHOOK ═══
+/lib/__tests__/pipeline.test.ts
+Mock Supabase client with vi.mock.
+Test ingestEvent: verify calls format detection → quality check → insert
+Assert org_id always present in insert call.
 
-/app/api/billing/webhook/route.ts (UPDATE — read first):
-This must be PUBLIC (no Clerk auth). Verify Polar signature.
-Handle events:
-  order.created / subscription.active:
-    Get orgId from metadata
-    UPDATE organizations SET plan = 'pro' (or enterprise)
-  subscription.canceled / subscription.revoked:
-    SET plan = 'free'
-  subscription.updated:
-    Check new product ID → update plan accordingly
+/lib/__tests__/quota-enforcer.test.ts
+Mock Supabase. Test checkQuota:
+  count=0, limit=100 → {allowed:true, remaining:100}
+  count=100, limit=100 → {allowed:false, remaining:0}
 
-Polar webhook verification:
-  import { validateEvent } from '@polar-sh/sdk/webhooks'
-  validateEvent(rawBody, headers, process.env.POLAR_WEBHOOK_SECRET)
-  If invalid: return 400
+/app/api/__tests__/health.test.ts
+import handler from '../health/route'
+Test: GET request → 200 → {status:'ok'}
 
-═══ PART 4 — PLAN GATING ═══
+═══ PART 3 — INTEGRATION SMOKE TESTS ═══
 
-/lib/billing/plan-gate.ts (UPDATE or CREATE):
-const PLAN_RANK = {free: 0, pro: 1, enterprise: 2}
-
-async function requirePlan(orgId: string, required: 'pro'|'enterprise'): Promise<boolean>
-  Get org.plan from DB
-  Return PLAN_RANK[org.plan] >= PLAN_RANK[required]
-
-Wire plan gating (read each file first, add 3 lines):
-app/api/osint/brand/scan/route.ts → requirePlan('pro')
-app/api/playbooks/[id]/execute/route.ts → requirePlan('pro')
-app/api/malware/analyze/route.ts → requirePlan('pro')
-If plan check fails: return apiError('UPGRADE_REQUIRED','Plan upgrade required',403,{required_plan})
-
-═══ PART 5 — BILLING UI ═══
-
-/app/dashboard/billing/page.tsx (UPDATE existing — read first):
-Show current plan badge: FREE|PRO|ENTERPRISE
-Usage stats from /api/settings/usage (Sprint 15)
-Upgrade buttons:
-  "Upgrade to Pro" → POST /api/billing/checkout {plan:'pro'} → redirect to checkoutUrl
-  "Upgrade to Enterprise" → same with enterprise
-If already pro: show "Upgrade to Enterprise" only
-If enterprise: show "You're on the best plan 🚀"
-Show Polar customer portal link if on paid plan.
+/lib/__tests__/smoke.test.ts
+Test that critical lib exports exist (not undefined):
+  import { ingestEvent } from '../ingestion/pipeline'
+  import { tagAlert } from '../mitre/auto-tagger'
+  import { checkQuota } from '../quotas/enforcer'
+  import { deliverWebhook } from '../webhooks/delivery'
+  expect(ingestEvent).toBeDefined()
+  (etc)
 
 ═══ FINAL ═══
-npm run build. Zero errors.
-git commit -m "feat(billing): Sprint 18 Polar billing, plan gating, checkout flow"
+npm run build && npm run test
+Both must pass.
+git commit -m "feat(testing): Sprint 19 vitest setup, critical path tests"
 git push origin main
