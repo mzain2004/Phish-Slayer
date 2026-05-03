@@ -1,14 +1,5 @@
-import { Groq } from "groq-sdk";
 import { techniques, getTechniqueById } from "./attack-data";
-
-let groqClient: Groq | null = null;
-
-function getGroq(): Groq {
-  if (!groqClient) {
-    groqClient = new Groq({ apiKey: process.env.GROQ_API_KEY || '' });
-  }
-  return groqClient;
-}
+import { groqComplete } from "@/lib/ai/groq";
 
 function sanitizeForLLM(input: string): string {
   return input
@@ -39,16 +30,10 @@ export async function llmTagger(alert: any): Promise<string[]> {
     
     Return ONLY the technique IDs separated by commas. Example: T1566, T1059.001. Do not explain.`;
 
-    const chatCompletion = await getGroq().chat.completions.create({
-      messages: [{ role: "user", content: prompt }],
-      model: "llama-3.3-70b-versatile",
-      temperature: 0.1
-    });
-
-    const responseText = chatCompletion.choices[0]?.message?.content || "";
+    const responseText = await groqComplete("You are a MITRE ATT&CK expert.", prompt);
     
     // Extract T-codes using regex
-    const matches = responseText.match(/T\d{4}(?:\.\d{3})?/g) || [];
+    const matches = (responseText || "").match(/T\d{4}(?:\.\d{3})?/g) || [];
     
     // Validate against catalog
     const validIds = new Set<string>();

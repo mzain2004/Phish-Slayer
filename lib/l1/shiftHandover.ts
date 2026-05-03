@@ -1,13 +1,5 @@
 import { SupabaseClient } from "@supabase/supabase-js";
-import { Groq } from "groq-sdk";
-
-let groqClient: Groq | null = null;
-function getGroq(): Groq {
-  if (!groqClient) {
-    groqClient = new Groq({ apiKey: process.env.GROQ_API_KEY });
-  }
-  return groqClient;
-}
+import { groqComplete } from "@/lib/ai/groq";
 
 export async function generateHandoverReport(supabase: SupabaseClient, orgId: string, analystId: string) {
   try {
@@ -32,12 +24,7 @@ export async function generateHandoverReport(supabase: SupabaseClient, orgId: st
     
     Provide a concise summary of critical open items, analyst assignments, and recommended next actions for the next shift. Use a professional, monospaced-friendly format.`;
 
-    const chatCompletion = await getGroq().chat.completions.create({
-      messages: [{ role: "user", content: prompt }],
-      model: "llama-3.3-70b-versatile",
-    });
-
-    const narrative = chatCompletion.choices[0]?.message?.content || "No narrative generated.";
+    const narrative = await groqComplete("You are a Senior SOC Analyst.", prompt);
 
     // 3. Save to DB
     const { data: report, error } = await supabase

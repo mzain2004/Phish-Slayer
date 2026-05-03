@@ -5,7 +5,7 @@ import {
   buildL3ReasoningPrompt,
   saveReasoningChain,
 } from "@/lib/reasoning-chain";
-import { getGeminiModel } from "@/lib/ai/gemini";
+import { getGroqModel } from "@/lib/ai/groq";
 import { generateAllHypotheses } from "@/lib/hunting/hypothesis-generator";
 import { executeHunt } from "@/lib/hunting/executor";
 import { verifyCronAuth, unauthorizedResponse } from "@/lib/security/cronAuth";
@@ -823,7 +823,7 @@ async function runL3Pipeline(request: NextRequest, options: L3RunOptions) {
         },
       ],
       actions_taken: [reviewer.action_taken || reviewer.verdict || "PROCEED"],
-      model_used: getGeminiModel(),
+      model_used: getGroqModel(),
       execution_time_ms: executionTimeMs,
     });
   } catch (error) {

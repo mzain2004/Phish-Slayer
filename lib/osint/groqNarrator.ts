@@ -1,14 +1,5 @@
-import { Groq } from "groq-sdk";
+import { groqComplete } from "@/lib/ai/groq";
 import { OsintTarget, CollectorResult, OsintReport } from "./types";
-
-let groq: Groq | null = null;
-
-function getGroq(): Groq {
-  if (!groq) {
-    groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-  }
-  return groq;
-}
 
 export async function generateNarrative(target: OsintTarget, results: CollectorResult[]): Promise<OsintReport> {
   const context = results.filter(r => r.success).map(r => `[${r.collector}] ${JSON.stringify(r.data)}`).join("\n");
@@ -26,13 +17,9 @@ export async function generateNarrative(target: OsintTarget, results: CollectorR
   Ensure the response is valid JSON and nothing else.`;
 
   try {
-    const chatCompletion = await getGroq().chat.completions.create({
-      messages: [{ role: "user", content: prompt }],
-      model: "llama-3.3-70b-versatile",
-      response_format: { type: "json_object" }
-    });
+    const response = await groqComplete("You are a Lead OSINT Analyst.", prompt);
 
-    const content = JSON.parse(chatCompletion.choices[0]?.message?.content || "{}");
+    const content = JSON.parse(response || "{}");
     return {
       narrative: content.narrative || "Analysis unavailable",
       riskScore: content.riskScore || 0,

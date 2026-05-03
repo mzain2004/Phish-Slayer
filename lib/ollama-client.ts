@@ -175,19 +175,14 @@ export async function ollamaModels(): Promise<string[]> {
 
 export async function generateWithFallback(
   prompt: string,
-  geminiPrompt?: string,
+  _geminiPrompt?: string,
 ): Promise<string> {
   try {
-    const result = await ollamaGenerate(DEFAULT_MODEL, prompt);
-    console.info("[llm] provider=ollama model=%s", DEFAULT_MODEL);
-    return result;
-  } catch (ollamaError) {
-    console.warn("[llm] provider=ollama failed, using Groq fallback", {
-      error: ollamaError instanceof Error ? ollamaError.message : "unknown",
-    });
+    const groqResult = await groqGenerate(prompt);
+    console.info("[llm] provider=groq model=%s", getGroqModel());
+    return groqResult;
+  } catch (groqError) {
+    console.error("[llm] provider=groq failed", groqError);
+    return "";
   }
-
-  const groqResult = await groqGenerate(geminiPrompt || prompt);
-  console.info("[llm] provider=groq model=%s", getGroqModel());
-  return groqResult;
 }

@@ -1,7 +1,5 @@
 import { SupabaseClient } from "@supabase/supabase-js";
-import { Groq } from "groq-sdk";
-
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+import { groqComplete } from "@/lib/ai/groq";
 
 export async function reconstructChain(supabase: SupabaseClient, incidentId: string, orgId: string) {
   try {
@@ -29,14 +27,11 @@ export async function reconstructChain(supabase: SupabaseClient, incidentId: str
     
     Describe how the attacker likely gained entry, what they did next, and their ultimate objective. Be technical and concise.`;
 
-    const chatCompletion = await groq.chat.completions.create({
-      messages: [{ role: "user", content: prompt }],
-      model: "llama-3.3-70b-versatile",
-    });
+    const narrative = await groqComplete("You are a Lead Incident Responder.", prompt);
 
     return {
       phases,
-      narrative: chatCompletion.choices[0]?.message?.content || "Failed to generate narrative.",
+      narrative: narrative || "Failed to generate narrative.",
       killChainCoverage: Array.from(new Set(phases.map(p => p.phase)))
     };
   } catch (err) {

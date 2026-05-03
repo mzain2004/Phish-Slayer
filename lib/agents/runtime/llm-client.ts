@@ -1,13 +1,15 @@
-import Groq from 'groq-sdk';
 import { createClient } from '@supabase/supabase-js';
 import { LLMResponse } from './types';
 
-let groq: Groq | null = null;
+let groq: any = null;
 let providerFailures: Record<string, number> = { groq: 0, openai: 0, anthropic: 0, ollama: 0 };
 let circuitBreakerTripTime: Record<string, number | null> = { groq: null, openai: null, anthropic: null, ollama: null };
 
-function getGroq(): Groq {
-  if (!groq) groq = new Groq({ apiKey: process.env.GROQ_API_KEY || '' });
+async function getGroq() {
+  if (!groq) {
+    const { default: Groq } = await import('groq-sdk');
+    groq = new Groq({ apiKey: process.env.GROQ_API_KEY || '' });
+  }
   return groq;
 }
 
@@ -43,7 +45,7 @@ export async function getProviderHealth(): Promise<Record<string, boolean>> {
 async function logProviderStatus(provider: string, status: string) {
   const supabase = getAdminClient();
   await supabase.from('llm_provider_health').upsert({
-    id: provider, // Assuming id or provider is PK in real schema, simplified here
+    id: provider,
     provider,
     status,
     last_check: new Date().toISOString(),
@@ -58,7 +60,8 @@ export async function callLLM(prompt: string, systemPrompt: string, options: any
   // Try Groq first if healthy
   if (health['groq']) {
     try {
-      const response = await getGroq().chat.completions.create({
+      const client = await getGroq();
+      const response = await client.chat.completions.create({
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: prompt }
@@ -79,7 +82,8 @@ export async function callLLM(prompt: string, systemPrompt: string, options: any
         provider: 'groq',
         latency_ms: Date.now() - start
       };
-    } catch (err) {
+    } catch (err: any) {
+      console.error('[GROQ ERROR]', err.message, err.status);
       providerFailures['groq']++;
       if (providerFailures['groq'] >= 3) {
         circuitBreakerTripTime['groq'] = Date.now();

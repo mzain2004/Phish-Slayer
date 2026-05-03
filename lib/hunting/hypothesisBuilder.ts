@@ -1,6 +1,4 @@
-import Groq from 'groq-sdk';
-
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY || '' });
+import { groqComplete } from '@/lib/ai/groq';
 
 export interface Hypothesis {
   title: string;
@@ -38,13 +36,8 @@ export async function generateHypotheses(params: {
   `;
 
   try {
-    const chatCompletion = await groq.chat.completions.create({
-      messages: [{ role: 'user', content: prompt }],
-      model: 'llama-3.3-70b-versatile',
-      response_format: { type: 'json_object' }
-    });
+    const content = await groqComplete("You are an expert Threat Hunter.", prompt);
 
-    const content = chatCompletion.choices[0]?.message?.content;
     if (!content) return [];
     
     const parsed = JSON.parse(content);

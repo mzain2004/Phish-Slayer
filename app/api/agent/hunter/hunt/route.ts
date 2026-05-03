@@ -217,7 +217,7 @@ async function queryMatchingScans(
   return (fallback.data || []) as Record<string, unknown>[];
 }
 
-async function callGemini(
+async function callGroq(
   ioc: IntelRow,
   scan: Record<string, unknown>,
 ): Promise<HunterDecision> {
@@ -257,7 +257,7 @@ async function callGemini(
   return normalizeDecision(decision.data);
 }
 
-async function callGeminiWithFallback(
+async function callGroqWithFallback(
   ioc: IntelRow,
   scan: Record<string, unknown>,
 ): Promise<{
@@ -266,11 +266,11 @@ async function callGeminiWithFallback(
   fallbackReason: string | null;
 }> {
   try {
-    const decision = await callGemini(ioc, scan);
+    const decision = await callGroq(ioc, scan);
     return { decision, usedFallback: false, fallbackReason: null };
   } catch (error) {
     const fallbackReason =
-      error instanceof Error ? error.message : "unknown_gemini_error";
+      error instanceof Error ? error.message : "unknown_groq_error";
     const decision = fallbackHunterDecision(ioc, scan, fallbackReason);
     return {
       decision,
@@ -351,7 +351,7 @@ export async function GET(request: NextRequest) {
       for (const scan of scans) {
         try {
           const { decision, usedFallback, fallbackReason } =
-            await callGeminiWithFallback(ioc, scan);
+            await callGroqWithFallback(ioc, scan);
 
           if (usedFallback) {
             await adminClient.from("audit_logs").insert({
@@ -360,7 +360,7 @@ export async function GET(request: NextRequest) {
               organization_id: organizationId,
               metadata: {
                 stage: "hunt",
-                failure_type: "gemini_failure",
+                failure_type: "groq_failure",
                 cycle_id: cycleId,
                 organization_id: organizationId,
                 ioc_id: ioc.id,

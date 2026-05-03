@@ -1,6 +1,6 @@
-import Groq from 'groq-sdk';
 import { createClient } from '@/lib/supabase/server';
 import { getTechniqueById } from './techniques';
+import { groqComplete } from '@/lib/ai/groq';
 
 export interface AlertContext {
   title: string;
@@ -22,7 +22,6 @@ export interface MitreTag {
 }
 
 export async function tagAlertWithMitre(context: AlertContext): Promise<MitreTag[]> {
-  const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
   const rawSummary = JSON.stringify(context.rawPayload).substring(0, 500);
   
   const prompt = `You are a MITRE ATT&CK expert. Analyze this security alert and identify the most relevant MITRE ATT&CK techniques.
@@ -43,15 +42,8 @@ export async function tagAlertWithMitre(context: AlertContext): Promise<MitreTag
     - Confidence is float 0.0-1.0`;
 
   try {
-    const completion = await groq.chat.completions.create({
-      messages: [{ role: 'user', content: prompt }],
-      model: 'llama-3.3-70b-versatile',
-      temperature: 0.1,
-      max_tokens: 500,
-    });
-
-    const response = completion.choices[0]?.message?.content || '[]';
-    const parsed = JSON.parse(response.replace(/```json|```/g, '').trim());
+    const response = await groqComplete("You are a MITRE ATT&CK expert.", prompt, 500);
+    const parsed = JSON.parse((response || "[]").replace(/```json|```/g, '').trim());
 
     if (!Array.isArray(parsed)) return [];
 

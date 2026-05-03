@@ -1,7 +1,5 @@
 import { SupabaseClient } from "@supabase/supabase-js";
-import { Groq } from "groq-sdk";
-
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+import { groqComplete } from "@/lib/ai/groq";
 
 const KEY_TECHNIQUES = [
   { id: 'T1078', name: 'Valid Accounts' },
@@ -45,16 +43,13 @@ export async function analyzeCoverage(supabase: SupabaseClient, orgId: string) {
     const prompt = `As a Cyber Security Architect, analyze these MITRE ATT&CK gaps for a SOC: ${gapNames}.
     Provide 3 specific detection rule recommendations (title and logic summary) to bridge these gaps.`;
 
-    const chatCompletion = await groq.chat.completions.create({
-      messages: [{ role: "user", content: prompt }],
-      model: "llama-3.3-70b-versatile",
-    });
+    const recommendations = await groqComplete("As a Cyber Security Architect", prompt);
 
     return {
       covered: KEY_TECHNIQUES.filter(t => covered.includes(t.id)),
       gaps,
       coveragePercent,
-      recommendations: chatCompletion.choices[0]?.message?.content || "No recommendations generated."
+      recommendations: recommendations || "No recommendations generated."
     };
   } catch (err) {
     console.error("[coverage] Error:", err);

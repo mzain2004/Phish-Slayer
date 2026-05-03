@@ -1,7 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase/admin';
-import Groq from 'groq-sdk';
-
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+import { groqComplete } from '@/lib/ai/groq';
 
 export async function generatePIR(caseId: string, orgId: string): Promise<string> {
     // 1. Collect Context
@@ -35,10 +33,7 @@ Structured your response in Markdown with these sections:
 
 Keep it technical, concise, and actionable.`;
 
-    const chatCompletion = await groq.chat.completions.create({
-        messages: [{ role: 'user', content: prompt }],
-        model: 'llama3-70b-8192',
-    });
+    const responseText = await groqComplete("You are a senior security incident responder.", prompt);
 
-    return chatCompletion.choices[0].message.content || 'Failed to generate PIR';
+    return responseText || 'Failed to generate PIR';
 }

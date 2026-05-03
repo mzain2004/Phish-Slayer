@@ -4,7 +4,7 @@ import {
   buildL1ReasoningPrompt,
   saveReasoningChain,
 } from "@/lib/reasoning-chain";
-import { getGeminiModel } from "@/lib/ai/gemini";
+import { getGroqModel } from "@/lib/ai/groq";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -109,7 +109,7 @@ export async function GET(request: NextRequest) {
         actions_taken: [
           result.decision === "CLOSE" ? "CLOSE" : "ESCALATE_TO_HUMAN",
         ],
-        model_used: getGeminiModel(),
+        model_used: getGroqModel(),
         execution_time_ms: executionTimeMs,
       });
     });

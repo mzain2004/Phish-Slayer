@@ -38,6 +38,7 @@ export default async function DashboardOverviewPage() {
   let orgData: any = null;
   let scanRows: ScanRow[] = [];
   let incidentRows: IncidentRow[] = [];
+  let agentActivity: any[] = [];
   let intelCount = 0;
   let silentConnector = null;
 
@@ -66,7 +67,7 @@ export default async function DashboardOverviewPage() {
         return lastSeen < thirtyMinsAgo;
       });
 
-      const [scansRes, incidentsRes, intelRes, orgRes] = await Promise.all([
+      const [scansRes, incidentsRes, intelRes, orgRes, reasoningRes] = await Promise.all([
         supabase
           .from("scans")
           .select("target, verdict, date, risk_score")
@@ -83,12 +84,19 @@ export default async function DashboardOverviewPage() {
           .select("name, risk_score, risk_level")
           .eq("id", orgId)
           .maybeSingle(),
+        supabase
+          .from("agent_reasoning")
+          .select("agent_level, decision, confidence_score, reasoning_text, created_at, model_used")
+          .eq("organization_id", orgId)
+          .order("created_at", { ascending: false })
+          .limit(10),
       ]);
 
       scanRows = (scansRes.data ?? []) as ScanRow[];
       incidentRows = (incidentsRes.data ?? []) as IncidentRow[];
       intelCount = intelRes.count ?? 0;
       orgData = orgRes.data;
+      agentActivity = reasoningRes.data || [];
     }
   } catch (error) {
     console.error("[Dashboard] Data fetch error:", error);
@@ -155,34 +163,67 @@ export default async function DashboardOverviewPage() {
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 w-full">
         <DashboardCard className="bg-black/20 px-3 py-2">
-          <p className="dashboard-card-label">Total Scans</p>
+          <p className="dashboard-card-label">Total Alerts</p>
           <p className="dashboard-metric-value text-white">{totalScans}</p>
         </DashboardCard>
         <DashboardCard className="bg-black/20 px-3 py-2">
-          <p className="dashboard-card-label">Malicious</p>
-          <p className="dashboard-metric-value text-red-300">
-            {maliciousScans}
+          <p className="dashboard-card-label">Active Agents</p>
+          <p className="dashboard-metric-value text-primary">3</p>
+        </DashboardCard>
+        <DashboardCard className="bg-black/20 px-3 py-2">
+          <p className="dashboard-card-label">Avg Confidence</p>
+          <p className="dashboard-metric-value text-emerald-400">
+            {agentActivity.length > 0 ? Math.round(agentActivity.reduce((acc: number, curr: any) => acc + (curr.confidence_score || 0), 0) / agentActivity.length) : 0}%
           </p>
         </DashboardCard>
         <DashboardCard className="bg-black/20 px-3 py-2">
-          <p className="dashboard-card-label">Incidents</p>
-          <p className="dashboard-metric-value text-orange-200">
-            {activeIncidents}
-          </p>
-        </DashboardCard>
-        <DashboardCard className="bg-black/20 px-3 py-2">
-          <p className="dashboard-card-label">Intel Records</p>
-          <p className="dashboard-metric-value text-cyan-200">
-            {intelCount}
+          <p className="dashboard-card-label">Last Agent Run</p>
+          <p className="dashboard-metric-value text-white text-sm truncate">
+            {agentActivity[0]?.created_at ? new Date(agentActivity[0].created_at).toLocaleTimeString() : 'Never'}
           </p>
         </DashboardCard>
       </div>
 
-      <AgentSwarmPanel />
-
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
         <div className="xl:col-span-3 flex flex-col gap-6">
           <NetworkTelemetryChart />
+          <DashboardCard className="p-6">
+             <h2 className="text-sm font-black uppercase tracking-widest text-white/40 mb-4">Live Agent Activity</h2>
+             <div className="space-y-4">
+                {agentActivity.length === 0 ? (
+                  <p className="text-sm text-white/30 italic py-10 text-center">No recent agent activity recorded.</p>
+                ) : (
+                  agentActivity.map((activity: any, idx: number) => (
+                    <div key={idx} className="flex items-start gap-4 p-3 rounded-xl bg-white/5 border border-white/5">
+                        <div className={`px-2 py-1 rounded text-[10px] font-black ${
+                          activity.agent_level === 'L1' ? 'bg-purple-500/20 text-purple-400' :
+                          activity.agent_level === 'L2' ? 'bg-amber-500/20 text-amber-400' :
+                          'bg-cyan-500/20 text-cyan-400'
+                        }`}>
+                          {activity.agent_level}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                           <div className="flex items-center gap-2 mb-1">
+                              <div className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${
+                                activity.decision === 'ESCALATE' ? 'bg-red-500/20 text-red-500' :
+                                activity.decision === 'MANUAL_REVIEW' ? 'bg-amber-500/20 text-amber-500' :
+                                activity.decision === 'CLOSE' ? 'bg-emerald-500/20 text-emerald-500' :
+                                'bg-white/10 text-white/40'
+                              }`}>
+                                {activity.decision}
+                              </div>
+                              <span className="text-[10px] text-white/40">{new Date(activity.created_at).toLocaleTimeString()}</span>
+                           </div>
+                           <p className="text-xs text-white/80 truncate">{activity.reasoning_text?.slice(0, 80)}...</p>
+                           <div className="mt-2 w-full h-1 bg-white/5 rounded-full overflow-hidden">
+                              <div className="h-full bg-emerald-500" style={{ width: `${activity.confidence_score}%` }} />
+                           </div>
+                        </div>
+                    </div>
+                  ))
+                )}
+             </div>
+          </DashboardCard>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
              <EscalationQueue />
              <Tier0BlockFeed />
