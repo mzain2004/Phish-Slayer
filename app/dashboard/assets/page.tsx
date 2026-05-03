@@ -3,8 +3,18 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Database, Loader2, Server } from "lucide-react";
 import { useAuth, useOrganization } from "@clerk/nextjs";
+import { useSearchParams } from "next/navigation";
 import DashboardCard from "@/components/dashboard/DashboardCard";
 import StatusBadge from "@/components/dashboard/StatusBadge";
+
+// Helper to get client-side cookie
+function getCookie(name: string) {
+  if (typeof document === "undefined") return null;
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop()?.split(";").shift();
+  return null;
+}
 
 type AssetRecord = {
   id: string;
@@ -59,7 +69,11 @@ function assetTypeLabel(value: string) {
 export default function AssetsPage() {
   const { userId } = useAuth();
   const { organization, isLoaded: orgLoaded } = useOrganization();
-  const orgId = organization?.id || null;
+  const searchParams = useSearchParams();
+  
+  // FIX 2: ROBUST ORG RESOLUTION
+  const orgId = searchParams.get("orgId") || organization?.id || getCookie("ps_org_id") || null;
+
   const [assets, setAssets] = useState<AssetRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorText, setErrorText] = useState<string | null>(null);
@@ -240,8 +254,7 @@ export default function AssetsPage() {
         </DashboardCard>
       ) : !orgId ? (
         <DashboardCard className="text-white/70">
-          Select an organization to view asset inventory.
-        </DashboardCard>
+          Initializing organization context...</DashboardCard>
       ) : loading ? (
         <DashboardCard className="text-white/70 flex items-center gap-2">
           <Loader2 className="h-4 w-4 animate-spin" />

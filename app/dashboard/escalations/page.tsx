@@ -2,9 +2,20 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth, useOrganization } from "@clerk/nextjs";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import DashboardCard from "@/components/dashboard/DashboardCard";
 import StatusBadge from "@/components/dashboard/StatusBadge";
+
+// Helper to get client-side cookie
+function getCookie(name: string) {
+  if (typeof document === "undefined") return null;
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop()?.split(";").shift();
+  return null;
+}
+
 
 type EscalationStatus =
   | "pending"
@@ -71,7 +82,8 @@ function relativeTime(iso: string): string {
 export default function EscalationsDashboardPage() {
   const { userId } = useAuth();
   const { organization, isLoaded: orgLoaded } = useOrganization();
-  const orgId = organization?.id || null;
+  const searchParams = useSearchParams();
+  const orgId = searchParams.get("orgId") || organization?.id || getCookie("ps_org_id") || null;
   const [rows, setRows] = useState<EscalationRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorText, setErrorText] = useState<string | null>(null);
@@ -260,8 +272,7 @@ export default function EscalationsDashboardPage() {
         </DashboardCard>
       ) : !orgId ? (
         <DashboardCard className="text-white/70">
-          Select an organization to view escalations.
-        </DashboardCard>
+          Initializing organization context...</DashboardCard>
       ) : loading ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
           {Array.from({ length: 6 }).map((_, index) => (

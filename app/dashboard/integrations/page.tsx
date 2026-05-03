@@ -1,172 +1,148 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Loader2, Plug, ShieldCheck, CheckCircle2, Info } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Grid, Search, Loader2, ArrowUpRight, Shield, Settings, Box } from "lucide-react";
 import { useOrganization } from "@clerk/nextjs";
+import { createClient } from "@/lib/supabase/client";
 import DashboardCard from "@/components/dashboard/DashboardCard";
 import StatusBadge from "@/components/dashboard/StatusBadge";
-import { Integration } from "@/lib/integrations/registry";
+import PhishButton from "@/components/ui/PhishButton";
+import { getAllIntegrations } from "@/lib/integrations/registry";
 
-type MarketplaceIntegration = Integration & {
-  is_connected: boolean;
-};
-
-type ApiError = {
-  error?: string;
-};
-
-export default function IntegrationsPage() {
-  const { organization, isLoaded } = useOrganization();
+export default function IntegrationsMarketplacePage() {
+  const { organization, isLoaded: orgLoaded } = useOrganization();
   const orgId = organization?.id || null;
   const [loading, setLoading] = useState(true);
-  const [errorText, setErrorText] = useState<string | null>(null);
-  const [integrations, setIntegrations] = useState<MarketplaceIntegration[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [connectedIds, setConnectedIds] = useState<string[]>([]);
+  const supabase = createClient();
 
-  const loadIntegrations = useCallback(async () => {
-    if (!orgId) {
-      setIntegrations([]);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    setErrorText(null);
-    try {
-      const response = await fetch("/api/integrations/marketplace", {
-        method: "GET",
-        cache: "no-store",
-      });
-      const payload = await response.json();
-
-      if (!response.ok) {
-        throw new Error(payload?.error || "Failed to load integrations");
-      }
-
-      setIntegrations(Array.isArray(payload) ? payload : []);
-    } catch (error) {
-      setErrorText(
-        error instanceof Error ? error.message : "Unable to load integrations",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [orgId]);
+  const integrations = getAllIntegrations();
 
   useEffect(() => {
-    if (!isLoaded) return;
-    void loadIntegrations();
-  }, [isLoaded, loadIntegrations]);
+    async function loadStatus() {
+      if (!orgId) {
+        setLoading(false);
+        return;
+      }
+      try {
+        const { data: connectors } = await supabase
+          .from('connectors')
+          .select('connector_type')
+          .eq('organization_id', orgId);
+        
+        if (connectors) {
+          setConnectedIds(connectors.map(c => c.connector_type));
+        }
+      } catch (err) {
+        console.error("Failed to load connector status", err);
+      } finally {
+        setLoading(false);
+      }
+    }
 
-  const stats = useMemo(() => {
-    const connected = integrations.filter(i => i.is_connected).length;
-    return { total: integrations.length, connected };
-  }, [integrations]);
+    if (orgLoaded) {
+      loadStatus();
+    }
+  }, [orgId, orgLoaded, supabase]);
 
-  const categories = useMemo(() => {
-    const cats = Array.from(new Set(integrations.map(i => i.category)));
-    return cats.sort();
-  }, [integrations]);
+  const filteredIntegrations = integrations.filter(i => 
+    i.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    i.vendor.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    i.category.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  if (!orgLoaded) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
-    <div className="w-full max-w-6xl space-y-6">
-      <div>
-        <h1 className="dashboard-page-title flex items-center gap-2 text-white">
-          <Plug className="h-6 w-6 text-[#7c6af7]" />
-          Integration Marketplace
-        </h1>
-        <p className="mt-2 text-sm text-slate-300">
-          Connect your security stack to PhishSlayer for automated detection and response.
-        </p>
+    <div className="flex flex-col gap-8 text-white">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="dashboard-page-title text-white flex items-center gap-3">
+            <Grid className="w-8 h-8 text-primary" />
+            Integrations Marketplace
+          </h1>
+          <p className="text-slate-400 mt-1">
+            Connect your existing security stack to supercharge PhishSlayer automation.
+          </p>
+        </div>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+          <input 
+            type="text" 
+            placeholder="Search integrations..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 pr-4 py-2 bg-white/5 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-primary/50 transition-all w-full md:w-64"
+          />
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <DashboardCard className="border-[#7c6af7]/30 bg-[#0a0a0f] p-4 flex items-center justify-between">
-            <div>
-                <p className="text-xs text-slate-400 uppercase tracking-wider">Total Integrations</p>
-                <p className="text-2xl font-bold text-white">{stats.total}</p>
-            </div>
-            <Plug className="h-8 w-8 text-[#7c6af7] opacity-50" />
-        </DashboardCard>
-        <DashboardCard className="border-[#00d4aa]/30 bg-[#0a0a0f] p-4 flex items-center justify-between">
-            <div>
-                <p className="text-xs text-slate-400 uppercase tracking-wider">Connected</p>
-                <p className="text-2xl font-bold text-[#00d4aa]">{stats.connected}</p>
-            </div>
-            <CheckCircle2 className="h-8 w-8 text-[#00d4aa] opacity-50" />
-        </DashboardCard>
-        <DashboardCard className="border-white/10 bg-[#0a0a0f] p-4 flex items-center justify-between">
-            <div>
-                <p className="text-xs text-slate-400 uppercase tracking-wider">Categories</p>
-                <p className="text-2xl font-bold text-white">{categories.length}</p>
-            </div>
-            <Info className="h-8 w-8 text-slate-400 opacity-50" />
-        </DashboardCard>
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        {filteredIntegrations.map((integration) => {
+          const isConnected = connectedIds.includes(integration.id);
+          return (
+            <DashboardCard key={integration.id} className="group hover:border-primary/30 transition-all flex flex-col h-full">
+              <div className="flex justify-between items-start mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Box className="w-6 h-6 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-white leading-tight">{integration.name}</h3>
+                    <p className="text-[10px] text-slate-500 uppercase tracking-widest font-black">{integration.vendor}</p>
+                  </div>
+                </div>
+                {isConnected ? (
+                   <StatusBadge status="healthy" label="Connected" />
+                ) : integration.status === 'beta' ? (
+                   <StatusBadge status="pending" label="Beta" />
+                ) : integration.status === 'coming_soon' ? (
+                   <StatusBadge status="idle" label="Soon" />
+                ) : null}
+              </div>
+
+              <p className="text-sm text-slate-300 line-clamp-2 mb-6 flex-1">
+                {integration.description}
+              </p>
+
+              <div className="flex items-center gap-2 mb-6">
+                 {integration.capabilities.slice(0, 3).map(cap => (
+                    <span key={cap} className="text-[9px] px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 font-bold uppercase">
+                        {cap.replace(/_/g, ' ')}
+                    </span>
+                 ))}
+              </div>
+
+              <div className="flex items-center justify-between pt-4 border-t border-white/5 mt-auto">
+                 <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                    <Shield className="w-3.5 h-3.5" />
+                    <span>{integration.required_plan.toUpperCase()}</span>
+                 </div>
+                 
+                 {isConnected ? (
+                   <PhishButton className="text-xs bg-white/5 border border-white/10 hover:bg-white/10 px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-bold">
+                      <Settings className="w-3 h-3" /> Configure
+                   </PhishButton>
+                 ) : (
+                   <PhishButton 
+                     disabled={integration.status === 'coming_soon'}
+                     className="text-xs bg-primary hover:bg-primary/80 text-white px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-bold disabled:opacity-50"
+                   >
+                      Connect <ArrowUpRight className="w-3 h-3" />
+                   </PhishButton>
+                 )}
+              </div>
+            </DashboardCard>
+          );
+        })}
       </div>
-
-      {categories.map(category => (
-        <div key={category} className="space-y-3">
-          <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] ml-1">
-            {category.replace('_', ' ')}
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {integrations.filter(i => i.category === category).map(integration => (
-              <DashboardCard 
-                key={integration.id}
-                className={`border-white/10 bg-[#0a0a0f] hover:border-[#7c6af7]/50 transition-colors cursor-pointer group ${integration.is_connected ? 'ring-1 ring-[#00d4aa]/30' : ''}`}
-              >
-                <div className="flex justify-between items-start mb-2">
-                  <h3 className="font-semibold text-white group-hover:text-[#7c6af7] transition-colors">
-                    {integration.name}
-                  </h3>
-                  {integration.is_connected ? (
-                    <StatusBadge status="healthy" label="connected" />
-                  ) : integration.status === 'coming_soon' ? (
-                    <StatusBadge status="pending" label="soon" />
-                  ) : (
-                    <StatusBadge status="pending" label={integration.status} />
-                  )}
-                </div>
-                <p className="text-xs text-slate-400 line-clamp-2 h-8 mb-3">
-                  {integration.description}
-                </p>
-                <div className="flex items-center justify-between mt-auto pt-3 border-t border-white/5">
-                  <span className="text-[10px] text-slate-500 font-mono">
-                    {integration.vendor}
-                  </span>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${
-                    integration.required_plan === 'enterprise' ? 'bg-purple-500/10 text-purple-400' :
-                    integration.required_plan === 'pro' ? 'bg-blue-500/10 text-blue-400' :
-                    'bg-slate-500/10 text-slate-400'
-                  }`}>
-                    {integration.required_plan}
-                  </span>
-                </div>
-              </DashboardCard>
-            ))}
-          </div>
-        </div>
-      ))}
-
-      {loading && (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-8 w-8 animate-spin text-[#7c6af7]" />
-        </div>
-      )}
-
-      {!loading && integrations.length === 0 && !errorText && (
-        <div className="text-center py-20 text-slate-400">
-            No integrations found.
-        </div>
-      )}
-
-      {errorText && (
-        <DashboardCard className="border-red-400/40 bg-red-500/10 p-4 text-sm text-red-200">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4" />
-            {errorText}
-          </div>
-        </DashboardCard>
-      )}
     </div>
   );
 }

@@ -14,8 +14,19 @@ import {
   FolderOpen,
   AlertTriangle
 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { useOrganization } from "@clerk/nextjs";
 import EmptyState from "@/components/ui/empty-state";
 import SkeletonLoader from "@/components/ui/skeleton-loader";
+
+// Helper to get client-side cookie
+function getCookie(name: string) {
+  if (typeof document === "undefined") return null;
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop()?.split(";").shift();
+  return null;
+}
 
 interface Case {
   id: string;
@@ -29,18 +40,26 @@ interface Case {
 }
 
 export default function CasesDashboard() {
+  const searchParams = useSearchParams();
+  const { organization } = useOrganization();
+  const orgId = searchParams.get("orgId") || organization?.id || getCookie("ps_org_id") || null;
+
   const [cases, setCases] = useState<Case[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchCases = async () => {
+    if (!orgId) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/cases");
+      const res = await fetch(`/api/cases?orgId=${orgId}`);
       if (!res.ok) throw new Error("Failed to fetch cases");
       const data = await res.json();
-      setCases(data);
+      setCases(data.data || []); // API returns { data, total, ... }
     } catch (err) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred");
     } finally {
@@ -49,8 +68,8 @@ export default function CasesDashboard() {
   };
 
   useEffect(() => {
-    fetchCases();
-  }, []);
+    if (orgId) fetchCases();
+  }, [orgId]);
 
   const getSeverityStyles = (severity: string) => {
     switch (severity.toLowerCase()) {

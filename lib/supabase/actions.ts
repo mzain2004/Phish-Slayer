@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { auth } from "@clerk/nextjs/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import { analyzeThreat, scoreCtiFinding } from "@/lib/ai/analyzer";
 import { scanTarget } from "@/lib/scanners/threatScanner";
@@ -434,16 +434,48 @@ export async function launchScan(target: string): Promise<{ error?: string }> {
   }
   const normalizedTarget = normalizeTarget(target);
 
+  // FIX 7: Internal address validation
+  const isInternal = 
+    /^(10\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.)/.test(normalizedTarget) ||
+    normalizedTarget.endsWith(".internal") ||
+    normalizedTarget === "localhost";
+
+  if (isInternal) {
+    await supabase.from("scans").insert([
+      {
+        target: normalizedTarget,
+        status: "INVALID_TARGET",
+        date: new Date().toISOString(),
+        ai_summary: "Internal addresses cannot be scanned externally via VirusTotal.",
+        risk_score: 0,
+        user_id: userId,
+      },
+    ]);
+    return { error: "Internal addresses cannot be scanned externally" };
+  }
+
   // 2. Fetch profile for RBAC
-  const { data: profile } = await supabase
+  let { data: profile } = await supabase
     .from("profiles")
     .select("subscription_tier, scan_count_today, scan_count_reset_at, role")
     .eq("id", userId)
     .single();
 
-  if (!profile) return { error: "Profile not found" };
+  if (!profile) {
+    // FIX 6: Fallback to Clerk user if profile not found
+    const clerkUser = await currentUser();
+    if (!clerkUser) return { error: "User context not found" };
+    
+    profile = {
+      subscription_tier: (clerkUser.publicMetadata?.tier as string) || "free",
+      scan_count_today: 0,
+      scan_count_reset_at: new Date().toISOString(),
+      role: (clerkUser.publicMetadata?.role as string) || "analyst"
+    } as any;
+  }
 
   // 3. Reset daily counter if new day
+  if (!profile) return { error: "User profile not found" };
   const resetAt = new Date(profile.scan_count_reset_at);
   const now = new Date();
   if (now.toDateString() !== resetAt.toDateString()) {

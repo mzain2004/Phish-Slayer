@@ -34,55 +34,66 @@ export default async function DashboardOverviewPage() {
     redirect("/");
   }
 
-  const supabase = await createClient();
+  let orgId: string | null = null;
+  let orgData: any = null;
+  let scanRows: ScanRow[] = [];
+  let incidentRows: IncidentRow[] = [];
+  let intelCount = 0;
+  let silentConnector = null;
 
-  const { data: membership } = await supabase
-    .from("organization_members")
-    .select("organization_id")
-    .eq("user_id", userId)
-    .limit(1)
-    .maybeSingle();
+  try {
+    const supabase = await createClient();
+    const { data: membership, error: memError } = await supabase
+      .from("organization_members")
+      .select("organization_id")
+      .eq("user_id", userId)
+      .limit(1)
+      .maybeSingle();
 
-  const orgId = membership?.organization_id;
+    if (memError) throw memError;
+    orgId = membership?.organization_id;
 
-  if (!orgId) {
-    return <></>;
+    if (orgId) {
+      // Fetch connector health for blind spot warning
+      const { data: connectors } = await supabase
+        .from('connector_health')
+        .select('connector_name, last_seen')
+        .eq('org_id', orgId);
+
+      silentConnector = connectors?.find(c => {
+        const lastSeen = new Date(c.last_seen).getTime();
+        const thirtyMinsAgo = Date.now() - 30 * 60 * 1000;
+        return lastSeen < thirtyMinsAgo;
+      });
+
+      const [scansRes, incidentsRes, intelRes, orgRes] = await Promise.all([
+        supabase
+          .from("scans")
+          .select("target, verdict, date, risk_score")
+          .eq("organization_id", orgId)
+          .order("date", { ascending: false })
+          .limit(100),
+        supabase.from("incidents").select("status").eq("organization_id", orgId),
+        supabase
+          .from("proprietary_intel")
+          .select("*", { count: "exact", head: true })
+          .eq("organization_id", orgId),
+        supabase
+          .from("organizations")
+          .select("name, risk_score, risk_level")
+          .eq("id", orgId)
+          .maybeSingle(),
+      ]);
+
+      scanRows = (scansRes.data ?? []) as ScanRow[];
+      incidentRows = (incidentsRes.data ?? []) as IncidentRow[];
+      intelCount = intelRes.count ?? 0;
+      orgData = orgRes.data;
+    }
+  } catch (error) {
+    console.error("[Dashboard] Data fetch error:", error);
+    // Fallback to empty state but don't crash
   }
-
-  // Fetch connector health for blind spot warning
-  const { data: connectors } = await supabase
-    .from('connector_health')
-    .select('connector_name, last_seen')
-    .eq('org_id', orgId);
-
-  const silentConnector = connectors?.find(c => {
-    const lastSeen = new Date(c.last_seen).getTime();
-    const thirtyMinsAgo = Date.now() - 30 * 60 * 1000;
-    return lastSeen < thirtyMinsAgo;
-  });
-
-  const [{ data: scans }, { data: incidents }, { count: intelCount }, { data: orgData }] =
-    await Promise.all([
-      supabase
-        .from("scans")
-        .select("target, verdict, date, risk_score")
-        .eq("organization_id", orgId)
-        .order("date", { ascending: false })
-        .limit(100),
-      supabase.from("incidents").select("status").eq("organization_id", orgId),
-      supabase
-        .from("proprietary_intel")
-        .select("*", { count: "exact", head: true })
-        .eq("organization_id", orgId),
-      supabase
-        .from("organizations")
-        .select("name, risk_score, risk_level")
-        .eq("id", orgId)
-        .single(),
-    ]);
-
-  const scanRows = (scans ?? []) as ScanRow[];
-  const incidentRows = (incidents ?? []) as IncidentRow[];
 
   const totalScans = scanRows.length;
   const maliciousScans = scanRows.filter(
@@ -111,7 +122,7 @@ export default async function DashboardOverviewPage() {
           </div>
           <div>
             <h1 className="text-xl font-bold tracking-tight">
-              {orgData?.name || "Command Center"}
+              {orgData?.name || (orgId ? "Command Center" : "Initialization Required")}
             </h1>
             <div className="flex items-center gap-3 mt-1">
                 <p className="text-[10px] text-white/50 uppercase tracking-widest font-black">
@@ -162,7 +173,7 @@ export default async function DashboardOverviewPage() {
         <DashboardCard className="bg-black/20 px-3 py-2">
           <p className="dashboard-card-label">Intel Records</p>
           <p className="dashboard-metric-value text-cyan-200">
-            {intelCount ?? 0}
+            {intelCount}
           </p>
         </DashboardCard>
       </div>

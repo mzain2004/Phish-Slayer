@@ -384,23 +384,9 @@ export default function SettingsClient({
               Use device biometrics or a security key for passwordless
               second-factor verification.
             </p>
-            <p className="mt-2 text-xs text-accent">
-              Status: {hasPasskey ? "Registered" : "Not configured"}
+            <p className="mt-4 text-gray-500 text-sm font-medium italic">
+              Passkey support coming soon.
             </p>
-            <PhishButton
-              onClick={registerPasskey}
-              disabled={isPending || mfaLoading}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="mt-3 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-primary to-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-            >
-              {mfaLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Key className="h-4 w-4" />
-              )}
-              Register Passkey
-            </PhishButton>
           </div>
 
           <div className="glass p-4">

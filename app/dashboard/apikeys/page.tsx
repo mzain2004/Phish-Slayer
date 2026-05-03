@@ -16,6 +16,7 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import { useOrganization } from "@clerk/nextjs";
+import { useSearchParams } from "next/navigation";
 import DashboardCard from "@/components/dashboard/DashboardCard";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import PhishButton from "@/components/ui/PhishButton";
@@ -31,9 +32,17 @@ type ApiKey = {
   created_at: string;
 };
 
-export default function ApiKeysPage() {
+import { Suspense } from "react";
+
+function ApiKeysPageContent() {
   const { organization, isLoaded: orgLoaded } = useOrganization();
-  const orgId = organization?.id;
+  const searchParams = useSearchParams();
+  const getCookie = (name: string) => {
+    if (typeof document === 'undefined') return null;
+    const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+    return match ? match[2] : null;
+  };
+  const orgId = organization?.id || searchParams.get('orgId') || getCookie('ps_org_id');
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [loading, setLoading] = useState(true);
   const [newKey, setNewKey] = useState<string | null>(null);
@@ -274,5 +283,13 @@ export default function ApiKeysPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ApiKeysPage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-[#7c6af7]" /></div>}>
+      <ApiKeysPageContent />
+    </Suspense>
   );
 }

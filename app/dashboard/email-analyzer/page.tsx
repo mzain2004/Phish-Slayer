@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { AlertTriangle, Loader2, Mail, ShieldCheck } from "lucide-react";
 import { useAuth, useOrganization } from "@clerk/nextjs";
+import { useSearchParams } from "next/navigation";
 import DashboardCard from "@/components/dashboard/DashboardCard";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 
@@ -49,10 +50,18 @@ function authTone(value?: string | null) {
   return "warning";
 }
 
-export default function EmailAnalyzerPage() {
+import { Suspense } from "react";
+
+function EmailAnalyzerPageContent() {
   const { userId } = useAuth();
   const { organization, isLoaded: orgLoaded } = useOrganization();
-  const orgId = organization?.id || null;
+  const searchParams = useSearchParams();
+  const getCookie = (name: string) => {
+    if (typeof document === 'undefined') return null;
+    const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+    return match ? match[2] : null;
+  };
+  const orgId = organization?.id || searchParams.get('orgId') || getCookie('ps_org_id');
 
   const [rawEmail, setRawEmail] = useState("");
   const [loading, setLoading] = useState(false);
@@ -218,5 +227,13 @@ export default function EmailAnalyzerPage() {
         </div>
       ) : null}
     </div>
+  );
+}
+
+export default function EmailAnalyzerPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-[60vh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-[#7c6af7]" /></div>}>
+      <EmailAnalyzerPageContent />
+    </Suspense>
   );
 }

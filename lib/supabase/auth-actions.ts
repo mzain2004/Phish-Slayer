@@ -97,6 +97,7 @@ export async function updateProfile(data: {
   } else {
     const { error } = await supabase.from("profiles").insert({
       id: userId,
+      user_id: userId, // Fix for RLS
       ...profileUpdate,
     });
     dbError = error;

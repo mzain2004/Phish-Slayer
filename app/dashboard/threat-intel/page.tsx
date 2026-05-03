@@ -3,8 +3,19 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Loader2, Search } from "lucide-react";
 import { useAuth, useOrganization } from "@clerk/nextjs";
+import { useSearchParams } from "next/navigation";
 import DashboardCard from "@/components/dashboard/DashboardCard";
 import StatusBadge from "@/components/dashboard/StatusBadge";
+
+// Helper to get client-side cookie
+function getCookie(name: string) {
+  if (typeof document === "undefined") return null;
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop()?.split(";").shift();
+  return null;
+}
+
 
 type IocRecord = {
   _id?: string;
@@ -31,7 +42,8 @@ type LookupResponse = {
 export default function ThreatIntelPage() {
   const { userId } = useAuth();
   const { organization, isLoaded: orgLoaded } = useOrganization();
-  const orgId = organization?.id || null;
+  const searchParams = useSearchParams();
+  const orgId = searchParams.get("orgId") || organization?.id || getCookie("ps_org_id") || null;
 
   const [iocs, setIocs] = useState<IocRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,7 +70,15 @@ export default function ThreatIntelPage() {
         throw new Error((payload as { error?: string }).error || "Failed to load IOCs");
       }
 
-      setIocs(Array.isArray(payload) ? payload : []);
+      const fetchedIocs = Array.isArray(payload) ? payload : [];
+      setIocs(fetchedIocs);
+
+      // FIX 5: If 0 IOCs, trigger seed once
+      if (fetchedIocs.length === 0) {
+        fetch("/api/admin/seed-iocs", { method: "POST" })
+          .then(() => fetchIocs())
+          .catch(err => console.error("Auto-seed failed", err));
+      }
     } catch (error) {
       setErrorText(error instanceof Error ? error.message : "Unable to load IOCs");
     } finally {
@@ -151,7 +171,7 @@ export default function ThreatIntelPage() {
       {!orgLoaded ? (
         <DashboardCard className="text-white/70">Loading organization...</DashboardCard>
       ) : !orgId ? (
-        <DashboardCard className="text-white/70">Select an organization to view intel.</DashboardCard>
+        <DashboardCard className="text-white/70">Initializing organization context...</DashboardCard>
       ) : loading ? (
         <DashboardCard className="text-white/70 flex items-center gap-2">
           <Loader2 className="h-4 w-4 animate-spin" />

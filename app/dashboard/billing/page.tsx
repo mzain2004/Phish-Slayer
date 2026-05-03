@@ -4,9 +4,20 @@ import { useEffect, useState } from "react";
 import { CreditCard, Loader2, Shield, Rocket, CheckCircle2, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { useOrganization } from "@clerk/nextjs";
+import { useSearchParams } from "next/navigation";
 import DashboardCard from "@/components/dashboard/DashboardCard";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import PhishButton from "@/components/ui/PhishButton";
+
+// Helper to get client-side cookie
+function getCookie(name: string) {
+  if (typeof document === "undefined") return null;
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop()?.split(";").shift();
+  return null;
+}
+
 
 type Plan = "free" | "pro" | "enterprise";
 
@@ -27,9 +38,12 @@ const PLAN_FEATURES: Record<Plan, string[]> = {
   enterprise: ["Unlimited alerts", "100 concurrent agents", "365 days retention", "Unlimited connectors", "Dark Web Monitoring", "Priority Support"],
 };
 
-export default function BillingPage() {
+import { Suspense } from "react";
+
+function BillingPageContent() {
   const { organization, isLoaded: orgLoaded } = useOrganization();
-  const orgId = organization?.id;
+  const searchParams = useSearchParams();
+  const orgId = searchParams.get("orgId") || organization?.id || getCookie("ps_org_id") || null;
   const [loading, setLoading] = useState(true);
   const [upgrading, setUpgrading] = useState<string | null>(null);
   const [usage, setUsage] = useState<UsageData | null>(null);
@@ -87,8 +101,7 @@ export default function BillingPage() {
   if (!orgId) {
     return (
       <div className="text-center py-20 text-slate-400">
-        Please select an organization to view billing.
-      </div>
+        Please Initializing organization context...</div>
     );
   }
 
@@ -103,7 +116,7 @@ export default function BillingPage() {
             Subscription & Usage
           </h1>
           <p className="text-slate-400 mt-1">
-            Manage your plan, limits, and billing details for <strong>{organization.name}</strong>.
+            Manage your plan, limits, and billing details for <strong>{organization?.name || 'your organization'}</strong>.
           </p>
         </div>
         
@@ -244,5 +257,13 @@ export default function BillingPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function BillingPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-[60vh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-[#7c6af7]" /></div>}>
+      <BillingPageContent />
+    </Suspense>
   );
 }
