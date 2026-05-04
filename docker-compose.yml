@@ -26,3 +26,17 @@ services:
         "-c",
         "chmod +x ./scripts/start-cron.sh && ./scripts/start-cron.sh",
       ]
+  # add to existing docker-compose.yml
+  phishslayer-api:
+    build:
+      context: ./phishslayer-api
+      dockerfile: docker/Dockerfile.api
+    container_name: phishslayer-api-1
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env.production
+    networks:
+      - app-network
+    depends_on:
+      - phish-slayer-phish-slayer-1
