@@ -71,3 +71,9 @@ yarn-error.log*
 
 # Sentry Config File
 .env.sentry-build-plugin
+
+
+node_modules/
+.venv/
+*.pyc
+__pycache__/
