@@ -1,7 +1,9 @@
 # ═══════════════════════════════════════════════════════════════════
 #  Phish-Slayer .gitignore — Zero Secrets Policy
 # ═══════════════════════════════════════════════════════════════════
-
+phishslayer-api/venv/
+phishslayer-api/__pycache__/
+phishslayer-api/*.pyc
 # ── Dependencies ──────────────────────────────────────────────────
 node_modules/
 /.pnp
@@ -77,3 +79,6 @@ node_modules/
 .venv/
 *.pyc
 __pycache__/
+.env*.local
+phishslayer-api/pycache/
+phishslayer-api/**/pycache/
