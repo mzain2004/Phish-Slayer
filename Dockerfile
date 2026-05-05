@@ -12,7 +12,6 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 ENV NODE_OPTIONS="--max-old-space-size=3072"
-COPY .env.production .env.production
 
 ARG NEXT_PUBLIC_SUPABASE_URL
 ARG NEXT_PUBLIC_SUPABASE_ANON_KEY

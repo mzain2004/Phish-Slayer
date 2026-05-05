@@ -8,6 +8,7 @@ services:
       - .env.production
     depends_on:
       - api
+    networks: [app-network]
 
   api:
     build:
@@ -18,3 +19,9 @@ services:
     env_file:
       - .env.production
     restart: unless-stopped
+    networks: [app-network]
+
+networks:
+  app-network:
+    driver: bridge
+  
