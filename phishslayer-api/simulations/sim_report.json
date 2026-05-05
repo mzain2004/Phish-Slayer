@@ -1,0 +1,536 @@
+{
+  "run_id": "83a81cf0-364f-466e-919d-b00996948867",
+  "timestamp": "2026-05-05T08:20:33.116177",
+  "rounds": [
+    {
+      "scenario_name": "Phishing with embedded C2",
+      "red_alert": {
+        "rule": {
+          "description": "Potential phishing attempt with suspicious link",
+          "id": "100100",
+          "level": 6
+        },
+        "agent": {
+          "name": "Wazuh-Test",
+          "ip": "192.168.1.100"
+        },
+        "data": {
+          "srcip": "192.168.1.150",
+          "dstport": 80,
+          "url": "http://example.com/malicious-link"
+        }
+      },
+      "blue_result": {
+        "alert_id": "4a1ded6b-9687-46ce-8c94-4832d663eb60",
+        "org_id": "sim-org-001",
+        "triage_result": {
+          "alert_id": "4a1ded6b-9687-46ce-8c94-4832d663eb60",
+          "org_id": "sim-org-001",
+          "attacker_intent": "Trick a user into clicking on the malicious link to potentially steal credentials or install malware",
+          "mitre_techniques": [
+            "T1566",
+            "T1204"
+          ],
+          "likely_next_move": "Attempt to establish a command and control channel or deliver additional malware if the initial payload is executed",
+          "is_decoy_or_distraction": false,
+          "is_real_threat": true,
+          "confidence": 0.85,
+          "immediate_actions": [
+            "block_url",
+            "alert_user"
+          ],
+          "indicators_to_watch": [
+            "malicious-link",
+            "example.com"
+          ],
+          "escalate_to_l2": true,
+          "requires_human_approval": true,
+          "escalation_reason": "human approval required",
+          "verdict": "human_required"
+        },
+        "investigation_result": {
+          "alert_id": "4a1ded6b-9687-46ce-8c94-4832d663eb60",
+          "org_id": "sim-org-001",
+          "opplan": {
+            "alert_id": "4a1ded6b-9687-46ce-8c94-4832d663eb60",
+            "objective": "Investigate the potential phishing attack via a malicious link to determine the extent of the compromise and prevent further damage",
+            "attacker_hypothesis": "An attacker sent a phishing email with a malicious link to trick a user into clicking on it, potentially leading to credential theft or malware installation",
+            "investigation_steps": [
+              "Analyze DNS logs for suspicious resolved domains matching the 'example.com' indicator",
+              "Inspect Wazuh logs for endpoint activity related to the blocked URL and malicious-link indicator",
+              "Review user account activity for signs of unauthorized access or suspicious behavior",
+              "Examine network traffic captures for potential command and control channel establishment",
+              "Check for additional malware delivery or execution on affected endpoints"
+            ],
+            "data_sources_to_query": [
+              "Wazuh logs",
+              "DNS logs",
+              "Netflow data",
+              "Endpoint detection and response (EDR) data"
+            ],
+            "success_criteria": "Confirmation of malware installation, unauthorized access, or data exfiltration, or lack thereof, based on the analysis of collected data and indicators"
+          },
+          "confirmed_threat": true,
+          "confidence": 0.85,
+          "attacker_pivot_analysis": "The attacker is likely to attempt lateral movement using compromised credentials to access sensitive areas of the network, such as Domain Controllers and File Servers, within hours, using legitimate system administration tools to evade detection",
+          "evidence_gathered": [
+            "Malicious link detected",
+            "Potential phishing email"
+          ],
+          "proposed_actions": [
+            "check_dns_logs",
+            "check_outbound_traffic",
+            "check_adjacent_hosts",
+            "add_watchlist",
+            "disable_account"
+          ],
+          "approved_actions": [
+            "check_dns_logs",
+            "check_outbound_traffic",
+            "check_adjacent_hosts",
+            "add_watchlist"
+          ],
+          "human_required_actions": [
+            "disable_account"
+          ],
+          "blocked_actions": [],
+          "escalate_to_l3": false,
+          "requires_human_approval": true,
+          "verdict": "human_required"
+        },
+        "hunt_result": null,
+        "final_verdict": "human_required",
+        "requires_human_approval": true,
+        "escalation_reason": "human approval required"
+      },
+      "winner": "blue",
+      "time_ms": 6787.156581878662
+    },
+    {
+      "scenario_name": "Lateral Movement via RDP",
+      "red_alert": {
+        "rule": {
+          "description": "Multiple failed RDP logins from unknown user",
+          "id": "100200",
+          "level": 8
+        },
+        "agent": {
+          "name": "Wazuh-Test-2",
+          "ip": "192.168.1.120"
+        },
+        "data": {
+          "srcip": "192.168.1.100",
+          "dstport": 3389,
+          "user": "unknown"
+        }
+      },
+      "blue_result": {
+        "alert_id": "1033639a-8f1c-4ca1-b347-205f213b57ca",
+        "org_id": "sim-org-001",
+        "triage_result": {
+          "alert_id": "1033639a-8f1c-4ca1-b347-205f213b57ca",
+          "org_id": "sim-org-001",
+          "attacker_intent": "Brute-force or guess a valid username and password to gain unauthorized access to the system via RDP",
+          "mitre_techniques": [
+            "T1110",
+            "T1078"
+          ],
+          "likely_next_move": "Attempt to move laterally within the network, escalate privileges, or exfiltrate sensitive data if a successful login is achieved",
+          "is_decoy_or_distraction": false,
+          "is_real_threat": true,
+          "confidence": 0.85,
+          "immediate_actions": [
+            "isolate_host",
+            "alert_security_team"
+          ],
+          "indicators_to_watch": [
+            "unusual_network_activity",
+            "suspicious_login_attempts"
+          ],
+          "escalate_to_l2": true,
+          "requires_human_approval": true,
+          "escalation_reason": "human approval required",
+          "verdict": "human_required"
+        },
+        "investigation_result": {
+          "alert_id": "1033639a-8f1c-4ca1-b347-205f213b57ca",
+          "org_id": "sim-org-001",
+          "opplan": {
+            "alert_id": "1033639a-8f1c-4ca1-b347-205f213b57ca",
+            "objective": "To investigate a potential brute-force attack on the system via RDP and determine if unauthorized access was gained.",
+            "attacker_hypothesis": "An attacker is attempting to guess a valid username and password to gain access to the system, with the likely next move being lateral movement, privilege escalation, or data exfiltration.",
+            "investigation_steps": [
+              "Analyze RDP connection logs to identify the source IP addresses and usernames targeted in the brute-force attack",
+              "Inspect system logs for unusual login attempts and account lockouts around the time of the alert",
+              "Check for any suspicious network activity, such as unusual outbound connections or data transfers, from the isolated host",
+              "Verify if any credentials were compromised by checking for password resets or changes around the time of the alert",
+              "Review DNS logs for any suspicious domain name resolutions that may indicate command and control (C2) communication"
+            ],
+            "data_sources_to_query": [
+              "Wazuh logs",
+              "Netflow",
+              "DNS logs",
+              "RDP connection logs",
+              "System security logs"
+            ],
+            "success_criteria": "Evidence of a successful login, lateral movement, privilege escalation, or data exfiltration confirms the threat, while a lack of such evidence and no further suspicious activity denies the threat"
+          },
+          "confirmed_threat": false,
+          "confidence": 0.85,
+          "attacker_pivot_analysis": "The attacker is likely to pivot to lateral movement via SMB or PowerShell to compromise a domain controller or a sensitive data server within hours, using built-in Windows tools and protocols to evade detection",
+          "evidence_gathered": [
+            "unusual RDP connection attempts",
+            "suspicious login attempts"
+          ],
+          "proposed_actions": [
+            "isolate_host",
+            "check_adjacent_hosts",
+            "check_outbound_traffic",
+            "check_dns_logs"
+          ],
+          "approved_actions": [
+            "check_adjacent_hosts",
+            "check_outbound_traffic",
+            "check_dns_logs"
+          ],
+          "human_required_actions": [
+            "isolate_host"
+          ],
+          "blocked_actions": [],
+          "escalate_to_l3": false,
+          "requires_human_approval": true,
+          "verdict": "human_required"
+        },
+        "hunt_result": null,
+        "final_verdict": "human_required",
+        "requires_human_approval": true,
+        "escalation_reason": "human approval required"
+      },
+      "winner": "tie",
+      "time_ms": 5836.303472518921
+    },
+    {
+      "scenario_name": "C2 Beacon with DNS tunneling",
+      "red_alert": {
+        "rule": {
+          "description": "Unusual DNS query to known C2 domain",
+          "id": "100300",
+          "level": 7
+        },
+        "agent": {
+          "name": "Wazuh-Test-3",
+          "ip": "192.168.1.130"
+        },
+        "data": {
+          "srcip": "192.168.1.130",
+          "dstport": 53,
+          "domain": "c2-domain.com"
+        }
+      },
+      "blue_result": {
+        "alert_id": "550b3212-ceeb-48b6-9606-759916a179b9",
+        "org_id": "sim-org-001",
+        "triage_result": {
+          "alert_id": "550b3212-ceeb-48b6-9606-759916a179b9",
+          "org_id": "sim-org-001",
+          "attacker_intent": "Establish communication with a command and control (C2) server to receive further instructions or exfiltrate data",
+          "mitre_techniques": [
+            "T1041",
+            "T1071"
+          ],
+          "likely_next_move": "If undetected, the attacker will likely attempt to establish a persistent connection to the C2 server to await instructions or upload stolen data",
+          "is_decoy_or_distraction": false,
+          "is_real_threat": true,
+          "confidence": 0.85,
+          "immediate_actions": [
+            "isolate_host",
+            "run_full_scan"
+          ],
+          "indicators_to_watch": [
+            "unusual_dns_queries",
+            "unexpected_outbound_connections"
+          ],
+          "escalate_to_l2": true,
+          "requires_human_approval": true,
+          "escalation_reason": "human approval required",
+          "verdict": "human_required"
+        },
+        "investigation_result": {
+          "alert_id": "550b3212-ceeb-48b6-9606-759916a179b9",
+          "org_id": "sim-org-001",
+          "opplan": {
+            "alert_id": "550b3212-ceeb-48b6-9606-759916a179b9",
+            "objective": "To investigate the potential command and control server communication and data exfiltration attempt as indicated by alert 550b3212-ceeb-48b6-9606-759916a179b9",
+            "attacker_hypothesis": "An attacker has compromised a host within the sim-org-001 organization and is attempting to establish communication with a C2 server to receive further instructions or exfiltrate data using techniques T1041 and T1071",
+            "investigation_steps": [
+              "Analyze the isolated host for signs of malware or unauthorized software",
+              "Inspect DNS query logs for unusual patterns or suspicious domain name resolutions",
+              "Examine netflow data for unexpected outbound connections to known C2 servers or suspicious IP addresses",
+              "Review Wazuh logs for indicators of privilege escalation or lateral movement",
+              "Investigate recent system or network changes that may have introduced vulnerabilities"
+            ],
+            "data_sources_to_query": [
+              "Wazuh logs",
+              "Netflow data",
+              "DNS query logs"
+            ],
+            "success_criteria": "Evidence of C2 server communication, data exfiltration, or malware presence confirms the threat, while absence of these indicators or explanation of unusual activity as benign denies the threat"
+          },
+          "confirmed_threat": false,
+          "confidence": 0.85,
+          "attacker_pivot_analysis": "The attacker may attempt lateral movement to a domain controller or sensitive data repository within hours, using encryption and legitimate system administration tools, with a medium blast radius and 0.8 confidence",
+          "evidence_gathered": [],
+          "proposed_actions": [
+            "isolate_host",
+            "check_outbound_traffic",
+            "check_dns_logs"
+          ],
+          "approved_actions": [
+            "check_outbound_traffic",
+            "check_dns_logs"
+          ],
+          "human_required_actions": [
+            "isolate_host"
+          ],
+          "blocked_actions": [],
+          "escalate_to_l3": false,
+          "requires_human_approval": true,
+          "verdict": "human_required"
+        },
+        "hunt_result": null,
+        "final_verdict": "human_required",
+        "requires_human_approval": true,
+        "escalation_reason": "human approval required"
+      },
+      "winner": "blue",
+      "time_ms": 5644.2248821258545
+    },
+    {
+      "scenario_name": "Data Exfiltration via FTP",
+      "red_alert": {
+        "rule": {
+          "description": "Large file uploaded to unknown FTP server",
+          "id": "100400",
+          "level": 9
+        },
+        "agent": {
+          "name": "Wazuh-Test-4",
+          "ip": "192.168.1.140"
+        },
+        "data": {
+          "srcip": "192.168.1.140",
+          "dstport": 21,
+          "filename": "sensitive_data.zip"
+        }
+      },
+      "blue_result": {
+        "alert_id": "2baac211-afdf-4331-84e4-af964fb27556",
+        "org_id": "sim-org-001",
+        "triage_result": {
+          "alert_id": "2baac211-afdf-4331-84e4-af964fb27556",
+          "org_id": "sim-org-001",
+          "attacker_intent": "Exfiltrate sensitive data from the target network",
+          "mitre_techniques": [
+            "T1041",
+            "T1567"
+          ],
+          "likely_next_move": "Use the exfiltrated data for further malicious activities, such as selling or using it for extortion, or attempt to move laterally within the network to gain more access",
+          "is_decoy_or_distraction": false,
+          "is_real_threat": true,
+          "confidence": 0.85,
+          "immediate_actions": [
+            "isolate_affected_host",
+            "notify_incident_response_team"
+          ],
+          "indicators_to_watch": [
+            "unusual_ftp_activity",
+            "suspicious_file_transfers"
+          ],
+          "escalate_to_l2": true,
+          "requires_human_approval": true,
+          "escalation_reason": "human approval required",
+          "verdict": "human_required"
+        },
+        "investigation_result": {
+          "alert_id": "2baac211-afdf-4331-84e4-af964fb27556",
+          "org_id": "sim-org-001",
+          "opplan": {
+            "alert_id": "2baac211-afdf-4331-84e4-af964fb27556",
+            "objective": "Investigate the potential exfiltration of sensitive data from the target network via unusual FTP activity and suspicious file transfers.",
+            "attacker_hypothesis": "An attacker is using FTP to exfiltrate sensitive data, potentially leveraging compromised credentials or exploiting vulnerabilities in the network.",
+            "investigation_steps": [
+              "Analyze FTP logs to identify unusual login attempts, large file transfers, or transfers to unknown destinations",
+              "Inspect network captures for suspicious traffic patterns, including unusual protocols or packet sizes",
+              "Examine system logs for signs of lateral movement or privilege escalation attempts",
+              "Investigate recent changes to FTP configuration, user accounts, or access controls",
+              "Compare DNS query logs to identify potential command and control (C2) communications"
+            ],
+            "data_sources_to_query": [
+              "Wazuh logs",
+              "Netflow",
+              "DNS logs",
+              "FTP server logs"
+            ],
+            "success_criteria": "Confirmation of exfiltrated data, identification of compromised credentials or vulnerabilities, or detection of C2 communications"
+          },
+          "confirmed_threat": true,
+          "confidence": 0.85,
+          "attacker_pivot_analysis": "The attacker is likely to pivot to a database server or file server within hours, using encryption of C2 communications and potentially leveraging compromised credentials or exploiting vulnerabilities",
+          "evidence_gathered": [
+            "unusual_ftp_activity",
+            "suspicious_file_transfers"
+          ],
+          "proposed_actions": [
+            "isolate_host",
+            "check_outbound_traffic",
+            "check_dns_logs",
+            "check_adjacent_hosts"
+          ],
+          "approved_actions": [
+            "check_outbound_traffic",
+            "check_dns_logs",
+            "check_adjacent_hosts"
+          ],
+          "human_required_actions": [
+            "isolate_host"
+          ],
+          "blocked_actions": [],
+          "escalate_to_l3": false,
+          "requires_human_approval": true,
+          "verdict": "human_required"
+        },
+        "hunt_result": null,
+        "final_verdict": "human_required",
+        "requires_human_approval": true,
+        "escalation_reason": "human approval required"
+      },
+      "winner": "blue",
+      "time_ms": 9229.678869247437
+    },
+    {
+      "scenario_name": "Credential Stuffing with proxy rotation",
+      "red_alert": {
+        "rule": {
+          "description": "Multiple failed logins from different source IPs using the same proxy",
+          "id": "100500",
+          "level": 5
+        },
+        "agent": {
+          "name": "Wazuh-Test-5",
+          "ip": "192.168.1.150"
+        },
+        "data": {
+          "srcip": "192.168.1.160",
+          "dstport": 443,
+          "proxy": "proxy-server.com"
+        }
+      },
+      "blue_result": {
+        "alert_id": "d28c9485-7d92-4ed0-a4e6-86219aa9746c",
+        "org_id": "sim-org-001",
+        "triage_result": {
+          "alert_id": "d28c9485-7d92-4ed0-a4e6-86219aa9746c",
+          "org_id": "sim-org-001",
+          "attacker_intent": "Brute force authentication to gain unauthorized access to the system",
+          "mitre_techniques": [
+            "T1110",
+            "T1189"
+          ],
+          "likely_next_move": "Attempt to exploit a vulnerability in the proxy server or the destination service to escalate privileges",
+          "is_decoy_or_distraction": false,
+          "is_real_threat": true,
+          "confidence": 0.85,
+          "immediate_actions": [
+            "block_proxy_server",
+            "alert_security_team"
+          ],
+          "indicators_to_watch": [
+            "proxy-server.com",
+            "192.168.1.160"
+          ],
+          "escalate_to_l2": true,
+          "requires_human_approval": true,
+          "escalation_reason": "human approval required",
+          "verdict": "human_required"
+        },
+        "investigation_result": {
+          "alert_id": "d28c9485-7d92-4ed0-a4e6-86219aa9746c",
+          "org_id": "sim-org-001",
+          "opplan": {
+            "alert_id": "d28c9485-7d92-4ed0-a4e6-86219aa9746c",
+            "objective": "Investigate the brute force authentication attempt to determine the extent of potential unauthorized access and identify the attacker's tactics, techniques, and procedures (TTPs)",
+            "attacker_hypothesis": "The attacker is attempting to gain unauthorized access to the system through brute force authentication, likely to exploit a vulnerability in the proxy server or destination service to escalate privileges",
+            "investigation_steps": [
+              "Analyze proxy server logs to identify patterns of brute force authentication attempts",
+              "Review netflow data to determine if any suspicious traffic is communicating with the proxy server or destination service",
+              "Examine DNS logs for potential suspicious domain name resolutions related to the proxy server or destination service",
+              "Inspect system logs for any successful login attempts or privilege escalation activities",
+              "Compare the timeline of brute force attempts with system updates, patching, or configuration changes to identify potential vulnerabilities"
+            ],
+            "data_sources_to_query": [
+              "Wazuh logs",
+              "Netflow",
+              "DNS logs",
+              "Proxy server logs",
+              "System authentication logs"
+            ],
+            "success_criteria": "Confirmation of unauthorized access or privilege escalation, identification of exploited vulnerabilities, or evidence of attacker TTPs, such as customized malware or unusual network traffic patterns"
+          },
+          "confirmed_threat": false,
+          "confidence": 0.5,
+          "attacker_pivot_analysis": "",
+          "evidence_gathered": [],
+          "proposed_actions": [],
+          "approved_actions": [],
+          "human_required_actions": [],
+          "blocked_actions": [],
+          "escalate_to_l3": true,
+          "requires_human_approval": false,
+          "verdict": "escalate"
+        },
+        "hunt_result": {
+          "alert_id": "d28c9485-7d92-4ed0-a4e6-86219aa9746c",
+          "org_id": "sim-org-001",
+          "threat_intel": {
+            "mitre_techniques": [
+              "T1110",
+              "T1133"
+            ],
+            "known_apt_groups": [],
+            "related_campaigns": [],
+            "rag_context": [],
+            "confidence_boost": 0.05
+          },
+          "osint": {
+            "ip_reputation": {},
+            "domain_info": {},
+            "related_iocs": [],
+            "threat_feeds_hit": [],
+            "risk_score": 0.5
+          },
+          "final_verdict": "low",
+          "confidence": 0.55,
+          "recommended_actions": [
+            "Enhance monitoring for MITRE techniques T1110 and T1133",
+            "Review and update threat intelligence feeds"
+          ],
+          "incident_summary": "The investigation revealed a false confirmed threat with no human-required actions or approved actions, and a low risk score of 0.5. The potential impact is minimal, but continued monitoring is recommended.",
+          "patch_recommendations": [],
+          "requires_human_approval": false
+        },
+        "final_verdict": "low",
+        "requires_human_approval": false,
+        "escalation_reason": "human approval required"
+      },
+      "winner": "blue",
+      "time_ms": 24821.874141693115
+    }
+  ],
+  "score": {
+    "red": 0,
+    "blue": 4,
+    "tie": 1
+  },
+  "weakest_scenario": "Phishing with embedded C2",
+  "recommendation": "To further enhance their defensive capabilities, the SOC team should consider implementing additional network traffic monitoring and filtering controls, such as DNS traffic analysis and RDP connection monitoring, to improve detection and prevention of attacks that may have evaded their current defenses, as evidenced by the tie in the Lateral Movement via RDP scenario."
+}
